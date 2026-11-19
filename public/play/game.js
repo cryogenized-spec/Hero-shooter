@@ -1683,12 +1683,13 @@
             // CIVILIAN / SHOPKEEPER / HOSTAGE ENTITY
             // ============================================================================
             class Civilian {
-                constructor(x, y, label = 'SHOPPER', floor = null, isHostage = false) {
+                constructor(x, y, label = 'SHOPPER', floor = null, isHostage = false, appearance = 'assistant') {
                     this.x = x;
                     this.y = y;
                     this.radius = 12;
                     this.floor = floor;
                     this.label = label;
+                    this.appearance = appearance;
                     this.isHostage = isHostage;
                     this.rescued = false;
                     this.dead = false;
@@ -1763,18 +1764,13 @@
                     ctx.save();
                     ctx.translate(this.x, this.y);
                     const tremble = Math.sin(this.cowerPhase) * (this.isHostage ? 1.8 : 1.0);
-                    ctx.fillStyle = this.isHostage ? '#fbbf24' : '#38bdf8';
-                    ctx.beginPath();
-                    ctx.arc(tremble, 0, this.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = '#0f172a';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-
-                    ctx.fillStyle = '#fde68a';
-                    ctx.beginPath();
-                    ctx.arc(tremble, 0, 5.5, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.save();
+                    ctx.translate(tremble, 0);
+                    ctx.rotate(this.angle);
+                    drawHumanNpc(ctx, this, NPC_SPRITE_COLORS[this.appearance],
+                        this.isHostage ? '#d9a83b' : '#11181c',
+                        this.isHostage ? 'kneeling' : 'standing', 'none');
+                    ctx.restore();
 
                     ctx.font = '800 9px ui-monospace, monospace';
                     ctx.fillStyle = this.isHostage ? '#fde047' : '#bae6fd';
@@ -1784,7 +1780,7 @@
                 }
             }
 
-            function paintMallCSpritePath(ctx, fill, outline = '#11181c') {
+            function paintSpritePath(ctx, fill, outline = '#11181c') {
                 ctx.fillStyle = fill;
                 ctx.fill();
                 if (outline) {
@@ -1793,13 +1789,13 @@
                 }
             }
 
-            function drawMallCSpriteEllipse(ctx, x, y, rx, ry, rotation, fill, outline) {
+            function drawSpriteEllipse(ctx, x, y, rx, ry, rotation, fill, outline) {
                 ctx.beginPath();
                 ctx.ellipse(x, y, rx, ry, rotation, 0, Math.PI * 2);
-                paintMallCSpritePath(ctx, fill, outline);
+                paintSpritePath(ctx, fill, outline);
             }
 
-            function drawMallCBoot(ctx, x, y, hipY) {
+            function drawSpriteBoot(ctx, x, y, hipY) {
                 ctx.strokeStyle = '#30383e';
                 ctx.lineWidth = 5;
                 ctx.lineCap = 'round';
@@ -1811,9 +1807,162 @@
                 ctx.lineWidth = 1.35;
                 ctx.beginPath();
                 ctx.roundRect(x - 4.5, y - 3.4, 9, 6.8, 1.6);
-                paintMallCSpritePath(ctx, '#232d37');
+                paintSpritePath(ctx, '#232d37');
                 ctx.fillStyle = '#697682';
                 ctx.fillRect(x + 0.5, y - 2.2, 1.2, 4.4);
+            }
+
+            function drawSpriteBox(ctx, x, y, width, height, radius, fill, outline) {
+                ctx.beginPath();
+                ctx.roundRect(x, y, width, height, radius);
+                paintSpritePath(ctx, fill, outline);
+            }
+
+            function updateSpriteWalk(actor, previousX, previousY, dt, strideLength, maxTravel) {
+                const dx = actor.x - previousX;
+                const dy = actor.y - previousY;
+                const travel = Math.min(Math.hypot(dx, dy), maxTravel);
+                const stepping = travel > 0.01;
+                if (stepping) {
+                    actor.walkPhase = (actor.walkPhase + travel * 2 * Math.PI / strideLength) % (2 * Math.PI);
+                    actor.walkAngle = Math.atan2(dy, dx);
+                }
+                actor.walkBlend += ((stepping ? 1 : 0) - actor.walkBlend) * (1 - Math.exp(-18 * dt));
+            }
+
+            function drawSpriteFootwork(ctx, actor, strideSize, rear, stanceWidth, secondStride = 1) {
+                const stride = actor.walkBlend ? Math.sin(actor.walkPhase) * actor.walkBlend * strideSize : 0;
+                const relativeAngle = (actor.walkAngle ?? actor.angle) - actor.angle;
+                const fore = Math.cos(relativeAngle) * stride;
+                const side = Math.sin(relativeAngle) * stride * 0.55;
+                drawSpriteBoot(ctx, rear - fore, -stanceWidth - side, -stanceWidth);
+                drawSpriteBoot(ctx, rear + fore * secondStride, stanceWidth + side * secondStride, stanceWidth);
+            }
+
+            // Garment, trim, skin and hair colors distinguish the in-world roles.
+            const NPC_SPRITE_COLORS = {
+                chen: ['#4e6370', '#92a4ac', '#dfaa81', '#7f7a74'],
+                assistant: ['#466862', '#82a399', '#ab7355', '#2c252a'],
+                cashier: ['#977139', '#e6c479', '#d7a17b', '#332529'],
+                manager: ['#71566c', '#b498a6', '#83583f', '#24212a'],
+                young_g: ['#334d77', '#78a9d4', '#e0ae78', '#593621'],
+                young_blaze: ['#8c4935', '#e3a277', '#e8b386', '#9c3b31'],
+                airsoft_adult: ['#526447', '#97a778', '#c68e68', '#36382b'],
+                security: ['#355580', '#91b7dc', '#a87256', '#292832'],
+                blockade_goon: ['#773b40', '#b76a60', '#925a43', '#2c2426'],
+                hostage_taker: ['#76503c', '#b47b65', '#a56950', '#322a28'],
+                looter: ['#703b45', '#a8626b', '#b77959', '#27232a'],
+                melee_looter: ['#695250', '#b3876f', '#b98257', '#35292b'],
+                looter_unarmed: ['#505f70', '#8d9aa4', '#926047', '#29272b'],
+                spotter: ['#8c703c', '#c9aa62', '#a57050', '#352c29'],
+                thermal: ['#f8fafc', '#d0d9e2', '#ffffff', '#a6b4c3']
+            };
+
+            // Draw in local coordinates with +X pointing in the aim direction.
+            function drawHumanNpc(ctx, actor, colors, outline, pose, prop, thermal = false) {
+                const [coat, trim, skin, hair] = colors;
+                const lowered = pose === 'kneeling' || pose === 'cover';
+                const handsUp = pose === 'kneeling';
+                ctx.save();
+                ctx.lineWidth = 1.35;
+                ctx.lineJoin = 'round';
+                ctx.scale(actor.radius / 14, actor.radius / 14);
+
+                drawSpriteEllipse(ctx, -3, 2, 17, 14.5, 0, '#090d1659', null);
+                if (lowered) {
+                    drawSpriteBoot(ctx, -11, -8, -7);
+                    drawSpriteBoot(ctx, -11, 8, 7);
+                    ctx.scale(0.83, 0.91);
+                } else {
+                    const secondStride = actor.woundedSpeedFactor < 1 ? 0.38 : 1;
+                    drawSpriteFootwork(ctx, actor, 4.5, -14, 7.5, secondStride);
+                }
+
+                if (thermal) {
+                    ctx.shadowColor = '#ffffff';
+                    ctx.shadowBlur = 12;
+                }
+                ctx.beginPath();
+                ctx.moveTo(-13, -7);
+                ctx.quadraticCurveTo(-10, -13, -2, -13);
+                ctx.quadraticCurveTo(10, -13, 10, 0);
+                ctx.quadraticCurveTo(10, 13, -2, 13);
+                ctx.quadraticCurveTo(-10, 13, -13, 7);
+                ctx.closePath();
+                paintSpritePath(ctx, coat, outline);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = trim;
+                ctx.fillRect(-10, -8, 2, 16);
+                ctx.fillRect(-7, -10, 6, 1.4);
+                ctx.fillRect(-7, 8.6, 6, 1.4);
+
+                const armX = prop === 'none' && !handsUp ? -1 : 5;
+                const handX = handsUp ? 7 : armX + 5;
+                const handY = handsUp ? 12 : (prop === 'none' ? 12 : 6);
+                drawSpriteEllipse(ctx, armX, -9, 7.6, 3.7, 0.48, coat);
+                drawSpriteEllipse(ctx, armX, 9, 7.6, 3.7, -0.48, coat);
+                drawSpriteEllipse(ctx, handX, -handY, 3, 2.8, 0, skin);
+                drawSpriteEllipse(ctx, handX, handY, 3, 2.8, 0, skin);
+
+                if (prop === 'crate') {
+                    drawSpriteBox(ctx, 9, -9, 13, 18, 1, '#8e5d35', '#d6a260');
+                    ctx.fillStyle = '#bd8b58';
+                    ctx.fillRect(11, -3, 9, 1.4);
+                    ctx.fillRect(11, 2, 9, 1.4);
+                } else if (prop === 'blade') {
+                    drawSpriteBox(ctx, 10, 3, 5, 3.5, 1, '#374151');
+                    drawSpriteBox(ctx, 15, 3.5, 8, 2.4, 1, '#cbd5e1');
+                } else if (prop !== 'none') {
+                    const long = prop === 'long' || prop === 'airsoft';
+                    drawSpriteBox(ctx, 9, -2.5, long ? 17 : 12, 5, 1, '#29343f');
+                    ctx.fillStyle = '#738391';
+                    ctx.fillRect(12, -1.5, long ? 9 : 5, 1.2);
+                    if (prop === 'airsoft') {
+                        ctx.fillStyle = '#f97316';
+                        ctx.fillRect(24, -1.5, 2, 3);
+                    }
+                }
+
+                drawSpriteEllipse(ctx, 1.3, 0, 7.9, 7.5, 0, skin);
+                ctx.beginPath();
+                ctx.moveTo(6, -5.7);
+                ctx.quadraticCurveTo(-3, -10, -6.5, -3);
+                ctx.quadraticCurveTo(-9, 3.5, -3, 6.7);
+                ctx.lineTo(-1.7, -1.5);
+                ctx.lineTo(2, -1);
+                ctx.closePath();
+                paintSpritePath(ctx, hair);
+                ctx.fillStyle = thermal ? '#a6b4c3' : '#3d2a29';
+                ctx.fillRect(5.1, -2.3, 1.3, 1.3);
+                ctx.fillRect(6.2, 1.7, 1.3, 1.1);
+                ctx.restore();
+            }
+
+            function drawDogSprite(ctx, dog) {
+                const stride = Math.sin(dog.walkPhase) * dog.walkBlend * 3.5;
+                ctx.lineWidth = 1.4;
+                ctx.lineJoin = 'round';
+                drawSpriteEllipse(ctx, -2, 2, 18, 9, 0, '#090d1659', null);
+                drawSpriteBox(ctx, -12 - stride, -8, 7, 4, 2, '#52392f');
+                drawSpriteBox(ctx, -12 + stride, 4, 7, 4, 2, '#52392f');
+                drawSpriteBox(ctx, 4 + stride, -8, 7, 4, 2, '#6c4933');
+                drawSpriteBox(ctx, 4 - stride, 4, 7, 4, 2, '#6c4933');
+                ctx.strokeStyle = '#52392f';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-10, 0);
+                ctx.quadraticCurveTo(-16, 0, -20, stride - 2);
+                ctx.stroke();
+                ctx.lineWidth = 1.4;
+                drawSpriteEllipse(ctx, -2, 0, 12, 6.8, 0, '#8d6245');
+                drawSpriteEllipse(ctx, 10, 0, 6.1, 5.2, 0, '#674634');
+                ctx.beginPath();
+                ctx.moveTo(8, -2.5); ctx.lineTo(5, -7); ctx.lineTo(12, -4.8);
+                ctx.lineTo(12, 4.8); ctx.lineTo(5, 7); ctx.lineTo(8, 2.5);
+                ctx.closePath();
+                paintSpritePath(ctx, '#4d372d');
+                drawSpriteBox(ctx, 12, -2.4, 5, 4.8, 1.5, '#4d372d');
             }
 
             // ============================================================================
@@ -1857,6 +2006,7 @@
                     this.meleeCooldown = 0;
                     this.meleeAnim = 0;
                     this.animPhase = 0;
+                    this.walkPhase = 0;
                     this.walkBlend = 0;
                     this.walkAngle = 0;
                     this.vehicle = null;
@@ -2077,17 +2227,7 @@
 
                     if (this.gender === 'israeli_c') {
                         // Use actual travel so walls and small stick movements affect the gait.
-                        const dx = this.x - previousX;
-                        const dy = this.y - previousY;
-                        const distance = Math.hypot(dx, dy);
-                        const isStepping = distance > 0.01;
-                        if (isStepping) {
-                            const strideLength = this.isSneaking ? 118 : 146;
-                            this.animPhase = (this.animPhase + Math.min(distance, speed * dt)
-                                * 2 * Math.PI / strideLength) % (2 * Math.PI);
-                            this.walkAngle = Math.atan2(dy, dx);
-                        }
-                        this.walkBlend += ((isStepping ? 1 : 0) - this.walkBlend) * (1 - Math.exp(-18 * dt));
+                        updateSpriteWalk(this, previousX, previousY, dt, this.isSneaking ? 118 : 146, speed * dt);
                     } else if (isMoving) {
                         this.animPhase += dt * (wantsSprint ? 15 : (this.isSneaking ? 6.5 : 10.5));
                     }
@@ -2462,21 +2602,15 @@
 
                 drawMallCFeet(ctx) {
                     // Move the feet along the travel direction while the torso tracks aim.
-                    const stride = Math.sin(this.animPhase) * this.walkBlend * (this.isSneaking ? 2.6 : 5);
-                    const relativeAngle = this.walkAngle - this.angle;
-                    const fore = Math.cos(relativeAngle) * stride;
-                    const side = Math.sin(relativeAngle) * stride * 0.55;
-
-                    drawMallCSpriteEllipse(ctx, -3, 2, 18, 15.5, 0, '#090d1659', null);
-                    drawMallCBoot(ctx, -15 - fore, -8 - side, -8);
-                    drawMallCBoot(ctx, -15 + fore, 8 + side, 8);
+                    drawSpriteEllipse(ctx, -3, 2, 18, 15.5, 0, '#090d1659', null);
+                    drawSpriteFootwork(ctx, this, this.isSneaking ? 2.6 : 5, -15, 8);
                 }
 
                 drawMallCBody(ctx) {
                     ctx.lineJoin = 'round';
                     ctx.lineWidth = 1.35;
                     ctx.save();
-                    ctx.translate(Math.cos(this.animPhase * 2) * 0.8 * this.walkBlend, 0);
+                    ctx.translate(Math.cos(this.walkPhase * 2) * 0.8 * this.walkBlend, 0);
 
                     // Olive flannel, with the carrier drawn only after the go-bag is recovered.
                     ctx.beginPath();
@@ -2487,12 +2621,12 @@
                     ctx.lineTo(-7, 14);
                     ctx.lineTo(-15, 9);
                     ctx.closePath();
-                    paintMallCSpritePath(ctx, '#596840', this.isSneaking ? '#34d399' : '#11181c');
+                    paintSpritePath(ctx, '#596840', this.isSneaking ? '#34d399' : '#11181c');
 
                     ctx.beginPath();
                     if (this.hasMolleVest) {
                         ctx.roundRect(-13, -10, 17, 20, 2);
-                        paintMallCSpritePath(ctx, '#3d4b35');
+                        paintSpritePath(ctx, '#3d4b35');
                         ctx.fillStyle = '#86946c';
                         ctx.fillRect(-11, -7, 8, 1.4);
                         ctx.fillRect(-11, -0.7, 8, 1.4);
@@ -2509,14 +2643,14 @@
                     ctx.restore();
 
                     // Rolled sleeves and hands frame the pink sidearm.
-                    drawMallCSpriteEllipse(ctx, 5, -9, 9, 4, 0.62, '#534238');
-                    drawMallCSpriteEllipse(ctx, 5, 9, 9, 4, -0.62, '#534238');
-                    drawMallCSpriteEllipse(ctx, 14, -4, 3.5, 3.5, 0, '#d59b76');
-                    drawMallCSpriteEllipse(ctx, 14, 4, 3.5, 3.5, 0, '#d59b76');
+                    drawSpriteEllipse(ctx, 5, -9, 9, 4, 0.62, '#534238');
+                    drawSpriteEllipse(ctx, 5, 9, 9, 4, -0.62, '#534238');
+                    drawSpriteEllipse(ctx, 14, -4, 3.5, 3.5, 0, '#d59b76');
+                    drawSpriteEllipse(ctx, 14, 4, 3.5, 3.5, 0, '#d59b76');
 
                     ctx.beginPath();
                     ctx.roundRect(12, -3.25, 10.5, 6.5, 1.2);
-                    paintMallCSpritePath(ctx, '#283341');
+                    paintSpritePath(ctx, '#283341');
                     ctx.fillStyle = '#f76da9';
                     ctx.fillRect(13, 1, 8.5, 1.7);
                     ctx.fillStyle = '#778390';
@@ -2527,7 +2661,7 @@
                     }
 
                     // Hair and face are drawn last above the collar.
-                    drawMallCSpriteEllipse(ctx, 0.8, 0, 9.4, 9, 0, '#deaa83');
+                    drawSpriteEllipse(ctx, 0.8, 0, 9.4, 9, 0, '#deaa83');
                     ctx.beginPath();
                     ctx.moveTo(6.8, -6.5);
                     ctx.bezierCurveTo(-1, -13, -11, -8.5, -10, 1);
@@ -2536,7 +2670,7 @@
                     ctx.lineTo(-1.5, 3);
                     ctx.lineTo(0, -3);
                     ctx.closePath();
-                    paintMallCSpritePath(ctx, '#291f24');
+                    paintSpritePath(ctx, '#291f24');
                     ctx.fillStyle = '#42292a';
                     ctx.fillRect(6.3, -3, 1.4, 1.5);
                     ctx.fillRect(7.4, 2, 1.4, 1);
@@ -2716,7 +2850,9 @@
                     this.speed = 215;
                     this.weapon = { ...WEAPONS[weaponId] };
                     this.lastShot = 0;
-                    this.animPhase = Math2.rand(0, 6);
+                    this.walkPhase = Math2.rand(0, 6);
+                    this.walkBlend = 0;
+                    this.walkAngle = 0;
                     this.isOut = false;
                 }
 
@@ -2765,7 +2901,6 @@
                         const res = resolveCircleWorldCollision(this.x + Math.cos(followAng) * this.speed * dt, this.y + Math.sin(followAng) * this.speed * dt, this.radius);
                         this.x = res.x;
                         this.y = res.y;
-                        this.animPhase += dt * 11;
                     }
                 }
 
@@ -2775,26 +2910,8 @@
                     ctx.rotate(this.angle);
                     ctx.globalAlpha = this.isOut ? 0.55 : 1.0;
 
-                    ctx.fillStyle = this.heroType === 'young_blaze' ? '#9a3412' : '#1e3a8a';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.lineWidth = 2;
-                    ctx.strokeStyle = '#34d399';
-                    ctx.stroke();
-
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(8, 2, 20, 4.5);
-
-                    ctx.fillStyle = '#f1c27d';
-                    ctx.beginPath();
-                    ctx.arc(2, 0, 7.5, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.fillStyle = this.heroType === 'young_blaze' ? '#dc2626' : '#451a03';
-                    ctx.beginPath();
-                    ctx.arc(-1, 0, 7, Math.PI * 0.55, Math.PI * 1.45);
-                    ctx.fill();
+                    drawHumanNpc(ctx, this, NPC_SPRITE_COLORS[this.heroType], '#34d399',
+                        this.isOut ? 'cover' : 'standing', 'airsoft');
 
                     if (this.isOut) {
                         ctx.fillStyle = '#f97316';
@@ -2933,6 +3050,9 @@
                     this.angle = Math2.rand(0, Math.PI * 2);
                     this.wanderTimer = Math2.rand(1, 4);
                     this.animPhase = Math2.rand(0, 6);
+                    this.walkPhase = this.animPhase;
+                    this.walkBlend = 0;
+                    this.walkAngle = 0;
                 }
 
                 sayZulu(phrase, dur = 2.4) {
@@ -3364,68 +3484,23 @@
                     ctx.fill();
 
                     if (this.faction === 'dog') {
-                        ctx.fillStyle = '#78350f';
-                        ctx.beginPath();
-                        ctx.ellipse(0, 0, 14, 7, 0, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.fillStyle = '#451a03';
-                        ctx.beginPath();
-                        ctx.arc(11, 0, 5.5, 0, Math.PI * 2);
-                        ctx.fill();
+                        drawDogSprite(ctx, this);
                         ctx.restore();
                         return;
                     }
 
-                    const thermalActive = (player && player.opticsMode === 2);
-
-                    if (thermalActive) {
-                        ctx.fillStyle = '#f8fafc';
-                        ctx.shadowColor = '#ffffff';
-                        ctx.shadowBlur = 12;
-                    } else if (this.faction === 'airsoft_adult') {
-                        ctx.fillStyle = '#3f6212';
-                    } else if (this.faction === 'security') {
-                        ctx.fillStyle = '#1d4ed8';
-                    } else if (this.faction === 'blockade_goon') {
-                        ctx.fillStyle = '#7f1d1d';
-                    } else if (this.isSpotter) {
-                        ctx.fillStyle = '#ca8a04';
-                    } else if (this.isUnarmed) {
-                        ctx.fillStyle = '#475569';
-                    } else {
-                        ctx.fillStyle = '#991b1b';
-                    }
-
-                    ctx.beginPath();
-                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
-                    ctx.lineWidth = 2;
-                    ctx.strokeStyle = this.blindTimer > 0 ? '#f472b6' : (this.isBoss ? '#facc15' : '#090d16');
-                    ctx.stroke();
-
-                    if (this.activity === 'haul_crate' && this.panicState === 'normal') {
-                        ctx.fillStyle = '#92400e';
-                        ctx.strokeStyle = '#fbbf24';
-                        ctx.lineWidth = 1;
-                        ctx.fillRect(10, -9, 13, 18);
-                        ctx.strokeRect(10, -9, 13, 18);
-                    } else if (this.isMeleeLooter) {
-                        ctx.strokeStyle = '#cbd5e1';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(8, 5);
-                        ctx.lineTo(24, 5);
-                        ctx.stroke();
-                    } else if (!this.isUnarmed) {
-                        ctx.fillStyle = '#111827';
-                        ctx.fillRect(8, 3, (this.faction === 'security' || this.faction === 'blockade_goon' || this.faction === 'airsoft_adult') ? 21 : 13, 4);
-                    }
-
-                    ctx.fillStyle = thermalActive ? '#ffffff' : '#6b442a';
-                    ctx.beginPath();
-                    ctx.arc(1, 0, this.isBoss ? 9 : 6.8, 0, Math.PI * 2);
-                    ctx.fill();
+                    const thermalActive = player && player.opticsMode === 2;
+                    const appearance = thermalActive ? 'thermal' : (this.isSpotter ? 'spotter' : this.faction);
+                    const colors = NPC_SPRITE_COLORS[appearance] || NPC_SPRITE_COLORS.looter;
+                    const outline = this.blindTimer > 0 ? '#f472b6' : (this.isBoss ? '#facc15' : '#11181c');
+                    const pose = this.panicState === 'hunkered' ? 'cover' : 'standing';
+                    let prop = 'pistol';
+                    if (this.activity === 'haul_crate' && this.panicState === 'normal') prop = 'crate';
+                    else if (this.isMeleeLooter) prop = 'blade';
+                    else if (this.isUnarmed) prop = 'none';
+                    else if (this.faction === 'airsoft_adult') prop = 'airsoft';
+                    else if (this.faction === 'security' || this.faction === 'blockade_goon') prop = 'long';
+                    drawHumanNpc(ctx, this, colors, outline, pose, prop, thermalActive);
 
                     ctx.restore();
 
@@ -4027,7 +4102,7 @@
                     stairs.push(new StairNode(1400, 1660, 'L1', 'G', 1400, 1660, 'CENTRAL ESCALATOR -> [G]'));
                     stairs.push(new StairNode(2460, 520, 'L1', 'L2', 2460, 520, 'NORTH STAIRS -> [L2]'));
 
-                    civilians.push(new Civilian(560, 570, 'MR. CHEN [E]', 'L1', false));
+                    civilians.push(new Civilian(560, 570, 'MR. CHEN [E]', 'L1', false, 'chen'));
                     civilians.push(new Civilian(550, 720, 'SHOP ASSISTANT', 'L1', false));
 
                     // --- GROUND FLOOR (G): SAFARI OUTDOOR, SUPERMARKET, HOSTAGES & SECURITY COMPLEX ---
@@ -4049,8 +4124,8 @@
                     stairs.push(new StairNode(2460, 520, 'G', 'L1', 2460, 520, 'NORTH SERVICE STAIRS -> [L1]'));
 
                     // Hostage situation inside Ground Hypermarket
-                    const gHostage1 = new Civilian(1940, 880, 'CASHIER HOSTAGE', 'G', true);
-                    const gHostage2 = new Civilian(2010, 895, 'MANAGER HOSTAGE', 'G', true);
+                    const gHostage1 = new Civilian(1940, 880, 'CASHIER HOSTAGE', 'G', true, 'cashier');
+                    const gHostage2 = new Civilian(2010, 895, 'MANAGER HOSTAGE', 'G', true, 'manager');
                     civilians.push(gHostage1, gHostage2);
                     const cap1 = new Enemy(1910, 930, 'hostage_taker', false, 'G');
                     cap1.hostageTarget = gHostage1;
@@ -4835,6 +4910,13 @@
             // ============================================================================
             // MAIN SIMULATION LOOP
             // ============================================================================
+            function updateNpc(npc, dt) {
+                const previousX = npc.x;
+                const previousY = npc.y;
+                npc.update(dt);
+                updateSpriteWalk(npc, previousX, previousY, dt, npc.radius * 8, npc.speed * 2.15 * dt);
+            }
+
             function updateSimulation(dt) {
                 if (gameState !== 'playing' || phoneCutscene.active) return;
                 elapsedTime += dt;
@@ -4842,7 +4924,7 @@
                 player.update(dt);
 
                 for (let i = 0; i < vehicles.length; i++) vehicles[i].update(dt);
-                for (let i = 0; i < allies.length; i++) allies[i].update(dt);
+                for (let i = 0; i < allies.length; i++) updateNpc(allies[i], dt);
                 for (let i = 0; i < civilians.length; i++) civilians[i].update(dt);
                 for (let i = 0; i < corpses.length; i++) corpses[i].update(dt);
                 for (let i = 0; i < droppedMags.length; i++) droppedMags[i].update(dt);
@@ -4851,7 +4933,7 @@
                 for (let i = enemies.length - 1; i >= 0; i--) {
                     const e = enemies[i];
                     if (activeF && e.floor && e.floor !== activeF) continue;
-                    e.update(dt);
+                    updateNpc(e, dt);
                 }
 
                 for (let i = pickups.length - 1; i >= 0; i--) {
