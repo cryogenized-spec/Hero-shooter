@@ -11,6 +11,11 @@ import { createAudioEngine } from './audio/sfx.js';
             const ctx = canvas.getContext('2d');
             const radarCanvas = document.getElementById('radarCanvas');
             const radarCtx = radarCanvas.getContext('2d');
+            const radarTerrainCanvas = document.createElement('canvas');
+            radarTerrainCanvas.width = radarCanvas.width;
+            radarTerrainCanvas.height = radarCanvas.height;
+            const radarTerrainCtx = radarTerrainCanvas.getContext('2d');
+            let radarTerrainDirty = true;
 
             // Offscreen lighting canvas for indoor darkness & flashlight/strobe cone
             const lightCanvas = document.createElement('canvas');
@@ -66,9 +71,14 @@ import { createAudioEngine } from './audio/sfx.js';
                 let bestT = 1.0;
                 const dx = x2 - x1;
                 const dy = y2 - y1;
+                const left = Math.min(x1, x2);
+                const right = Math.max(x1, x2);
+                const top = Math.min(y1, y2);
+                const bottom = Math.max(y1, y2);
                 for (let i = 0; i < buildings.length; i++) {
                     const b = buildings[i];
-                    if (b.isLowWall) continue;
+                    if (b.isLowWall || b.x > right || b.x + b.w < left ||
+                        b.y > bottom || b.y + b.h < top) continue;
                     let t0 = 0;
                     let t1 = 1;
                     const checks = [
@@ -125,6 +135,9 @@ import { createAudioEngine } from './audio/sfx.js';
             }
 
             function circleRectResolve(entity, rect) {
+                // Broad-phase exclusion; no contact response is changed for intersecting circles.
+                if (entity.x + entity.r <= rect.x || entity.x - entity.r >= rect.x + rect.w ||
+                    entity.y + entity.r <= rect.y || entity.y - entity.r >= rect.y + rect.h) return false;
                 const closestX = Math2.clamp(entity.x, rect.x, rect.x + rect.w);
                 const closestY = Math2.clamp(entity.y, rect.y, rect.y + rect.h);
                 const dx = entity.x - closestX;
@@ -164,9 +177,14 @@ import { createAudioEngine } from './audio/sfx.js';
             }
 
             function hasLoS(x1, y1, x2, y2) {
+                const left = Math.min(x1, x2);
+                const right = Math.max(x1, x2);
+                const top = Math.min(y1, y2);
+                const bottom = Math.max(y1, y2);
                 for (let i = 0; i < buildings.length; i++) {
                     const b = buildings[i];
-                    if (b.isLowWall) continue;
+                    if (b.isLowWall || b.x > right || b.x + b.w < left ||
+                        b.y > bottom || b.y + b.h < top) continue;
                     if (segmentIntersectsRect(x1, y1, x2, y2, b.x, b.y, b.w, b.h)) {
                         return false;
                     }
@@ -3384,6 +3402,7 @@ import { createAudioEngine } from './audio/sfx.js';
             // WORLD GENERATION (WOODLAND AIRSOFT, MALL, SUBURBS, CBD, SNIPER)
             // ============================================================================
             function resetWorldArrays() {
+                radarTerrainDirty = true; // New chapter generates a different static minimap.
                 buildings = [];
                 roads = [];
                 crosswalks = [];
@@ -4804,30 +4823,47 @@ import { createAudioEngine } from './audio/sfx.js';
             // ============================================================================
             // HUD & PHYSICAL ROUND / MAGAZINE RENDERING (TOP-LEFT UNDER PORTRAIT)
             // ============================================================================
+            // Replacing identical innerHTML every animation frame destroys/recreates dozens
+            // of elements and listeners. The cache is per DOM node and reset by the DOM itself.
+            const hudHTMLCache = new WeakMap();
+            function setHudHTML(element, markup) {
+                if (!element || hudHTMLCache.get(element) === markup) return false;
+                element.innerHTML = markup;
+                hudHTMLCache.set(element, markup);
+                return true;
+            }
+            function setHudText(element, value) {
+                const text = String(value);
+                if (element.textContent !== text) element.textContent = text;
+            }
+            function setHudWidth(element, value) {
+                if (element.style.width !== value) element.style.width = value;
+            }
+
             function updateHUD() {
                 if (!player) return;
                 const isTraining = mission && mission.campaign === 'training';
-                document.getElementById('hpLabelText').innerText = isTraining ? 'IN-PLAY' : 'HEALTH';
-                document.getElementById('armorLabelText').innerText = isTraining ? 'VEST PAD' : 'ARMOR';
+                setHudText(document.getElementById('hpLabelText'), isTraining ? 'IN-PLAY' : 'HEALTH');
+                setHudText(document.getElementById('armorLabelText'), isTraining ? 'VEST PAD' : 'ARMOR');
 
-                document.getElementById('hpVal').innerText = Math.ceil(player.hp);
-                document.getElementById('hpBar').style.width = `${player.hp}%`;
-                document.getElementById('armorVal').innerText = Math.ceil(player.armor);
-                document.getElementById('armorBar').style.width = `${player.armor}%`;
-                document.getElementById('stamVal').innerText = Math.ceil(player.stamina);
-                document.getElementById('stamBar').style.width = `${player.stamina}%`;
+                setHudText(document.getElementById('hpVal'), Math.ceil(player.hp));
+                setHudWidth(document.getElementById('hpBar'), `${player.hp}%`);
+                setHudText(document.getElementById('armorVal'), Math.ceil(player.armor));
+                setHudWidth(document.getElementById('armorBar'), `${player.armor}%`);
+                setHudText(document.getElementById('stamVal'), Math.ceil(player.stamina));
+                setHudWidth(document.getElementById('stamBar'), `${player.stamina}%`);
 
                 // Optics Mode Status
                 const opticsEl = document.getElementById('opticsStatus');
                 if (opticsEl) {
                     if (player.opticsMode === 'nvg') {
-                        opticsEl.innerText = 'OPTICS [V]: NVG + IR LASER';
+                        setHudText(opticsEl, 'OPTICS [V]: NVG + IR LASER');
                         opticsEl.style.color = '#4ade80';
                     } else if (player.opticsMode === 'thermal') {
-                        opticsEl.innerText = 'OPTICS [V]: THERMAL + IR LASER';
+                        setHudText(opticsEl, 'OPTICS [V]: THERMAL + IR LASER');
                         opticsEl.style.color = '#fb923c';
                     } else {
-                        opticsEl.innerText = 'OPTICS [V]: STANDARD';
+                        setHudText(opticsEl, 'OPTICS [V]: STANDARD');
                         opticsEl.style.color = '#94a3b8';
                     }
                 }
@@ -4837,7 +4873,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 if (stealthEl) {
                     if (isTraining) {
                         const activeAllies = allies.filter((a) => !a.isOut).length;
-                        stealthEl.innerText = `SQUAD ACTIVE: ${1 + activeAllies} / 3 (YAEL, G, BLAZE)`;
+                        setHudText(stealthEl, `SQUAD ACTIVE: ${1 + activeAllies} / 3 (YAEL, G, BLAZE)`);
                         stealthEl.style.color = '#4ade80';
                     } else {
                         let searchingCount = 0;
@@ -4849,21 +4885,21 @@ import { createAudioEngine } from './audio/sfx.js';
                             else if (e.lkpTimer > 0) searchingCount++;
                         }
                         if (spottedCount > 0) {
-                            stealthEl.innerText = 'SIGNATURE: SPOTTED // IN CONTACT';
+                            setHudText(stealthEl, 'SIGNATURE: SPOTTED // IN CONTACT');
                             stealthEl.style.color = '#ef4444';
                         } else if (searchingCount > 0) {
-                            stealthEl.innerText = `SIGNATURE: SEARCHING LKP (${searchingCount})`;
+                            setHudText(stealthEl, `SIGNATURE: SEARCHING LKP (${searchingCount})`);
                             stealthEl.style.color = '#facc15';
                         } else if (mission && mission.campaign === 'mall' && !player.flashlightOn && !isPlayerIlluminatedByEnvironment()) {
-                            stealthEl.innerText = player.opticsMode !== 'standard'
+                            setHudText(stealthEl, player.opticsMode !== 'standard'
                                 ? 'SIGNATURE: SHADOW + IR STEALTH'
-                                : 'SIGNATURE: SHADOW CONCEALED';
+                                : 'SIGNATURE: SHADOW CONCEALED');
                             stealthEl.style.color = '#4ade80';
                         } else if (player.lightMode === 'strobe') {
-                            stealthEl.innerText = 'SIGNATURE: STROBE ACTIVE';
+                            setHudText(stealthEl, 'SIGNATURE: STROBE ACTIVE');
                             stealthEl.style.color = '#38bdf8';
                         } else {
-                            stealthEl.innerText = player.flashlightOn ? 'SIGNATURE: BEAM EXPOSED' : 'SIGNATURE: LOW PROFILE';
+                            setHudText(stealthEl, player.flashlightOn ? 'SIGNATURE: BEAM EXPOSED' : 'SIGNATURE: LOW PROFILE');
                             stealthEl.style.color = player.flashlightOn ? '#fb923c' : '#38bdf8';
                         }
                     }
@@ -4885,34 +4921,34 @@ import { createAudioEngine } from './audio/sfx.js';
                         bakkie: 'DOUBLE-CAB BAKKIE',
                         hatchback: 'COMPACT HATCHBACK'
                     };
-                    document.getElementById('wepName').innerText = vNames[player.vehicle.kind] || 'VEHICLE';
-                    document.getElementById('ammoDisplay').innerHTML = `${Math.ceil(player.vehicle.hp)} <span>CHASSIS HP</span>`;
-                    document.getElementById('reloadIndicator').innerText = isMobileDevice ? 'TAP [EXIT] • [BRAKE] DRIFT' : '[E] EXIT • [SPACE] DRIFT';
+                    setHudText(document.getElementById('wepName'), vNames[player.vehicle.kind] || 'VEHICLE');
+                    setHudHTML(document.getElementById('ammoDisplay'), `${Math.ceil(player.vehicle.hp)} <span>CHASSIS HP</span>`);
+                    setHudText(document.getElementById('reloadIndicator'), isMobileDevice ? 'TAP [EXIT] • [BRAKE] DRIFT' : '[E] EXIT • [SPACE] DRIFT');
                     if (ammoVisualRow) ammoVisualRow.style.display = 'none';
                     if (ammoTypeToggle) ammoTypeToggle.style.display = 'none';
                 } else {
                     if (ammoVisualRow) ammoVisualRow.style.display = 'flex';
-                    document.getElementById('wepName').innerText = wep.name;
+                    setHudText(document.getElementById('wepName'), wep.name);
 
                     if (ammoTypeToggle) {
                         if (wep.id === 'glock26') {
                             ammoTypeToggle.style.display = 'inline-block';
                             const isJhp = wep.ammoLoad === 'jhp';
                             ammoTypeToggle.classList.toggle('jhp-active', isJhp);
-                            ammoTypeToggle.innerText = isJhp
+                            setHudText(ammoTypeToggle, isJhp
                                 ? `LOAD: 120GR +P JHP [B] (FMJ: ${wep.fmjReserve})`
-                                : `LOAD: 100GR FMJ [B] (JHP STASH: ${wep.jhpReserve})`;
+                                : `LOAD: 100GR FMJ [B] (JHP STASH: ${wep.jhpReserve})`);
                         } else {
                             ammoTypeToggle.style.display = 'none';
                         }
                     }
 
                     if (wep.type === 'melee') {
-                        document.getElementById('ammoDisplay').innerHTML = wep.isAirsoft ? `&infin; <span>RUBBER EDGE</span>` : `&infin; <span>BLADE</span>`;
+                        setHudHTML(document.getElementById('ammoDisplay'), wep.isAirsoft ? `&infin; <span>RUBBER EDGE</span>` : `&infin; <span>BLADE</span>`);
                     } else if (wep.isAirsoft) {
-                        document.getElementById('ammoDisplay').innerHTML = `${wep.mag} <span>/ ${wep.reserve} BBS</span>`;
+                        setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve} BBS</span>`);
                     } else if (wep.type === 'flame') {
-                        document.getElementById('ammoDisplay').innerHTML = `${wep.mag} <span>/ ${wep.reserve} FUEL</span>`;
+                        setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve} FUEL</span>`);
                     } else if (wep.id === 'glock26') {
                         wep.reserve = wep.ammoLoad === 'jhp' ? wep.jhpReserve : wep.fmjReserve;
                         const lightTag = player.lightMode === 'strobe'
@@ -4920,47 +4956,47 @@ import { createAudioEngine } from './audio/sfx.js';
                             : (player.lightMode === 'steady'
                                 ? '<span style="color:#facc15;">LIGHT: ON [F]</span>'
                                 : '<span style="color:#64748b;">LIGHT: OFF [F]</span>');
-                        document.getElementById('ammoDisplay').innerHTML = `${wep.mag} <span>/ ${wep.reserve} (${lightTag})</span>`;
+                        setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve} (${lightTag})</span>`);
                     } else {
-                        document.getElementById('ammoDisplay').innerHTML = `${wep.mag} <span>/ ${wep.reserve}</span>`;
+                        setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve}</span>`);
                     }
-                    document.getElementById('reloadIndicator').innerText = player.isReloading
+                    setHudText(document.getElementById('reloadIndicator'), player.isReloading
                         ? (wep.type === 'flame' ? 'SWAPPING FUEL TANK...' : 'SWAPPING MAGAZINE...')
-                        : '';
+                        : '');
 
                     // Render Physical Rounds / BBs in Magazine & Physical Spare Magazine Count
                     if (magRoundsGrid && magCountIcons) {
                         if (wep.type === 'melee') {
-                            magRoundsLabel.innerText = 'MELEE EDGE';
-                            magRoundsGrid.innerHTML = '<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#cbd5e1;">READY // NO AMMO REQUIRED</span>';
-                            magCountLabel.innerText = 'RESERVE';
-                            magCountIcons.innerHTML = '<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#64748b;">&mdash;</span>';
+                            setHudText(magRoundsLabel, 'MELEE EDGE');
+                            setHudHTML(magRoundsGrid, '<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#cbd5e1;">READY // NO AMMO REQUIRED</span>');
+                            setHudText(magCountLabel, 'RESERVE');
+                            setHudHTML(magCountIcons, '<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#64748b;">&mdash;</span>');
                         } else if (wep.type === 'flame') {
                             const totalCells = 20;
                             const activeCells = Math.ceil((wep.mag / wep.magMax) * totalCells);
-                            magRoundsLabel.innerText = `TANK PRESSURE (${wep.mag}%)`;
+                            setHudText(magRoundsLabel, `TANK PRESSURE (${wep.mag}%)`);
                             let cellsHtml = '';
                             for (let i = 0; i < totalCells; i++) {
                                 cellsHtml += `<div class="round-pip ${i < activeCells ? 'loaded flame-cell' : ''}"></div>`;
                             }
-                            magRoundsGrid.innerHTML = cellsHtml;
+                            setHudHTML(magRoundsGrid, cellsHtml);
 
                             const spareTanks = Math.ceil(wep.reserve / wep.magMax);
-                            magCountLabel.innerText = `SPARE TANKS (${spareTanks})`;
+                            setHudText(magCountLabel, `SPARE TANKS (${spareTanks})`);
                             if (spareTanks <= 0) {
-                                magCountIcons.innerHTML = '<span class="mag-empty-text">NONE</span>';
+                                setHudHTML(magCountIcons, '<span class="mag-empty-text">NONE</span>');
                             } else {
                                 let tanksHtml = '';
                                 for (let m = 0; m < Math.min(spareTanks, 8); m++) {
                                     tanksHtml += '<div class="mag-icon fuel-can"></div>';
                                 }
-                                magCountIcons.innerHTML = tanksHtml;
+                                setHudHTML(magCountIcons, tanksHtml);
                             }
                         } else {
                             const roundLabelWord = wep.isAirsoft ? 'BBS IN MAG' : 'ROUNDS IN MAG';
-                            magRoundsLabel.innerText = player.isReloading
+                            setHudText(magRoundsLabel, player.isReloading
                                 ? `MAG EJECTED (0 / ${wep.magMax})`
-                                : `${roundLabelWord} (${wep.mag} / ${wep.magMax})`;
+                                : `${roundLabelWord} (${wep.mag} / ${wep.magMax})`);
 
                             const compact = wep.magMax > 20 ? ' compact' : '';
                             const tipCls = wep.isAirsoft
@@ -4971,18 +5007,18 @@ import { createAudioEngine } from './audio/sfx.js';
                                 const isLoaded = i < wep.mag;
                                 pipsHtml += `<div class="round-pip${compact}${isLoaded ? ' loaded' + tipCls : ''}"></div>`;
                             }
-                            magRoundsGrid.innerHTML = pipsHtml;
+                            setHudHTML(magRoundsGrid, pipsHtml);
 
                             const fullMags = Math.floor(wep.reserve / wep.magMax);
                             const remainderRounds = wep.reserve % wep.magMax;
                             const totalSpareMags = fullMags + (remainderRounds > 0 ? 1 : 0);
 
-                            magCountLabel.innerText = wep.id === 'shotgun'
+                            setHudText(magCountLabel, wep.id === 'shotgun'
                                 ? `SPARE TUBES (${totalSpareMags})`
-                                : `SPARE MAGS (${totalSpareMags})`;
+                                : `SPARE MAGS (${totalSpareMags})`);
 
                             if (totalSpareMags <= 0) {
-                                magCountIcons.innerHTML = '<span class="mag-empty-text">DRY</span>';
+                                setHudHTML(magCountIcons, '<span class="mag-empty-text">DRY</span>');
                             } else {
                                 const pinkCls = (wep.id === 'glock26' || wep.id === 'airsoft_pistol') ? ' pink-mag' : '';
                                 const bbCls = wep.isAirsoft ? ' bb-mag' : '';
@@ -4995,7 +5031,7 @@ import { createAudioEngine } from './audio/sfx.js';
                                 if (totalSpareMags > 10) {
                                     magsHtml += `<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#facc15;">+${totalSpareMags - 10}</span>`;
                                 }
-                                magCountIcons.innerHTML = magsHtml;
+                                setHudHTML(magCountIcons, magsHtml);
                             }
                         }
                     }
@@ -5007,29 +5043,29 @@ import { createAudioEngine } from './audio/sfx.js';
                     const btnUtil = document.getElementById('btnUtil');
                     const btnStr = document.getElementById('btnStrobe');
                     const btnOpt = document.getElementById('btnOptics');
-                    if (btnVeh) btnVeh.innerText = player.vehicle ? 'EXIT' : 'CAR [E]';
-                    if (btnSpr) btnSpr.innerText = player.vehicle ? 'BRAKE' : 'SPRINT';
+                    if (btnVeh) setHudText(btnVeh, player.vehicle ? 'EXIT' : 'CAR [E]');
+                    if (btnSpr) setHudText(btnSpr, player.vehicle ? 'BRAKE' : 'SPRINT');
                     if (btnOpt) {
                         btnOpt.classList.remove('optics-nvg', 'optics-thermal');
                         if (player.opticsMode === 'nvg') {
-                            btnOpt.innerText = 'NVG';
+                            setHudText(btnOpt, 'NVG');
                             btnOpt.classList.add('optics-nvg');
                         } else if (player.opticsMode === 'thermal') {
-                            btnOpt.innerText = 'FLIR';
+                            setHudText(btnOpt, 'FLIR');
                             btnOpt.classList.add('optics-thermal');
                         } else {
-                            btnOpt.innerText = 'OPTICS';
+                            setHudText(btnOpt, 'OPTICS');
                         }
                     }
                     if (btnUtil) {
                         if (player.vehicle) {
-                            btnUtil.innerText = 'HORN';
+                            setHudText(btnUtil, 'HORN');
                             btnUtil.classList.remove('active');
                         } else if (player.hasFlashlight) {
-                            btnUtil.innerText = player.flashlightOn ? 'LIGHT ON' : 'LIGHT OFF';
+                            setHudText(btnUtil, player.flashlightOn ? 'LIGHT ON' : 'LIGHT OFF');
                             btnUtil.classList.toggle('active', player.flashlightOn);
                         } else {
-                            btnUtil.innerText = 'SCOPE';
+                            setHudText(btnUtil, 'SCOPE');
                         }
                     }
                     if (btnStr) {
@@ -5055,7 +5091,7 @@ import { createAudioEngine } from './audio/sfx.js';
                         shotgun: 'SHOTGUN',
                         ar15: 'AR-15'
                     };
-                    slots.innerHTML = WEAPONS.map((w, idx) => {
+                    const slotMarkup = WEAPONS.map((w, idx) => {
                         const cls = [
                             'wep-slot',
                             w.unlocked ? 'unlocked' : '',
@@ -5063,64 +5099,77 @@ import { createAudioEngine } from './audio/sfx.js';
                         ].filter(Boolean).join(' ');
                         return `<div class="${cls}" data-slot="${idx}">${idx + 1}: ${shortLabels[w.id] || w.id.toUpperCase()}</div>`;
                     }).join('');
-
-                    slots.querySelectorAll('.wep-slot.unlocked').forEach((el) => {
-                        el.addEventListener('click', () => {
-                            if (!player || player.vehicle) return;
-                            const idx = parseInt(el.getAttribute('data-slot'), 10);
-                            if (WEAPONS[idx] && WEAPONS[idx].unlocked) {
-                                player.wepIdx = idx;
-                                player.isReloading = false;
-                                updateHUD();
-                            }
-                        });
-                    });
+                    setHudHTML(slots, slotMarkup);
                 }
             }
 
-            function renderRadar() {
-                if (!player) return;
+            const slotBarElement = document.getElementById('slotBar');
+            slotBarElement.addEventListener('click', (event) => {
+                const slot = event.target.closest('.wep-slot.unlocked');
+                if (!slot || !slotBarElement.contains(slot) || !player || player.vehicle) return;
+                const idx = Number(slot.dataset.slot);
+                if (WEAPONS[idx]?.unlocked) {
+                    player.wepIdx = idx;
+                    player.isReloading = false;
+                    updateHUD();
+                }
+            });
+
+            function renderRadarTerrain() {
                 const w = radarCanvas.width;
                 const h = radarCanvas.height;
                 const scale = w / WORLD_SIZE;
 
-                radarCtx.fillStyle = (mission && mission.campaign === 'training') ? '#102114' : '#090d16';
-                radarCtx.fillRect(0, 0, w, h);
+                radarTerrainCtx.fillStyle = (mission && mission.campaign === 'training') ? '#102114' : '#090d16';
+                radarTerrainCtx.fillRect(0, 0, w, h);
 
                 if (woodlandCreek) {
-                    radarCtx.strokeStyle = '#0284c7';
-                    radarCtx.lineWidth = 3;
-                    radarCtx.beginPath();
-                    radarCtx.moveTo(woodlandCreek[0].x * scale, woodlandCreek[0].y * scale);
+                    radarTerrainCtx.strokeStyle = '#0284c7';
+                    radarTerrainCtx.lineWidth = 3;
+                    radarTerrainCtx.beginPath();
+                    radarTerrainCtx.moveTo(woodlandCreek[0].x * scale, woodlandCreek[0].y * scale);
                     for (let i = 1; i < woodlandCreek.length; i++) {
-                        radarCtx.lineTo(woodlandCreek[i].x * scale, woodlandCreek[i].y * scale);
+                        radarTerrainCtx.lineTo(woodlandCreek[i].x * scale, woodlandCreek[i].y * scale);
                     }
-                    radarCtx.stroke();
+                    radarTerrainCtx.stroke();
                 }
 
                 for (let i = 0; i < mallZones.length; i++) {
                     const mz = mallZones[i];
-                    radarCtx.fillStyle = mz.floor;
-                    radarCtx.fillRect(mz.x * scale, mz.y * scale, mz.w * scale, mz.h * scale);
+                    radarTerrainCtx.fillStyle = mz.floor;
+                    radarTerrainCtx.fillRect(mz.x * scale, mz.y * scale, mz.w * scale, mz.h * scale);
                 }
 
-                radarCtx.fillStyle = '#1e293b';
+                radarTerrainCtx.fillStyle = '#1e293b';
                 for (let i = 0; i < roads.length; i++) {
                     const r = roads[i];
-                    radarCtx.fillRect(r.x * scale, r.y * scale, r.w * scale, r.h * scale);
+                    radarTerrainCtx.fillRect(r.x * scale, r.y * scale, r.w * scale, r.h * scale);
                 }
 
-                radarCtx.fillStyle = '#57534e';
+                radarTerrainCtx.fillStyle = '#57534e';
                 for (let i = 0; i < railTracks.length; i++) {
                     const tr = railTracks[i];
-                    radarCtx.fillRect(tr.x * scale, tr.y * scale, tr.w * scale, 1.5);
+                    radarTerrainCtx.fillRect(tr.x * scale, tr.y * scale, tr.w * scale, 1.5);
                 }
 
-                radarCtx.fillStyle = '#334155';
+                radarTerrainCtx.fillStyle = '#334155';
                 for (let i = 0; i < buildings.length; i++) {
                     const b = buildings[i];
-                    radarCtx.fillRect(b.x * scale, b.y * scale, b.w * scale, b.h * scale);
+                    radarTerrainCtx.fillRect(b.x * scale, b.y * scale, b.w * scale, b.h * scale);
                 }
+
+            }
+
+            function renderRadar() {
+                if (!player) return;
+                if (radarTerrainDirty) {
+                    renderRadarTerrain();
+                    radarTerrainDirty = false;
+                }
+                radarCtx.drawImage(radarTerrainCanvas, 0, 0);
+                const w = radarCanvas.width;
+                const h = radarCanvas.height;
+                const scale = w / WORLD_SIZE;
 
                 for (let i = 0; i < pickups.length; i++) {
                     const p = pickups[i];
@@ -5447,6 +5496,11 @@ import { createAudioEngine } from './audio/sfx.js';
             // ============================================================================
             // MAIN SCENE RENDERER
             // ============================================================================
+            function isInView(x, y, margin = 160) {
+                return x >= camera.x - margin && x <= camera.x + canvas.width + margin &&
+                    y >= camera.y - margin && y <= camera.y + canvas.height + margin;
+            }
+
             function render() {
                 const isTraining = mission && mission.campaign === 'training';
                 ctx.fillStyle = isTraining ? '#162918' : '#181c24';
@@ -5530,6 +5584,8 @@ import { createAudioEngine } from './audio/sfx.js';
                 // Asphalt Roads
                 for (let i = 0; i < roads.length; i++) {
                     const r = roads[i];
+                    if (r.x > camera.x + canvas.width + 80 || r.x + r.w < camera.x - 80 ||
+                        r.y > camera.y + canvas.height + 80 || r.y + r.h < camera.y - 80) continue;
                     ctx.fillStyle = '#11141c';
                     ctx.fillRect(r.x, r.y, r.w, r.h);
 
@@ -5551,6 +5607,8 @@ import { createAudioEngine } from './audio/sfx.js';
                 // Freight Rail Tracks
                 for (let i = 0; i < railTracks.length; i++) {
                     const tr = railTracks[i];
+                    if (tr.x > camera.x + canvas.width + 80 || tr.x + tr.w < camera.x - 80 ||
+                        tr.y > camera.y + canvas.height + 80 || tr.y < camera.y - 80) continue;
                     ctx.fillStyle = '#1c1917';
                     ctx.fillRect(tr.x, tr.y - 8, tr.w, 16);
                     ctx.fillStyle = '#44403c';
@@ -5571,6 +5629,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 ctx.fillStyle = 'rgba(226, 232, 240, 0.24)';
                 for (let i = 0; i < crosswalks.length; i++) {
                     const cw = crosswalks[i];
+                    if (!isInView(cw.x + 44, cw.y + 44)) continue;
                     if (cw.dir === 'h') {
                         for (let s = 0; s < 88; s += 16) {
                             ctx.fillRect(cw.x + s, cw.y, 9, 12);
@@ -5584,7 +5643,7 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 // Ground Decals
                 for (let i = 0; i < decals.length; i++) {
-                    decals[i].draw(ctx);
+                    if (isInView(decals[i].x, decals[i].y)) decals[i].draw(ctx);
                 }
 
                 // Subtle Tactical Last Known Position (LKP) ghost reticle
@@ -5619,37 +5678,37 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 // Spent Brass Shells
                 for (let i = 0; i < shells.length; i++) {
-                    shells[i].draw(ctx);
+                    if (isInView(shells[i].x, shells[i].y)) shells[i].draw(ctx);
                 }
 
                 // Tossed / Dropped Magazines
                 for (let i = 0; i < droppedMags.length; i++) {
-                    droppedMags[i].draw(ctx);
+                    if (isInView(droppedMags[i].x, droppedMags[i].y)) droppedMags[i].draw(ctx);
                 }
 
                 // Pickups
                 for (let i = 0; i < pickups.length; i++) {
-                    pickups[i].draw(ctx);
+                    if (isInView(pickups[i].x, pickups[i].y)) pickups[i].draw(ctx);
                 }
 
                 // Vehicles
                 for (let i = 0; i < vehicles.length; i++) {
-                    vehicles[i].draw(ctx);
+                    if (isInView(vehicles[i].x, vehicles[i].y)) vehicles[i].draw(ctx);
                 }
 
                 // Trapped Shoppers / Civilians
                 for (let i = 0; i < civilians.length; i++) {
-                    civilians[i].draw(ctx);
+                    if (isInView(civilians[i].x, civilians[i].y)) civilians[i].draw(ctx);
                 }
 
                 // Friendly Allies (Younger G & Younger Blaze)
                 for (let i = 0; i < allies.length; i++) {
-                    allies[i].draw(ctx);
+                    if (isInView(allies[i].x, allies[i].y)) allies[i].draw(ctx);
                 }
 
                 // Enemies
                 for (let i = 0; i < enemies.length; i++) {
-                    enemies[i].draw(ctx);
+                    if (isInView(enemies[i].x, enemies[i].y)) enemies[i].draw(ctx);
                 }
 
                 // Player
@@ -5659,12 +5718,12 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 // Flamethrower Jets
                 for (let i = 0; i < flameJets.length; i++) {
-                    flameJets[i].draw(ctx);
+                    if (isInView(flameJets[i].x, flameJets[i].y)) flameJets[i].draw(ctx);
                 }
 
                 // Bullets & 6mm BBs
                 for (let i = 0; i < bullets.length; i++) {
-                    bullets[i].draw(ctx);
+                    if (isInView(bullets[i].x, bullets[i].y)) bullets[i].draw(ctx);
                 }
 
                 // 2.5D Buildings with Rooftop Details
@@ -5800,7 +5859,7 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 // Particles
                 for (let i = 0; i < particles.length; i++) {
-                    particles[i].draw(ctx);
+                    if (isInView(particles[i].x, particles[i].y)) particles[i].draw(ctx);
                 }
 
                 // Adults' HQ Capture Flag (Training Stage)
