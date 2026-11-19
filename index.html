@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hero Shooter — Post-Meltdown South Africa</title>
-    <link rel="stylesheet" href="./src/styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Hero Shooter — Post-Meltdown South Africa</title>
+<link rel="stylesheet" href="./src/styles.css">
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
@@ -24,7 +24,7 @@
                         <div class="bar-track"><div class="bar-fill" id="hpBar"></div></div>
                     </div>
                     <div class="bar-row">
-                        <div class="bar-label"><span id="armorLabelText">ARMOR</span><span id="armorVal">20</span></div>
+                        <div class="bar-label"><span id="armorLabelText">ARMOR</span><span id="armorVal">0</span></div>
                         <div class="bar-track"><div class="bar-fill" id="armorBar"></div></div>
                     </div>
                     <div class="bar-row">
@@ -60,25 +60,35 @@
                 <span id="phoneSender">PHONE // DAVID (EXFIL OPS)</span>
                 <span id="phoneTime">07:04 AM</span>
             </div>
-            <div class="phone-msg" id="phoneMsg">Stay low in the dark aisles. Move east toward the main concourse.</div>
+            <div class="phone-msg" id="phoneMsg">Stay low in the dark aisles.</div>
+        </div>
+
+        <div id="monologueToast">
+            <div class="mono-avatar" id="monoAvatar"></div>
+            <div class="mono-body">
+                <div class="mono-tag" id="monoTag">C // INTERNAL THOUGHT</div>
+                <div class="mono-text" id="monoText">Go-bag and MOLLE rig are locked in the boot down on B1...</div>
+            </div>
         </div>
 
         <div id="missionPanel">
-            <div class="mission-phase" id="missionPhase">STAGE 1 / 4</div>
+            <div class="mission-phase" id="missionPhase">STAGE 1 / 5</div>
             <div class="mission-title" id="missionTitle">Clear the Block</div>
             <div class="mission-desc" id="missionDesc">Push forward and eliminate hostile forces in your sector.</div>
             <div class="mission-progress" id="missionProgress">TARGETS REMAINING: 0</div>
         </div>
 
         <div id="topRightStats">
+            <div id="floorIndicator">FLOOR: L1 — UPPER GALLERIA</div>
             <div id="killCounter">HOSTILES NEUTRALIZED: 0</div>
             <div id="cashCounter">CASH LOOTED: R0</div>
+            <div id="stanceStatus">STANCE [C]: RUN (NORMAL)</div>
             <div id="stealthStatus">SIGNATURE: CONCEALED</div>
-            <div id="opticsStatus">OPTICS [V]: STANDARD</div>
+            <div id="opticsStatus">OPTICS [V]: LOCKED IN B1 CAR BOOT</div>
             <div id="radioStatus">IPODS [M]: OFF</div>
         </div>
 
-        <div id="promptBanner">PRESS [E] TO ENTER VEHICLE</div>
+        <div id="promptBanner">PRESS [E] TO INTERACT</div>
 
         <div id="radarFrame">
             <canvas id="radarCanvas" width="156" height="156"></canvas>
@@ -107,7 +117,7 @@
             <div class="phone-typing-bar" id="phoneTypingBar"></div>
             <div class="phone-action-footer">
                 <button type="button" class="btn-phone-skip" id="btnCutsceneSkip">SKIP [ESC]</button>
-                <button type="button" class="btn-phone-next" id="btnCutsceneNext">NEXT [SPACE]</button>
+                <button type="button" class="btn-phone-next" id="btnCutsceneNext">NEXT [CLICK / SPACE]</button>
             </div>
         </div>
     </div>
@@ -125,8 +135,9 @@
             <button type="button" class="mobile-btn" id="btnOptics">OPTICS</button>
             <button type="button" class="mobile-btn" id="btnUtil">LIGHT [F]</button>
             <button type="button" class="mobile-btn" id="btnStrobe">STROBE</button>
-            <button type="button" class="mobile-btn" id="btnVehicle">CAR [E]</button>
+            <button type="button" class="mobile-btn" id="btnVehicle">USE [E]</button>
             <button type="button" class="mobile-btn" id="btnReload">RELOAD</button>
+            <button type="button" class="mobile-btn" id="btnSneak">SNEAK</button>
             <button type="button" class="mobile-btn" id="btnSprint">SPRINT</button>
         </div>
 
@@ -175,15 +186,15 @@
                     <div class="card-info">
                         <div class="campaign-badge">PROLOGUE / TRAINING STAGE: WOODLAND AIRSOFT</div>
                         <div class="campaign-name">PINE RIDGE AIRSOFT SKIRMISH</div>
-                        <div class="campaign-meta">Younger Yael + Younger G + Younger Blaze vs. Grown-Up MilSim Adults</div>
+                        <div class="campaign-meta">Younger C + Younger G + Younger Blaze vs. Grown-Up MilSim Adults</div>
                     </div>
                 </div>
                 <div class="campaign-card" id="campMallBtn">
                     <div class="card-avatar" id="avatarMall"></div>
                     <div class="card-info">
-                        <div class="campaign-badge">CHAPTER 1: 07:00 AM MALL</div>
+                        <div class="campaign-badge">CHAPTER 1: 4-FLOOR SANDTON MALL</div>
                         <div class="campaign-name">THE MALL BLOCKADE</div>
-                        <div class="campaign-meta">Yael &bull; Pink G26 (100gr FMJ / 120gr JHP + NVG/FLIR)</div>
+                        <div class="campaign-meta">C &bull; L1 Golden Dragon &rarr; B1 Go-Bag &rarr; L2 Skybridge Exfil</div>
                     </div>
                 </div>
                 <div class="campaign-card" id="campCbdBtn">
@@ -212,15 +223,15 @@
                 </div>
             </div>
             <div class="modal-body" id="menuBody">
-                Years before the grid went dark—a Sunday morning airsoft skirmish in a dense pine woodland. Play as <strong>Younger Yael</strong> alongside <strong>Younger G</strong> and <strong>Younger Blaze</strong> in a 3-player youth squad facing off against an entrenched team of <strong>grown-up MilSim adults</strong>. Use forest cover, coordinate with your teammates, and capture the adults' base flag!
+                Years before the grid went dark—a Sunday morning airsoft skirmish in a dense pine woodland. Play as <strong>Younger C</strong> alongside <strong>Younger G</strong> and <strong>Younger Blaze</strong> in a 3-player youth squad facing off against an entrenched team of <strong>grown-up MilSim adults</strong>. Use forest cover, coordinate with your teammates, and capture the adults' base flag!
             </div>
             <div class="controls-grid" id="controlsGrid">
-                <div><strong>WASD / Arrows:</strong> Move &amp; Drive</div>
+                <div><strong>WASD / Arrows:</strong> Run &amp; Drive (<strong>C:</strong> Toggle Sneak)</div>
                 <div><strong>LMB / RMB:</strong> Fire &amp; Sniper Scope</div>
                 <div><strong>M (iPods):</strong> Toggle Earbuds + 150 BPM Psytrance / Metal</div>
                 <div><strong>V / F / T / B:</strong> Optics &bull; Light &bull; Strobe &bull; FMJ/JHP</div>
+                <div><strong>E (Interact):</strong> Talk &bull; Stairs &bull; Boot &bull; Execute</div>
                 <div><strong>R (Reload):</strong> Toss Mag (Forfeits Leftover Rounds)</div>
-                <div><strong>1–6 / E / H:</strong> Weapons &bull; Vehicle &bull; Horn</div>
             </div>
             <button id="startBtn" class="btn-primary">DEPLOY INTO SECTOR</button>
         </div>
@@ -236,6 +247,6 @@
         </div>
     </div>
 
-    <script type="module" src="./src/main.js"></script>
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

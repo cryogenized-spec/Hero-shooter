@@ -1,13 +1,11 @@
-// Original procedural soundtrack and sound effects, extracted with dependency injection.
-// The game owns its state; audio receives read-only callbacks instead of global variables.
 export function createAudioEngine({ getGameState, getPlayer, onPortraitUpdate, onBanner }) {
 return {
                 ctx: null,
                 distCurve: null,
-                musicEnabled: false, // Starts OFF by default; pressing [M] toggles music + earbuds!
+                musicEnabled: false,
                 musicTimer: null,
                 musicStep: 0,
-                musicGenre: 'psytrance', // 'psytrance' (150 BPM for Yael) | 'metal' (for Blaze, Uncle, G)
+                musicGenre: 'psytrance',
 
                 init() {
                     if (!this.ctx) {
@@ -35,7 +33,6 @@ return {
                         this.musicTimer = null;
                     }
                     this.musicStep = 0;
-                    // 150 BPM Psytrance = 100ms per 16th-note step; Heavy Metal = 115ms per step
                     const stepMs = this.musicGenre === 'psytrance' ? 100 : 115;
                     this.musicTimer = setInterval(() => {
                         if (!this.musicEnabled || !this.ctx || getGameState() !== 'playing') return;
@@ -77,12 +74,10 @@ return {
                     }
                 },
 
-                // 150 BPM Psychedelic Trance (Rolling K-B-B-B 16th Bass + Punchy Kick + Acid Squelch)
                 playPsytranceStep(step) {
                     if (!this.ctx) return;
                     const now = this.ctx.currentTime;
 
-                    // 4-on-the-floor Psytrance Kick on 0, 4, 8, 12
                     if (step % 4 === 0) {
                         const kickOsc = this.ctx.createOscillator();
                         const kickGain = this.ctx.createGain();
@@ -98,8 +93,7 @@ return {
                         kickOsc.start(now);
                         kickOsc.stop(now + 0.095);
                     } else {
-                        // Rolling 16th-note Psytrance Bassline (K-B-B-B pattern in F Phrygian Dominant)
-                        const rootFreq = (step >= 12) ? 46.25 : 43.65; // F1 -> Gb1 tension on bar end
+                        const rootFreq = (step >= 12) ? 46.25 : 43.65;
                         const bassOsc = this.ctx.createOscillator();
                         const bassFilter = this.ctx.createBiquadFilter();
                         const bassGain = this.ctx.createGain();
@@ -123,18 +117,16 @@ return {
                         bassOsc.stop(now + 0.085);
                     }
 
-                    // Crisp Offbeat Psy Hi-Hat on 2, 6, 10, 14
                     if (step % 4 === 2) {
                         this.playNoise(0.032, 8200, 0.022);
                     }
 
-                    // Squelchy 303 Acid Lead Synth on syncopated steps
                     const acidNotes = {
-                        3: 349.23,  // F4
-                        6: 369.99,  // Gb4
-                        10: 440.00, // A4
-                        13: 523.25, // C5
-                        15: 466.16  // Bb4
+                        3: 349.23,
+                        6: 369.99,
+                        10: 440.00,
+                        13: 523.25,
+                        15: 466.16
                     };
                     if (acidNotes[step]) {
                         const leadOsc = this.ctx.createOscillator();
@@ -262,11 +254,9 @@ return {
 
                 playGunshot(wepId) {
                     if (wepId === 'airsoft_pistol' || wepId === 'airsoft_aeg') {
-                        // Crisp green-gas blowback / AEG gearbox pop
                         this.playNoise(0.055, 3600, 0.08);
                         this.playTone(540, 210, 0.045, 'square', 0.065);
                     } else if (wepId === 'glock26_jhp') {
-                        // Louder +P 120gr JHP concussive bark out of short 3.4" barrel
                         this.playNoise(0.18, 2900, 0.23);
                         this.playTone(230, 42, 0.14, 'sawtooth', 0.17);
                     } else if (wepId === 'ruger') {
@@ -303,6 +293,11 @@ return {
                     this.playTone(320, 90, 0.09, 'sine', 0.1);
                 },
 
+                playExecution() {
+                    this.playNoise(0.11, 900, 0.16);
+                    this.playTone(240, 45, 0.14, 'sawtooth', 0.14);
+                },
+
                 playReload() {
                     this.playTone(480, 310, 0.065, 'square', 0.085);
                     setTimeout(() => this.playTone(680, 960, 0.08, 'square', 0.08), 140);
@@ -314,6 +309,11 @@ return {
 
                 playClick() {
                     this.playTone(1400, 900, 0.035, 'square', 0.06);
+                },
+
+                playStairs() {
+                    this.playTone(220, 160, 0.07, 'triangle', 0.08);
+                    setTimeout(() => this.playTone(260, 190, 0.07, 'triangle', 0.08), 95);
                 },
 
                 playOpticsWhine() {
