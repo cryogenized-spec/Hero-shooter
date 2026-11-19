@@ -1184,3 +1184,110 @@
                 padding-left: 8px;
             }
         }
+
+
+/* ============================================================================
+   Title screen — the artwork is displayed whole, with real accessible controls
+   mapped to the text already printed on the raster art.
+   ============================================================================ */
+.title-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    background: #070a12;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.title-screen.hidden,
+.title-options-overlay.hidden { display: none; }
+.title-screen-frame {
+    width: min(100vw, 177.6833vh);
+    aspect-ratio: 1672 / 941;
+    position: relative;
+    flex: none;
+    overflow: hidden;
+    box-shadow: 0 0 65px rgba(0,0,0,.6);
+}
+.title-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+.title-hit {
+    position: absolute;
+    display: block;
+    cursor: pointer;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: transparent;
+    touch-action: manipulation;
+    transition: background-color .14s ease, box-shadow .14s ease;
+}
+.title-hit:hover {
+    background: rgba(255, 230, 150, .09);
+    box-shadow: inset 0 0 0 2px rgba(255, 218, 126, .65), 0 0 12px rgba(255, 181, 34, .18);
+}
+.title-hit:focus-visible {
+    outline: 3px solid #fff5c9;
+    outline-offset: 1px;
+    background: rgba(255, 222, 122, .18);
+}
+.title-hit-start    { left: 63.7%; top: 47.0%; width: 26.2%; height: 7.3%; }
+.title-hit-continue { left: 64.2%; top: 55.1%; width: 24.5%; height: 7.0%; }
+.title-hit-options  { left: 64.2%; top: 62.7%; width: 24.5%; height: 6.9%; }
+.title-hit-prompt   { left: 66.6%; top: 72.5%; width: 23.1%; height: 5.8%; }
+.title-options-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(0, 0, 0, .68);
+    backdrop-filter: blur(5px);
+}
+.title-options-panel {
+    width: min(430px, 100%);
+    max-height: 85vh;
+    overflow: auto;
+    border: 1px solid #e5aa43;
+    border-radius: 13px;
+    background: rgba(12, 18, 31, .97);
+    padding: 21px;
+    box-shadow: 0 16px 60px #000a;
+}
+.title-options-panel h2 {
+    color: #ffcc70;
+    margin-bottom: 16px;
+    font-size: 20px;
+    letter-spacing: .13em;
+}
+.title-option-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+.title-option-row input { width: 22px; height: 22px; accent-color: #f59e0b; }
+.title-options-panel p { color: #9ca3af; font-size: 12px; margin: 12px 0 20px; }
+.title-options-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.title-options-actions button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: #2c3444;
+    border: 1px solid #b78a4d;
+    color: #fef3c7;
+    font-weight: 800;
+    cursor: pointer;
+}
+.title-options-actions button:focus-visible { outline: 2px solid #fff4d5; }
+@media (max-width: 680px) and (orientation: portrait) {
+    /* Keep the entire 16:9 artwork and all aligned hotspots visible. */
+    .title-screen-frame { width: 100vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .title-hit { transition: none; }
+}

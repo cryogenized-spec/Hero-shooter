@@ -138,6 +138,32 @@
         </div>
     </div>
 
+    <!-- Approved 16:9 retro-anime title art; actionable menu hotspots align with the artwork. -->
+    <div id="titleScreen" class="title-screen" role="dialog" aria-modal="true" aria-label="Hero Shooter main menu">
+        <div class="title-screen-frame">
+            <img class="title-art" src="./assets/title/hero-shooter-title.webp" alt="" decoding="async" fetchpriority="high">
+            <button type="button" id="titleStart" class="title-hit title-hit-start" aria-label="Start: choose a chapter" title="Choose a chapter"></button>
+            <button type="button" id="titleContinue" class="title-hit title-hit-continue" aria-label="Continue: return to the last selected chapter" title="Return to last selected chapter"></button>
+            <button type="button" id="titleOptions" class="title-hit title-hit-options" aria-label="Options" title="Options"></button>
+            <button type="button" id="titlePressStart" class="title-hit title-hit-prompt" aria-label="Press start: choose a chapter" title="Choose a chapter"></button>
+        </div>
+    </div>
+
+    <div id="titleOptionsDialog" class="title-options-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="titleOptionsHeading">
+        <section class="title-options-panel">
+            <h2 id="titleOptionsHeading">OPTIONS</h2>
+            <label class="title-option-row" for="titleMusicPref">
+                <span>Music enabled when playing</span>
+                <input id="titleMusicPref" type="checkbox">
+            </label>
+            <p>Soundtrack can also be toggled during gameplay with M.</p>
+            <div class="title-options-actions">
+                <button type="button" id="titleFullscreen">FULLSCREEN</button>
+                <button type="button" id="titleOptionsBack">BACK</button>
+            </div>
+        </section>
+    </div>
+
     <!-- Start / Stage Select Modal -->
     <div class="modal-overlay" id="startOverlay">
         <div class="modal-card">
