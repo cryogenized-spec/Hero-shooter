@@ -407,7 +407,13 @@ import { createAudioEngine } from './audio/sfx.js';
                 </svg>`
             };
 
+            const cPortraitSrc = './assets/portraits/c-portrait.webp';
+            const cPortraitMarkup = `<img src="${cPortraitSrc}" alt="C — Hero Shooter" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+
             function getPortraitWithMusicState(key) {
+                // The primary campaign uses C's approved portrait instead of
+                // the older simplified SVG, including inner-monologue views.
+                if (key === 'mall' || key === 'mall_geared') return cPortraitMarkup;
                 let actualKey = key;
                 if (key === 'mall' && player && player.hasMolleVest) {
                     actualKey = 'mall_geared';
@@ -426,7 +432,7 @@ import { createAudioEngine } from './audio/sfx.js';
             }
 
             document.getElementById('avatarTraining').innerHTML = PORTRAIT_SVGS.training;
-            document.getElementById('avatarMall').innerHTML = PORTRAIT_SVGS.mall;
+            document.getElementById('avatarMall').innerHTML = cPortraitMarkup;
             document.getElementById('avatarCbd').innerHTML = PORTRAIT_SVGS.female;
             document.getElementById('avatarSniper').innerHTML = PORTRAIT_SVGS.sniper;
             document.getElementById('avatarSuburbs').innerHTML = PORTRAIT_SVGS.male;
