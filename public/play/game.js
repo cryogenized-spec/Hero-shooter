@@ -17,11 +17,14 @@
                     suburbs: null
                 }
             };
+            // Approved circular anime portrait of C for the Golden Dragon stage.
+            // Preserve an explicitly configured external artwork override.
+            window.HERO_ASSETS.portraits = window.HERO_ASSETS.portraits || {};
+            window.HERO_ASSETS.portraits.mall ||= '../assets/portraits/c-portrait.webp';
 
-            // Phoenix, Arise! is the approved original MP3 for the Golden Dragon
-            // opening. The audio file is intentionally not yet distributed here:
-            // public/assets/music/phoenix-arise.mp3 must be supplied after
-            // checking the source provider's redistribution terms.
+            // Approved original soundtrack recording for Golden Dragon.
+            // The committed MP3 is byte-identical to the user's original upload.
+            // Check source-provider reuse terms before commercial redistribution.
             const PHOENIX_TRACK_URL = '../assets/music/phoenix-arise.mp3';
 
             // ============================================================================
@@ -153,9 +156,15 @@
                 const el = document.getElementById('hudPortrait');
                 const hasMolle = (player && player.hasMolleVest);
                 const key = (currentCampaign === 'mall') ? 'mall' : currentCampaign;
-                if (el) el.innerHTML = renderAvatarHTML(key, heroType, sfx.musicEnabled, hasMolle);
+                if (el) {
+                    el.innerHTML = renderAvatarHTML(key, heroType, sfx.musicEnabled, hasMolle);
+                    el.classList.toggle('is-c-portrait', key === 'mall');
+                }
                 const monoAv = document.getElementById('monoAvatar');
-                if (monoAv) monoAv.innerHTML = renderAvatarHTML(key, heroType, sfx.musicEnabled, hasMolle);
+                if (monoAv) {
+                    monoAv.innerHTML = renderAvatarHTML(key, heroType, sfx.musicEnabled, hasMolle);
+                    monoAv.classList.toggle('is-c-portrait', key === 'mall');
+                }
             }
 
             function initMenuAvatars() {
