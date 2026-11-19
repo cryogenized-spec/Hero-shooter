@@ -1,0 +1,36 @@
+name: Import approved Phoenix, Arise! OST
+on:
+  push:
+    branches:
+      - feat/c-portrait-phoenix-track-20261119
+    paths:
+      - .github/workflows/import-phoenix-arise.yml
+      - scripts/import-phoenix-arise.mjs
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Retrieve and validate exact original recording
+        run: node scripts/import-phoenix-arise.mjs
+      - name: Commit authenticated original only when matched
+        run: |
+          if [ ! -f public/assets/music/phoenix-arise.mp3 ]; then
+            echo "Asset verification failed; not committing"
+            exit 1
+          fi
+          git add public/assets/music/phoenix-arise.mp3
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m "assets: add byte-for-byte approved Phoenix, Arise! original"
+            git push
+          fi
