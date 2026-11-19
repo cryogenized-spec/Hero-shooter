@@ -1,3 +1,4 @@
+import { setupTitleScreen } from './ui/title-screen.js';
 import { Math2 } from './core/math.js';
 import { createWeapons } from './data/weapons.js';
 import { getPortraitSVG } from './ui/portraits.js';
@@ -6052,6 +6053,8 @@ import { createAudioEngine } from './audio/sfx.js';
             document.getElementById('campSniperBtn').addEventListener('click', () => selectCampaign('sniper'));
 
             function startGame() {
+                titleMenu.rememberChapter(selectedCampaign);
+                sfx.musicEnabled = titleMenu.musicOnStart();
                 sfx.init();
                 sfx.configureGenreForCampaign(selectedCampaign);
                 WEAPONS = createWeapons(selectedCampaign);
@@ -6106,6 +6109,17 @@ import { createAudioEngine } from './audio/sfx.js';
                 syncMobileControlsVisibility();
                 updateHUD();
             }
+
+            const titleMenu = setupTitleScreen({
+                start: () => {
+                    selectCampaign('training');
+                    document.getElementById('startOverlay').classList.remove('hidden');
+                },
+                continueChapter: (chapter) => {
+                    selectCampaign(chapter);
+                    document.getElementById('startOverlay').classList.remove('hidden');
+                }
+            });
 
             document.getElementById('startBtn').addEventListener('click', startGame);
             document.getElementById('restartBtn').addEventListener('click', () => {

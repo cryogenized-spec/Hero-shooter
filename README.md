@@ -50,3 +50,9 @@ The GitHub repository is the source of truth. Gemini can continue prototyping an
 5. Add browser gameplay regression tests and automated visual baselines.
 
 Avoid simultaneous wholesale refactors and gameplay changes.
+
+## Anime title screen
+
+The approved 16:9 retro-anime title artwork is stored as `public/assets/title/hero-shooter-title.webp` (WebP). Its visible START / CONTINUE / OPTIONS labels are part of the artwork. Transparent accessible HTML hotspots in `index.html`, styled in `src/styles.css` and wired through `src/ui/title-screen.js`, make the menu interactive without duplicating the printed UI. START opens the existing five-chapter selector. CONTINUE reopens the selector focused on the most recently played chapter—it does **not** restore in-game progress, because there is no checkpoint save system yet. OPTIONS contains a functional music-on-start preference and fullscreen toggle.
+
+For future localised menu text or redesigned buttons, create a *text-free* export of the art and render the buttons as independent HTML elements. The source image was deliberately preserved here to match the approved composition.
