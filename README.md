@@ -1,0 +1,52 @@
+# Hero Shooter
+
+A top-down, chapter-based browser action game set in South Africa, developed collaboratively with creative direction from the game director and iterations originating in Gemini.
+
+## Chapters
+
+- **Prologue:** Pine Ridge Airsoft Skirmish — young Yael, G, and Blaze.
+- **Chapter 1:** The Mall Blockade — Yael.
+- **Chapter 2:** Joburg CBD — Blaze.
+- **Chapter 3:** Sniper Overwatch — The Uncle.
+- **Chapter 4:** The Suburbs — G.
+
+## Development
+
+The code is deliberately lightweight: **native JavaScript ES modules + HTML Canvas 2D**, with **no dependency install required**. The first migration extracts only stable, low-coupling systems (CSS, math, weapon data, portraits, sound); the core simulation remains in `src/main.js` until it can be disentangled safely, with behaviour-preserving tests.
+
+```bash
+npm run check    # Check JS syntax
+npm test         # Check preserved baseline and campaign definitions
+npm run build    # Generate deployable dist/
+npm run preview  # Serve dist/ on localhost:4173
+```
+
+The exact, unmodified latest Gemini revision is in `reference/gemini-original-2026-11-19.html`; its SHA-256 digest is in `reference/original.sha256`.
+
+## Artwork & cutscenes
+
+Artwork belongs in `public/assets/cutscenes/<chapter>/`, where it is copied to `/assets/cutscenes/<chapter>/` during build. For example `public/assets/cutscenes/mall/yael-portrait.webp` is a 4:5 anime character illustration optimised for web delivery. The visual cutscene player is not wired into gameplay yet; the original phone cutscene system is unchanged. Avoid base64-embedding large images into source files.
+
+For new artwork, use Squoosh or equivalent to export compressed WebP/AVIF and check the result visually. Aim for compact files without destroying line art or legibility.
+
+## Deploy to GitHub Pages
+
+The workflow in `.github/workflows/pages.yml` tests the code and publishes `dist/` on pushes to `main`. Once Pages is enabled for **GitHub Actions** in repository **Settings → Pages**, the expected URL is:
+
+https://cryogenized-spec.github.io/Hero-shooter/
+
+A GitHub Actions run is not proof that Pages has been enabled; confirm the deployment in the Actions tab and open the actual site URL.
+
+## Collaboration workflow
+
+The GitHub repository is the source of truth. Gemini can continue prototyping and proposing story, UI, and gameplay changes. Save its revised HTML or targeted snippets as new source material, compare with the current repository, and integrate on branches with review and tests. Preserve intentional creative decisions instead of rewriting the atmosphere around engineering preferences.
+
+## Migration roadmap
+
+1. Verify that all five chapters launch in the modular version (desktop and mobile).
+2. Extract input and HUD systems behind explicit interfaces.
+3. Extract campaign data, world creation, and entity state incrementally.
+4. Implement artwork-based cutscenes as a separate, data-driven layer.
+5. Add browser gameplay regression tests and automated visual baselines.
+
+Avoid simultaneous wholesale refactors and gameplay changes.
