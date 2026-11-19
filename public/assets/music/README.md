@@ -1,9 +1,1 @@
-# Hero Shooter audio assets
-
-The opening track **Phoenix, Arise!** is approved as the **exact original Background Music generation** from session `sess_66a6d26ef60850cf`.
-
-Target asset path: `phoenix-arise.mp3` (next to this README).
-
-The source MP3 is **not present yet**. Do not substitute `Hero_Shooter_OST_01_Phoenix_Arise_150BPM.mp3`: that filename currently refers to an entirely different *procedural* 150 BPM recording.
-
-After obtaining the exact approved MP3, add it here and integrate its playback into the mall opener. Keep browser autoplay rules and the game's music toggle in mind. See `docs/ost/phoenix-arise.md`.
+# Hero Shooter approved audio\n\nTrack 01: **Phoenix, Arise!** — the exact original recording from the Background Music session `sess_66a6d26ef60850cf`, not the similarly named procedural 150 BPM recording.\n\nThis directory contains `phoenix-arise.mp3` (4,360,553 bytes, SHA-256 `17921d46ccd2e735751c8f9e992d909fd1dfc587962a1b393d4ef07831ad9c8f`). No re-encoding was performed.\n\nThe mall chapter's soundtrack player loads this file and preserves the music-on-start preference and M key toggle. Check provider redistribution terms before commercial use. See `docs/ost/phoenix-arise.md`.\n
