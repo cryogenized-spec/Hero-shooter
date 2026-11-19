@@ -1784,6 +1784,38 @@
                 }
             }
 
+            function paintMallCSpritePath(ctx, fill, outline = '#11181c') {
+                ctx.fillStyle = fill;
+                ctx.fill();
+                if (outline) {
+                    ctx.strokeStyle = outline;
+                    ctx.stroke();
+                }
+            }
+
+            function drawMallCSpriteEllipse(ctx, x, y, rx, ry, rotation, fill, outline) {
+                ctx.beginPath();
+                ctx.ellipse(x, y, rx, ry, rotation, 0, Math.PI * 2);
+                paintMallCSpritePath(ctx, fill, outline);
+            }
+
+            function drawMallCBoot(ctx, x, y, hipY) {
+                ctx.strokeStyle = '#30383e';
+                ctx.lineWidth = 5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-6, hipY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                ctx.lineWidth = 1.35;
+                ctx.beginPath();
+                ctx.roundRect(x - 4.5, y - 3.4, 9, 6.8, 1.6);
+                paintMallCSpritePath(ctx, '#232d37');
+                ctx.fillStyle = '#697682';
+                ctx.fillRect(x + 0.5, y - 2.2, 1.2, 4.4);
+            }
+
             // ============================================================================
             // PLAYER CLASS (SNEAK STANCE, SILENT EXECUTIONS, BATTERY OPTICS, MAG FORFEITURE)
             // ============================================================================
@@ -1825,6 +1857,8 @@
                     this.meleeCooldown = 0;
                     this.meleeAnim = 0;
                     this.animPhase = 0;
+                    this.walkBlend = 0;
+                    this.walkAngle = 0;
                     this.vehicle = null;
                     this.invulnTimer = 0;
 
@@ -1982,6 +2016,7 @@
                     }
 
                     if (this.vehicle) {
+                        this.walkBlend = 0;
                         this.x = this.vehicle.x;
                         this.y = this.vehicle.y;
                         this.angle = this.vehicle.angle;
@@ -2030,13 +2065,31 @@
                         this.stamina = Math.min(100, this.stamina + 24 * dt);
                     }
 
+                    const previousX = this.x;
+                    const previousY = this.y;
                     if (isMoving) {
-                        this.animPhase += dt * (wantsSprint ? 15 : (this.isSneaking ? 6.5 : 10.5));
                         const nextX = this.x + moveX * speed * dt;
                         const nextY = this.y + moveY * speed * dt;
                         const resolved = resolveCircleWorldCollision(nextX, nextY, this.radius);
                         this.x = resolved.x;
                         this.y = resolved.y;
+                    }
+
+                    if (this.gender === 'israeli_c') {
+                        // Use actual travel so walls and small stick movements affect the gait.
+                        const dx = this.x - previousX;
+                        const dy = this.y - previousY;
+                        const distance = Math.hypot(dx, dy);
+                        const isStepping = distance > 0.01;
+                        if (isStepping) {
+                            const strideLength = this.isSneaking ? 118 : 146;
+                            this.animPhase = (this.animPhase + Math.min(distance, speed * dt)
+                                * 2 * Math.PI / strideLength) % (2 * Math.PI);
+                            this.walkAngle = Math.atan2(dy, dx);
+                        }
+                        this.walkBlend += ((isStepping ? 1 : 0) - this.walkBlend) * (1 - Math.exp(-18 * dt));
+                    } else if (isMoving) {
+                        this.animPhase += dt * (wantsSprint ? 15 : (this.isSneaking ? 6.5 : 10.5));
                     }
 
                     if (input.rightStick.active) {
@@ -2366,12 +2419,17 @@
                         ctx.restore();
                     }
 
-                    const swing = Math.sin(this.animPhase) * (this.isSneaking ? 3 : 5);
-                    ctx.fillStyle = '#0f172a';
-                    ctx.beginPath();
-                    ctx.arc(-5, -8 + swing, 4.5, 0, Math.PI * 2);
-                    ctx.arc(-5, 8 - swing, 4.5, 0, Math.PI * 2);
-                    ctx.fill();
+                    const isMallC = this.gender === 'israeli_c';
+                    if (isMallC) {
+                        this.drawMallCFeet(ctx);
+                    } else {
+                        const swing = Math.sin(this.animPhase) * (this.isSneaking ? 3 : 5);
+                        ctx.fillStyle = '#0f172a';
+                        ctx.beginPath();
+                        ctx.arc(-5, -8 + swing, 4.5, 0, Math.PI * 2);
+                        ctx.arc(-5, 8 - swing, 4.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
 
                     if (this.meleeAnim > 0 && this.hasKnife) {
                         ctx.save();
@@ -2385,11 +2443,109 @@
                         ctx.restore();
                     }
 
+                    if (isMallC) {
+                        this.drawMallCBody(ctx);
+                    } else {
+                        this.drawStandardBody(ctx);
+                    }
+
+                    if (sfx.musicEnabled) {
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(2, -7.8, 2.2, 0, Math.PI * 2);
+                        ctx.arc(2, 7.8, 2.2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.restore();
+                }
+
+                drawMallCFeet(ctx) {
+                    // Move the feet along the travel direction while the torso tracks aim.
+                    const stride = Math.sin(this.animPhase) * this.walkBlend * (this.isSneaking ? 2.6 : 5);
+                    const relativeAngle = this.walkAngle - this.angle;
+                    const fore = Math.cos(relativeAngle) * stride;
+                    const side = Math.sin(relativeAngle) * stride * 0.55;
+
+                    drawMallCSpriteEllipse(ctx, -3, 2, 18, 15.5, 0, '#090d1659', null);
+                    drawMallCBoot(ctx, -15 - fore, -8 - side, -8);
+                    drawMallCBoot(ctx, -15 + fore, 8 + side, 8);
+                }
+
+                drawMallCBody(ctx) {
+                    ctx.lineJoin = 'round';
+                    ctx.lineWidth = 1.35;
+                    ctx.save();
+                    ctx.translate(Math.cos(this.animPhase * 2) * 0.8 * this.walkBlend, 0);
+
+                    // Olive flannel, with the carrier drawn only after the go-bag is recovered.
+                    ctx.beginPath();
+                    ctx.moveTo(-15, -9);
+                    ctx.lineTo(-7, -14);
+                    ctx.lineTo(4, -13);
+                    ctx.quadraticCurveTo(13, 0, 4, 13);
+                    ctx.lineTo(-7, 14);
+                    ctx.lineTo(-15, 9);
+                    ctx.closePath();
+                    paintMallCSpritePath(ctx, '#596840', this.isSneaking ? '#34d399' : '#11181c');
+
+                    ctx.beginPath();
+                    if (this.hasMolleVest) {
+                        ctx.roundRect(-13, -10, 17, 20, 2);
+                        paintMallCSpritePath(ctx, '#3d4b35');
+                        ctx.fillStyle = '#86946c';
+                        ctx.fillRect(-11, -7, 8, 1.4);
+                        ctx.fillRect(-11, -0.7, 8, 1.4);
+                        ctx.fillRect(-11, 5.6, 8, 1.4);
+                    } else {
+                        ctx.moveTo(-13, -6); ctx.lineTo(4, -6);
+                        ctx.moveTo(-13, 6); ctx.lineTo(4, 6);
+                        ctx.moveTo(-9, -12); ctx.lineTo(-9, 12);
+                        ctx.moveTo(-3, -12); ctx.lineTo(-3, 12);
+                        ctx.strokeStyle = '#35432f';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+
+                    // Rolled sleeves and hands frame the pink sidearm.
+                    drawMallCSpriteEllipse(ctx, 5, -9, 9, 4, 0.62, '#534238');
+                    drawMallCSpriteEllipse(ctx, 5, 9, 9, 4, -0.62, '#534238');
+                    drawMallCSpriteEllipse(ctx, 14, -4, 3.5, 3.5, 0, '#d59b76');
+                    drawMallCSpriteEllipse(ctx, 14, 4, 3.5, 3.5, 0, '#d59b76');
+
+                    ctx.beginPath();
+                    ctx.roundRect(12, -3.25, 10.5, 6.5, 1.2);
+                    paintMallCSpritePath(ctx, '#283341');
+                    ctx.fillStyle = '#f76da9';
+                    ctx.fillRect(13, 1, 8.5, 1.7);
+                    ctx.fillStyle = '#778390';
+                    ctx.fillRect(16, -2.3, 4, 0.8);
+                    if (this.flashlightOn) {
+                        ctx.fillStyle = '#fef08a';
+                        ctx.fillRect(21, -1, 2, 2);
+                    }
+
+                    // Hair and face are drawn last above the collar.
+                    drawMallCSpriteEllipse(ctx, 0.8, 0, 9.4, 9, 0, '#deaa83');
+                    ctx.beginPath();
+                    ctx.moveTo(6.8, -6.5);
+                    ctx.bezierCurveTo(-1, -13, -11, -8.5, -10, 1);
+                    ctx.quadraticCurveTo(-9, 7, -4, 8);
+                    ctx.lineTo(-5, 1);
+                    ctx.lineTo(-1.5, 3);
+                    ctx.lineTo(0, -3);
+                    ctx.closePath();
+                    paintMallCSpritePath(ctx, '#291f24');
+                    ctx.fillStyle = '#42292a';
+                    ctx.fillRect(6.3, -3, 1.4, 1.5);
+                    ctx.fillRect(7.4, 2, 1.4, 1);
+                }
+
+                drawStandardBody(ctx) {
                     // Torso / Outfit
                     if (this.gender === 'young_c') {
                         ctx.fillStyle = '#3f6212';
-                    } else if (this.gender === 'israeli_c') {
-                        ctx.fillStyle = this.hasMolleVest ? '#365314' : '#4d7c0f';
                     } else if (this.gender === 'female') {
                         ctx.fillStyle = '#ea580c';
                     } else if (this.gender === 'sniper') {
@@ -2403,26 +2559,6 @@
                     ctx.lineWidth = 2;
                     ctx.strokeStyle = this.isSneaking ? '#34d399' : '#090d16';
                     ctx.stroke();
-
-                    // Flannel check grid or MOLLE plate carrier straps
-                    if (this.gender === 'israeli_c') {
-                        if (this.hasMolleVest) {
-                            ctx.fillStyle = '#1a2e05';
-                            ctx.fillRect(-7, -9, 13, 18);
-                            ctx.strokeStyle = '#65a30d';
-                            ctx.lineWidth = 1;
-                            ctx.strokeRect(-7, -9, 13, 18);
-                        } else {
-                            ctx.strokeStyle = 'rgba(15, 23, 42, 0.55)';
-                            ctx.lineWidth = 1.2;
-                            ctx.beginPath();
-                            ctx.moveTo(-10, -4); ctx.lineTo(10, -4);
-                            ctx.moveTo(-10, 4); ctx.lineTo(10, 4);
-                            ctx.moveTo(-3, -11); ctx.lineTo(-3, 11);
-                            ctx.moveTo(4, -11); ctx.lineTo(4, 11);
-                            ctx.stroke();
-                        }
-                    }
 
                     // Weapon
                     if (this.weapon.id === 'glock26' || this.weapon.id === 'glock26_jhp' || this.weapon.id === 'airsoft_pistol') {
@@ -2442,13 +2578,13 @@
                     }
 
                     // Head
-                    ctx.fillStyle = (this.gender === 'israeli_c' || this.gender === 'young_c') ? '#c68663' : (this.gender === 'female' ? '#fed7aa' : '#e2b49a');
+                    ctx.fillStyle = this.gender === 'young_c' ? '#c68663' : (this.gender === 'female' ? '#fed7aa' : '#e2b49a');
                     ctx.beginPath();
                     ctx.arc(2, 0, 8.5, 0, Math.PI * 2);
                     ctx.fill();
 
                     // Hair
-                    ctx.fillStyle = (this.gender === 'israeli_c' || this.gender === 'young_c') ? '#090d16' : (this.gender === 'female' ? '#dc2626' : (this.gender === 'sniper' ? '#365314' : '#f1f5f9'));
+                    ctx.fillStyle = this.gender === 'young_c' ? '#090d16' : (this.gender === 'female' ? '#dc2626' : (this.gender === 'sniper' ? '#365314' : '#f1f5f9'));
                     ctx.beginPath();
                     ctx.arc(-1, 0, 8, Math.PI * 0.55, Math.PI * 1.45);
                     ctx.fill();
@@ -2459,16 +2595,6 @@
                         ctx.arc(-11, 0, 4.5, 0, Math.PI * 2);
                         ctx.fill();
                     }
-
-                    if (sfx.musicEnabled) {
-                        ctx.fillStyle = '#ffffff';
-                        ctx.beginPath();
-                        ctx.arc(2, -7.8, 2.2, 0, Math.PI * 2);
-                        ctx.arc(2, 7.8, 2.2, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    ctx.restore();
                 }
             }
 
