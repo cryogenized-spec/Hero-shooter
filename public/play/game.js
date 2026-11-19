@@ -18,6 +18,12 @@
                 }
             };
 
+            // Phoenix, Arise! is the approved original MP3 for the Golden Dragon
+            // opening. The audio file is intentionally not yet distributed here:
+            // public/assets/music/phoenix-arise.mp3 must be supplied after
+            // checking the source provider's redistribution terms.
+            const PHOENIX_TRACK_URL = '../assets/music/phoenix-arise.mp3';
+
             // ============================================================================
             // CUSTOM INLINE SVG CHARACTER PORTRAITS (DYNAMIC GEAR + TOGGLEABLE EARBUDS)
             // ============================================================================
@@ -290,6 +296,65 @@
                 musicStep: 0,
                 barCount: 0,
                 musicGenre: 'psytrance',
+                phoenixAudio: null,
+                phoenixUnavailable: false,
+                phoenixPlayPending: false,
+
+                isPhoenixStage() {
+                    return this.musicGenre === 'psytrance' && currentCampaign === 'mall';
+                },
+
+                isPhoenixPlaying() {
+                    return this.isPhoenixStage() && !!this.phoenixAudio && !this.phoenixAudio.paused &&
+                        !this.phoenixAudio.error && !this.phoenixUnavailable;
+                },
+
+                pausePhoenixTrack() {
+                    if (this.phoenixAudio) this.phoenixAudio.pause();
+                },
+
+                syncPhoenixTrack() {
+                    const shouldPlay = this.musicEnabled && gameState === 'playing' && this.isPhoenixStage();
+                    if (!shouldPlay) {
+                        this.pausePhoenixTrack();
+                        return;
+                    }
+                    if (this.phoenixUnavailable || this.phoenixPlayPending || !this.ctx) return;
+                    if (!this.phoenixAudio) {
+                        const audio = new Audio(PHOENIX_TRACK_URL);
+                        audio.preload = 'auto';
+                        audio.loop = true;
+                        // Leave the gunfire, footsteps, dialogue and alerts audible.
+                        audio.volume = 0.43;
+                        audio.addEventListener('error', () => {
+                            this.phoenixUnavailable = true;
+                            this.phoenixPlayPending = false;
+                            this.pausePhoenixTrack();
+                            this.updateMusicUI();
+                        });
+                        audio.addEventListener('playing', () => this.updateMusicUI());
+                        this.phoenixAudio = audio;
+                    }
+                    if (this.phoenixAudio.paused) {
+                        this.phoenixPlayPending = true;
+                        Promise.resolve(this.phoenixAudio.play()).then(() => {
+                            this.phoenixPlayPending = false;
+                            // Do not resume after a chapter change or pause.
+                            if (!this.musicEnabled || gameState !== 'playing' || !this.isPhoenixStage()) {
+                                this.pausePhoenixTrack();
+                            }
+                            this.updateMusicUI();
+                        }).catch((error) => {
+                            this.phoenixPlayPending = false;
+                            // The original procedural arrangement remains playable
+                            // if the soundtrack file is missing or the codec fails.
+                            // Autoplay denial isn't permanent: the next user gesture
+                            // can try again.
+                            if (error?.name !== 'NotAllowedError') this.phoenixUnavailable = true;
+                            this.updateMusicUI();
+                        });
+                    }
+                },
 
                 init() {
                     if (!this.ctx) {
@@ -391,6 +456,8 @@
                 },
 
                 configureGenreForCampaign(camp) {
+                    this.pausePhoenixTrack();
+                    if (this.phoenixAudio) this.phoenixAudio.currentTime = 0;
                     this.musicGenre = (camp === 'mall' || camp === 'training') ? 'psytrance' : 'metal';
                     if (this.reverbNode && this.ctx) {
                         const isIndoor = (camp === 'mall');
@@ -408,7 +475,14 @@
                     }
 
                     this.schedulerTimer = setInterval(() => {
+                        this.syncPhoenixTrack();
                         if (!this.musicEnabled || !this.ctx || gameState !== 'playing') return;
+                        if (this.isPhoenixPlaying()) {
+                            // The OST recording replaces (not overlays) synthesized
+                            // music. Keep the procedural clock current for fallback.
+                            this.nextNoteTime = this.ctx.currentTime + 0.05;
+                            return;
+                        }
                         this.updateStealthMusicFilter();
                         const stepDur = this.musicGenre === 'psytrance' ? 0.10 : 0.115;
                         while (this.nextNoteTime < this.ctx.currentTime + 0.14) {
@@ -440,6 +514,7 @@
                 toggleMusic() {
                     this.init();
                     this.musicEnabled = !this.musicEnabled;
+                    this.syncPhoenixTrack();
                     if (this.musicEnabled && this.ctx) {
                         this.nextNoteTime = this.ctx.currentTime + 0.04;
                     }
@@ -448,7 +523,9 @@
                         updatePortraitSVG(player.gender);
                     }
                     const label = this.musicGenre === 'psytrance'
-                        ? (this.musicEnabled ? 'IPODS: 150 BPM FULL-ON PSYTRANCE // ON' : 'IPODS: OFF (EARBUDS STOWED)')
+                        ? (this.musicEnabled ? (this.isPhoenixPlaying()
+                            ? 'IPODS: PHOENIX, ARISE! // ON'
+                            : 'IPODS: 150 BPM FULL-ON PSYTRANCE // ON') : 'IPODS: OFF (EARBUDS STOWED)')
                         : (this.musicEnabled ? 'IPODS: HEAVY METAL // ON' : 'IPODS: OFF (EARBUDS STOWED)');
                     showBanner(label, 1600);
                 },
@@ -459,6 +536,9 @@
                     if (!this.musicEnabled) {
                         el.innerText = 'IPODS [M]: OFF';
                         el.style.color = '#64748b';
+                    } else if (this.isPhoenixPlaying()) {
+                        el.innerText = 'IPODS [M]: PHOENIX, ARISE! // ON';
+                        el.style.color = '#f472b6';
                     } else if (this.musicGenre === 'psytrance') {
                         el.innerText = 'IPODS [M]: PSYTRANCE 150BPM // ON';
                         el.style.color = '#f472b6';
@@ -4810,6 +4890,7 @@
                 document.getElementById('endModal').classList.add('hidden');
                 generateWorld(currentCampaign);
                 gameState = 'playing';
+                sfx.syncPhoenixTrack();
                 lastTimestamp = performance.now();
             }
 
