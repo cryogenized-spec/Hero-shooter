@@ -1,0 +1,13 @@
+{
+  "name": "hero-shooter",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Hero Shooter: a chapter-based, top-down browser action game",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test",
+    "preview": "node scripts/preview.mjs",
+    "check": "node --check src/main.js && node --check src/audio/sfx.js && node --check src/data/weapons.js && node --check src/ui/portraits.js && node --check src/core/math.js"
+  }
+}

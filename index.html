@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hero Shooter — Post-Meltdown South Africa</title>
+    <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD Layer -->
+    <div id="hud">
+        <!-- Top-Left Character Portrait + Vitals + Physical Rounds & Magazines -->
+        <div id="playerPanel">
+            <div class="player-top-row">
+                <div id="portraitFrame">
+                    <div id="portrait"></div>
+                </div>
+
+                <div class="vitals-col">
+                    <div class="bar-row">
+                        <div class="bar-label"><span id="hpLabelText">HEALTH</span><span id="hpVal">100</span></div>
+                        <div class="bar-track"><div class="bar-fill" id="hpBar"></div></div>
+                    </div>
+                    <div class="bar-row">
+                        <div class="bar-label"><span id="armorLabelText">ARMOR</span><span id="armorVal">20</span></div>
+                        <div class="bar-track"><div class="bar-fill" id="armorBar"></div></div>
+                    </div>
+                    <div class="bar-row">
+                        <div class="bar-label"><span>STAMINA</span><span id="stamVal">100</span></div>
+                        <div class="bar-track"><div class="bar-fill" id="stamBar"></div></div>
+                    </div>
+                </div>
+
+                <div class="weapon-col">
+                    <div id="wepName">GLOCK 26 PINK [EXT + RDS]</div>
+                    <div id="ammoDisplay">15 <span>/ 40</span></div>
+                    <div id="ammoTypeToggle" style="display:none;">LOAD: 100GR FMJ [B]</div>
+                    <div id="reloadIndicator"></div>
+                    <div class="slot-bar" id="slotBar"></div>
+                </div>
+            </div>
+
+            <!-- Physical Round & Magazine Indicators directly under Character Portrait -->
+            <div id="ammoVisualRow">
+                <div class="ammo-visual-group">
+                    <div class="ammo-visual-label" id="magRoundsLabel">ROUNDS IN MAG (15 / 15)</div>
+                    <div id="magRoundsGrid"></div>
+                </div>
+                <div class="ammo-visual-group" style="align-items: flex-end;">
+                    <div class="ammo-visual-label" id="magCountLabel">SPARE MAGS (3)</div>
+                    <div id="magCountIcons"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="phoneToast">
+            <div class="phone-header">
+                <span id="phoneSender">PHONE // DAVID (EXFIL OPS)</span>
+                <span id="phoneTime">07:04 AM</span>
+            </div>
+            <div class="phone-msg" id="phoneMsg">Stay low in the dark aisles. Move east toward the main concourse.</div>
+        </div>
+
+        <div id="missionPanel">
+            <div class="mission-phase" id="missionPhase">STAGE 1 / 4</div>
+            <div class="mission-title" id="missionTitle">Clear the Block</div>
+            <div class="mission-desc" id="missionDesc">Push forward and eliminate hostile forces in your sector.</div>
+            <div class="mission-progress" id="missionProgress">TARGETS REMAINING: 0</div>
+        </div>
+
+        <div id="topRightStats">
+            <div id="killCounter">HOSTILES NEUTRALIZED: 0</div>
+            <div id="cashCounter">CASH LOOTED: R0</div>
+            <div id="stealthStatus">SIGNATURE: CONCEALED</div>
+            <div id="opticsStatus">OPTICS [V]: STANDARD</div>
+            <div id="radioStatus">IPODS [M]: OFF</div>
+        </div>
+
+        <div id="promptBanner">PRESS [E] TO ENTER VEHICLE</div>
+
+        <div id="radarFrame">
+            <canvas id="radarCanvas" width="156" height="156"></canvas>
+        </div>
+    </div>
+
+    <!-- Checkpoint Smartphone Messenger Cutscene Overlay -->
+    <div id="cutsceneOverlay" class="hidden">
+        <div class="smartphone-chassis" id="phoneChassis">
+            <div class="phone-notch-bar">
+                <span id="phoneClockTop">07:00 AM</span>
+                <div class="phone-speaker-pill"></div>
+                <span>LTE // 64%</span>
+            </div>
+            <div class="phone-opsec-banner" id="phoneOpsecBanner">
+                OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)
+            </div>
+            <div class="phone-chat-header">
+                <div class="phone-contact-avatar" id="phoneContactAvatar"></div>
+                <div class="phone-contact-meta">
+                    <div class="phone-contact-name" id="phoneContactName">DAVID // EXFIL OPS</div>
+                    <div class="phone-contact-sub" id="phoneContactSub">BURNER SIM &bull; TOWER RELAY ACTIVE</div>
+                </div>
+            </div>
+            <div class="phone-chat-stream" id="phoneChatStream"></div>
+            <div class="phone-typing-bar" id="phoneTypingBar"></div>
+            <div class="phone-action-footer">
+                <button type="button" class="btn-phone-skip" id="btnCutsceneSkip">SKIP [ESC]</button>
+                <button type="button" class="btn-phone-next" id="btnCutsceneNext">NEXT [SPACE]</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Touch Controls (Automatically enabled when mobile/touch platform is detected) -->
+    <div id="mobileControls" class="hidden">
+        <div id="leftStickZone" class="touch-stick-zone">
+            <div class="touch-stick-base" id="leftStickBase">
+                <div class="touch-stick-knob" id="leftStickKnob"></div>
+            </div>
+            <div class="stick-label">MOVE / DRIVE</div>
+        </div>
+
+        <div id="mobileActionCluster">
+            <button type="button" class="mobile-btn" id="btnOptics">OPTICS</button>
+            <button type="button" class="mobile-btn" id="btnUtil">LIGHT [F]</button>
+            <button type="button" class="mobile-btn" id="btnStrobe">STROBE</button>
+            <button type="button" class="mobile-btn" id="btnVehicle">CAR [E]</button>
+            <button type="button" class="mobile-btn" id="btnReload">RELOAD</button>
+            <button type="button" class="mobile-btn" id="btnSprint">SPRINT</button>
+        </div>
+
+        <div id="rightStickZone" class="touch-stick-zone">
+            <div class="touch-stick-base" id="rightStickBase">
+                <div class="touch-stick-knob" id="rightStickKnob"></div>
+            </div>
+            <div class="stick-label">AIM &amp; FIRE</div>
+        </div>
+    </div>
+
+    <!-- Start / Stage Select Modal -->
+    <div class="modal-overlay" id="startOverlay">
+        <div class="modal-card">
+            <div class="modal-kicker" id="menuKicker">WOODLAND AIRSOFT ARENA // YOUTH SQUAD TRAINING</div>
+            <div class="modal-title">HERO SHOOTER</div>
+            <div class="campaign-grid">
+                <div class="campaign-card training-card selected" id="campTrainingBtn">
+                    <div class="card-avatar" id="avatarTraining"></div>
+                    <div class="card-info">
+                        <div class="campaign-badge">PROLOGUE / TRAINING STAGE: WOODLAND AIRSOFT</div>
+                        <div class="campaign-name">PINE RIDGE AIRSOFT SKIRMISH</div>
+                        <div class="campaign-meta">Younger Yael + Younger G + Younger Blaze vs. Grown-Up MilSim Adults</div>
+                    </div>
+                </div>
+                <div class="campaign-card" id="campMallBtn">
+                    <div class="card-avatar" id="avatarMall"></div>
+                    <div class="card-info">
+                        <div class="campaign-badge">CHAPTER 1: 07:00 AM MALL</div>
+                        <div class="campaign-name">THE MALL BLOCKADE</div>
+                        <div class="campaign-meta">Yael &bull; Pink G26 (100gr FMJ / 120gr JHP + NVG/FLIR)</div>
+                    </div>
+                </div>
+                <div class="campaign-card" id="campCbdBtn">
+                    <div class="card-avatar" id="avatarCbd"></div>
+                    <div class="card-info">
+                        <div class="campaign-badge">CHAPTER 2: INNER-CITY CBD</div>
+                        <div class="campaign-name">JOBURG CBD</div>
+                        <div class="campaign-meta">Blaze &bull; Portable Flamethrower &amp; G17</div>
+                    </div>
+                </div>
+                <div class="campaign-card" id="campSniperBtn">
+                    <div class="card-avatar" id="avatarSniper"></div>
+                    <div class="card-info">
+                        <div class="campaign-badge">CHAPTER 3: OVERWATCH</div>
+                        <div class="campaign-name">SNIPER OVERWATCH</div>
+                        <div class="campaign-meta">The Uncle &bull; Ruger M77 Bolt-Action</div>
+                    </div>
+                </div>
+                <div class="campaign-card" id="campSuburbsBtn">
+                    <div class="card-avatar" id="avatarSuburbs"></div>
+                    <div class="card-info">
+                        <div class="campaign-badge">CHAPTER 4: SUBURBS (+48H)</div>
+                        <div class="campaign-name">THE SUBURBS</div>
+                        <div class="campaign-meta">G &bull; Vektor LM4 &amp; Panga Machete</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-body" id="menuBody">
+                Years before the grid went dark—a Sunday morning airsoft skirmish in a dense pine woodland. Play as <strong>Younger Yael</strong> alongside <strong>Younger G</strong> and <strong>Younger Blaze</strong> in a 3-player youth squad facing off against an entrenched team of <strong>grown-up MilSim adults</strong>. Use forest cover, coordinate with your teammates, and capture the adults' base flag!
+            </div>
+            <div class="controls-grid" id="controlsGrid">
+                <div><strong>WASD / Arrows:</strong> Move &amp; Drive</div>
+                <div><strong>LMB / RMB:</strong> Fire &amp; Sniper Scope</div>
+                <div><strong>M (iPods):</strong> Toggle Earbuds + 150 BPM Psytrance / Metal</div>
+                <div><strong>V / F / T / B:</strong> Optics &bull; Light &bull; Strobe &bull; FMJ/JHP</div>
+                <div><strong>R (Reload):</strong> Toss Mag (Forfeits Leftover Rounds)</div>
+                <div><strong>1–6 / E / H:</strong> Weapons &bull; Vehicle &bull; Horn</div>
+            </div>
+            <button id="startBtn" class="btn-primary">DEPLOY INTO SECTOR</button>
+        </div>
+    </div>
+
+    <!-- Death / Victory Modal -->
+    <div class="modal-overlay hidden" id="endOverlay">
+        <div class="modal-card" id="endCard">
+            <div class="modal-kicker" id="endKicker">STATUS REPORT</div>
+            <div class="modal-title" id="endTitle">FLATLINED</div>
+            <div class="modal-body" id="endBody">You didn't make it through the aftermath.</div>
+            <button id="restartBtn" class="btn-primary">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html>
