@@ -31,11 +31,17 @@ For new artwork, use Squoosh or equivalent to export compressed WebP/AVIF and ch
 
 ## Deploy to GitHub Pages
 
-The workflow in `.github/workflows/pages.yml` tests the code and publishes `dist/` on pushes to `main`. Once Pages is enabled for **GitHub Actions** in repository **Settings → Pages**, the expected URL is:
+**GitHub is the source of truth and the designated publishing host.** The workflow in `.github/workflows/pages.yml` tests the code and publishes `dist/` on pushes to `main`.
+
+To turn on publishing once, visit [repository Settings → Pages](https://github.com/cryogenized-spec/Hero-shooter/settings/pages), set **Build and deployment → Source → GitHub Actions**, then save. The normal `GITHUB_TOKEN` cannot create the initial Pages site automatically. After that, run the existing **Build, test and publish Hero Shooter** workflow or push a change to `main`.
+
+Expected site address after Pages is enabled and a deployment succeeds:
 
 https://cryogenized-spec.github.io/Hero-shooter/
 
-A GitHub Actions run is not proof that Pages has been enabled; confirm the deployment in the Actions tab and open the actual site URL.
+Both game entry points are in the static build: the title screen at the site root and the current gameplay implementation at `/play/`. The exact MP3 and C's approved portrait are copied into `dist/assets/` by `npm run build`.
+
+**Verification:** An Action's passing *build* does not prove the *deploy* job succeeded. Confirm that the **deploy** job is green and that the Pages URL loads before sharing it. A `404 Not Found` from `actions/deploy-pages` generally means Pages has not yet been initialized or the source is incorrect. This is a repository configuration issue—not a reason to migrate hosting.
 
 ## Collaboration workflow
 
