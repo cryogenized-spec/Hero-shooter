@@ -22,6 +22,7 @@ test('all printed title controls have real buttons and are wired to actions', as
         assert.match(html, new RegExp(`id="${id}"`));
         assert.match(js, new RegExp(`'${id}'`));
     }
-    assert.match(js, /continueChapter\(CAMPAIGNS\.has\(previous\)/);
+    assert.match(js, /openLatest\(CAMPAIGNS\.has\(last\)/);
     assert.match(js, /chapterOverlay\.inert = true/);
+    assert.match(js, /titleClassic/);
 });
