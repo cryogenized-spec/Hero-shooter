@@ -371,3 +371,19 @@
             animation: pulseAlert 1.2s infinite;
         }
     
+
+/* Hero Shooter OST 01: C's approved circular character portrait */
+.portrait-frame.is-c-portrait,
+.mono-avatar.is-c-portrait {
+    border-radius: 50%;
+    border-color: rgba(233, 62, 76, 0.82);
+    background: #09090d;
+}
+.portrait-frame.is-c-portrait img,
+.mono-avatar.is-c-portrait img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
