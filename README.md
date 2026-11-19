@@ -56,3 +56,14 @@ Avoid simultaneous wholesale refactors and gameplay changes.
 The approved 16:9 retro-anime title artwork is stored as `public/assets/title/hero-shooter-title.webp` (WebP). Its visible START / CONTINUE / OPTIONS labels are part of the artwork. Transparent accessible HTML hotspots in `index.html`, styled in `src/styles.css` and wired through `src/ui/title-screen.js`, make the menu interactive without duplicating the printed UI. START opens the existing five-chapter selector. CONTINUE reopens the selector focused on the most recently played chapter—it does **not** restore in-game progress, because there is no checkpoint save system yet. OPTIONS contains a functional music-on-start preference and fullscreen toggle.
 
 For future localised menu text or redesigned buttons, create a *text-free* export of the art and render the buttons as independent HTML elements. The source image was deliberately preserved here to match the approved composition.
+
+## Performance optimisations (November 2026)
+
+The gameplay and artwork are unchanged. This pass addresses wasted CPU and DOM work, not the simulation rules or rendering resolution:
+
+- **HUD:** only rewrite labels, ammunition counters, cartridge graphics, and weapon-slot HTML when values actually change; handle weapon-slot clicks through one delegated listener. Visual updates still happen immediately on state changes, rather than throttling the HUD.
+- **Minimap:** rasterise static roads, buildings, mall zones and terrain once per generated world, then draw changing characters, vehicles, pickups and the pulsing mission marker each frame. A campaign reset invalidates the cached terrain.
+- **Rendering:** skip off-screen roads, rail tracks, crosswalks, persistent decals, effects and characters; their world updates and AI continue normally.
+- **Geometry:** use cheap axis-aligned exclusion checks before exact intersection and circle-versus-building calculations. The original collision and line-of-sight calculations still apply when potentially intersecting.
+
+The Node regression tests compare 1,203 deterministic geometry queries against the preserved Gemini source. All five chapters were manually launched in Chromium (including a phone viewport) and weapon-slot interaction was checked. In short, headless-browser checks, the mall's measured game-loop time dropped from roughly **5–7 ms to about 3 ms per frame**. These are limited measurements on a single test environment, not guaranteed device FPS gains. No fidelity settings, assets, chapter content or entity counts were reduced.
