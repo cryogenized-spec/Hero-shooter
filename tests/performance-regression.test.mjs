@@ -71,8 +71,8 @@ test('collision and line-of-sight optimization matches original geometry', () =>
 });
 
 test('terrain cache invalidates when campaign world resets', () => {
-    assert.match(updatedSource, /function resetWorldArrays\(\)\s*\{\s*radarTerrainDirty = true;/);
-    assert.match(updatedSource, /function renderRadar\(\)\s*\{[^]*?if \(radarTerrainDirty\)/);
+    assert.match(updatedSource, /function clearWorldArrays\(\)\s*\{\s*radarTerrainDirty = true;/);
+    assert.match(updatedSource, /function drawRadar\(\)\s*\{[^]*?if \(radarTerrainDirty\)/);
     assert.match(updatedSource, /radarCtx\.drawImage\(radarTerrainCanvas, 0, 0\)/);
 });
 

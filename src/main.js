@@ -1,7 +1,6 @@
 import { setupTitleScreen } from './ui/title-screen.js';
 import { Math2 } from './core/math.js';
 import { createWeapons } from './data/weapons.js';
-import { getPortraitSVG } from './ui/portraits.js';
 import { createAudioEngine } from './audio/sfx.js';
 
         (function () {
@@ -17,11 +16,10 @@ import { createAudioEngine } from './audio/sfx.js';
             const radarTerrainCtx = radarTerrainCanvas.getContext('2d');
             let radarTerrainDirty = true;
 
-            // Offscreen lighting canvas for indoor darkness & flashlight/strobe cone
             const lightCanvas = document.createElement('canvas');
             const lightCtx = lightCanvas.getContext('2d');
 
-            const WORLD_SIZE = 4400;
+            let WORLD_SIZE = 4400;
 
             function resizeCanvas() {
                 canvas.width = window.innerWidth;
@@ -198,12 +196,12 @@ import { createAudioEngine } from './audio/sfx.js';
             const sfx = createAudioEngine({
                 getGameState: () => gameState,
                 getPlayer: () => player,
-                onPortraitUpdate: (archetype) => updatePortraitSVG(archetype),
+                onPortraitUpdate: (a) => updatePortraitSVG(a),
                 onBanner: (label, duration) => showBanner(label, duration)
             });
 
             // ============================================================================
-            // WEAPON DEFINITIONS PER CAMPAIGN
+            // WEAPON DEFINITIONS PER CAMPAIGN (REALISTIC HIGH-VELOCITY BALLISTICS)
             // ============================================================================
             let selectedCampaign = 'training';
             let WEAPONS = createWeapons(selectedCampaign);
@@ -226,11 +224,13 @@ import { createAudioEngine } from './audio/sfx.js';
                 scopeActive: false
             };
             let lastTime = 0;
-            let gameState = 'menu'; // 'menu' | 'playing' | 'cutscene' | 'dead' | 'victory'
+            let gameState = 'menu';
             let kills = 0;
             let cashCollected = 0;
             let bannerTimer = null;
             let phoneTimer = null;
+            let monoTimer = null;
+            let eKeyJustPressed = false;
 
             let player = null;
             let buildings = [];
@@ -241,6 +241,8 @@ import { createAudioEngine } from './audio/sfx.js';
             let woodlandCreek = null;
             let mallZones = [];
             let mallLights = [];
+            let stairwells = [];
+            let currentMallFloor = 'L1';
             let vehicles = [];
             let bullets = [];
             let flameJets = [];
@@ -251,165 +253,349 @@ import { createAudioEngine } from './audio/sfx.js';
             let decals = [];
             let shells = [];
             let droppedMags = [];
+            let corpses = [];
             let pickups = [];
             let mission = null;
+            let cctvRevealedFloors = {};
 
             // ============================================================================
-            // INLINE SVG PORTRAIT GENERATOR (EARBUDS APPEAR ONLY WHEN IPODS ARE ON!)
+            // PRE-CACHED PROCEDURAL TILE & SPRITE ATLAS (ZERO EXTERNAL UPLOADS)
             // ============================================================================
-            function updatePortraitSVG(archetype) {
-                const portraitEl = document.getElementById('portrait');
-                if (portraitEl) portraitEl.innerHTML = getPortraitSVG(archetype, sfx.musicEnabled);
+            const SpriteAtlas = {
+                tilePatterns: {},
+                initialized: false,
+
+                init() {
+                    if (this.initialized) return;
+                    this.initialized = true;
+                    this.tilePatterns.mall = this.makeTilePattern('#18202c', '#1f293b', 'rgba(255,255,255,0.03)', 64);
+                    this.tilePatterns.parkade = this.makeTilePattern('#11151e', '#161b26', 'rgba(148,163,184,0.04)', 96);
+                    this.tilePatterns.city = this.makeTilePattern('#181c24', '#1c212b', 'rgba(255,255,255,0.025)', 100);
+                },
+
+                makeTilePattern(c1, c2, groutColor, size) {
+                    const off = document.createElement('canvas');
+                    off.width = size * 2;
+                    off.height = size * 2;
+                    const octx = off.getContext('2d');
+                    octx.fillStyle = c1;
+                    octx.fillRect(0, 0, size * 2, size * 2);
+                    octx.fillStyle = c2;
+                    octx.fillRect(0, 0, size, size);
+                    octx.fillRect(size, size, size, size);
+                    octx.strokeStyle = groutColor;
+                    octx.lineWidth = 1;
+                    octx.strokeRect(0, 0, size, size);
+                    octx.strokeRect(size, 0, size, size);
+                    octx.strokeRect(0, size, size, size);
+                    octx.strokeRect(size, size, size, size);
+                    return ctx.createPattern(off, 'repeat');
+                }
+            };
+
+            // ============================================================================
+            // INLINE SVG PORTRAITS (WITH DYNAMIC MOLLE GEAR & EARBUD STATE)
+            // ============================================================================
+            const PORTRAIT_SVGS = {
+                training: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="bgTrain" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/></linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#bgTrain)"/>
+                    <path d="M16 98 C16 74, 84 74, 84 98 Z" fill="#3f6212"/>
+                    <path d="M35 76 L50 94 L65 76 Z" fill="#1e293b"/>
+                    <rect x="44" y="64" width="12" height="15" rx="4" fill="#c68b59"/>
+                    <path d="M27 42 C27 21, 73 21, 73 42 L75 74 L25 74 Z" fill="#111827"/>
+                    <path d="M34 43 C34 29, 66 29, 66 43 L65 57 C65 66, 35 66, 35 57 Z" fill="#d49b6a"/>
+                    <path d="M34 40 Q48 28 66 39 L66 32 Q50 23 34 32 Z" fill="#111827"/>
+                    <rect x="33" y="42" width="34" height="11" rx="3" fill="rgba(56, 189, 248, 0.28)" stroke="#e2e8f0" stroke-width="1.5"/>
+                    <path d="M38 41 L46 41 M54 41 L62 41" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/>
+                    <circle cx="42" cy="47" r="2.2" fill="#090d16"/>
+                    <circle cx="58" cy="47" r="2.2" fill="#090d16"/>
+                    <path d="M44 59 Q50 62 56 59" stroke="#7c2d12" stroke-width="1.5" fill="none"/>
+                    <path d="M74 68 L94 64 L96 70 L76 74 Z" fill="#ec4899" stroke="#831843" stroke-width="1"/>
+                </svg>`,
+                mall: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="bgMall" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e1b4b"/><stop offset="100%" stop-color="#090d16"/></linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#bgMall)"/>
+                    <circle cx="82" cy="24" r="16" fill="#ec4899" opacity="0.22"/>
+                    <path d="M16 98 C16 74, 84 74, 84 98 Z" fill="#3f4e32"/>
+                    <path d="M16 98 C16 74, 84 74, 84 98" stroke="#1f291c" stroke-width="2" fill="none"/>
+                    <path d="M35 76 L50 93 L65 76 Z" fill="#1e293b"/>
+                    <rect x="44" y="64" width="12" height="15" rx="4" fill="#c68b59"/>
+                    <path d="M27 42 C27 21, 73 21, 73 42 L76 80 L24 80 Z" fill="#0f172a"/>
+                    <path d="M34 44 C34 30, 66 30, 66 44 L65 58 C65 67, 35 67, 35 58 Z" fill="#d49b6a"/>
+                    <path d="M34 40 Q48 27 66 40 L66 33 Q50 23 34 33 Z" fill="#090d16"/>
+                    <path d="M38 44 L46 45 M54 45 L62 44" stroke="#090d16" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="42" cy="48" r="2.3" fill="#090d16"/>
+                    <circle cx="58" cy="48" r="2.3" fill="#090d16"/>
+                    <path d="M44 59 Q50 61 56 59" stroke="#7c2d12" stroke-width="1.5" fill="none"/>
+                    <path d="M74 68 L94 64 L96 70 L76 74 Z" fill="#ec4899" stroke="#831843" stroke-width="1"/>
+                    <rect x="78" y="61" width="14" height="4" rx="1" fill="#1e293b"/>
+                    <circle cx="85" cy="62" r="1.2" fill="#ef4444"/>
+                </svg>`,
+                mall_geared: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="bgMallG" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e1b4b"/><stop offset="100%" stop-color="#090d16"/></linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#bgMallG)"/>
+                    <path d="M16 98 C16 74, 84 74, 84 98 Z" fill="#3f4e32"/>
+                    <rect x="30" y="75" width="40" height="23" rx="4" fill="#365314" stroke="#1a2e05" stroke-width="1.5"/>
+                    <line x1="33" y1="82" x2="67" y2="82" stroke="#1a2e05" stroke-width="2"/>
+                    <line x1="33" y1="88" x2="67" y2="88" stroke="#1a2e05" stroke-width="2"/>
+                    <rect x="44" y="64" width="12" height="15" rx="4" fill="#c68b59"/>
+                    <path d="M27 42 C27 21, 73 21, 73 42 L76 80 L24 80 Z" fill="#0f172a"/>
+                    <path d="M34 44 C34 30, 66 30, 66 44 L65 58 C65 67, 35 67, 35 58 Z" fill="#d49b6a"/>
+                    <path d="M34 40 Q48 27 66 40 L66 33 Q50 23 34 33 Z" fill="#090d16"/>
+                    <path d="M38 44 L46 45 M54 45 L62 44" stroke="#090d16" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="42" cy="48" r="2.3" fill="#090d16"/>
+                    <circle cx="58" cy="48" r="2.3" fill="#090d16"/>
+                    <path d="M44 59 Q50 61 56 59" stroke="#7c2d12" stroke-width="1.5" fill="none"/>
+                    <path d="M74 68 L94 64 L96 70 L76 74 Z" fill="#ec4899" stroke="#831843" stroke-width="1"/>
+                    <rect x="78" y="61" width="14" height="4" rx="1" fill="#1e293b"/>
+                    <circle cx="85" cy="62" r="1.2" fill="#ef4444"/>
+                </svg>`,
+                female: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="bgFemale" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#451a03"/><stop offset="100%" stop-color="#0f172a"/></linearGradient>
+                        <linearGradient id="hairGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#991b1b"/></linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#bgFemale)"/>
+                    <path d="M16 98 C16 74, 84 74, 84 98 Z" fill="#1e293b"/>
+                    <path d="M32 76 L68 76 L64 98 L36 98 Z" fill="#334155"/>
+                    <rect x="44" y="63" width="12" height="15" rx="4" fill="#e0a986"/>
+                    <path d="M26 42 C26 20, 74 20, 74 42 L78 82 L22 82 Z" fill="url(#hairGrad)"/>
+                    <path d="M34 44 C34 30, 66 30, 66 44 L65 58 C65 67, 35 67, 35 58 Z" fill="#f1c2a0"/>
+                    <path d="M38 44 L46 46 M54 46 L62 44" stroke="#7f1d1d" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="42" cy="49" r="2.2" fill="#0f172a"/>
+                    <circle cx="58" cy="49" r="2.2" fill="#0f172a"/>
+                    <path d="M44 59 Q50 62 56 59" stroke="#991b1b" stroke-width="1.6" fill="none"/>
+                </svg>`,
+                sniper: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="bgSniper" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e293b"/><stop offset="100%" stop-color="#090d16"/></linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#bgSniper)"/>
+                    <path d="M14 98 C14 72, 86 72, 86 98 Z" fill="#365314"/>
+                    <rect x="33" y="75" width="34" height="23" rx="3" fill="#4d7c0f"/>
+                    <rect x="43" y="62" width="14" height="16" rx="4" fill="#c68b59"/>
+                    <path d="M33 40 C33 26, 67 26, 67 40 L66 57 C66 67, 34 67, 34 57 Z" fill="#d49b6a"/>
+                    <path d="M33 50 C33 65, 67 65, 67 50 L64 60 C56 66, 44 66, 36 60 Z" fill="#cbd5e1"/>
+                    <path d="M43 56 Q50 53 57 56" stroke="#94a3b8" stroke-width="2.5" fill="none"/>
+                    <path d="M31 33 C31 19, 69 19, 69 33 Z" fill="#3f6212"/>
+                    <path d="M27 33 L73 33 L68 38 L32 38 Z" fill="#1a2e05"/>
+                    <path d="M37 42 L46 44 M54 44 L63 42" stroke="#334155" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="42" cy="46" r="2.1" fill="#0f172a"/>
+                    <circle cx="58" cy="46" r="2.1" fill="#0f172a"/>
+                </svg>`,
+                male: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="bgMale" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e293b"/><stop offset="100%" stop-color="#090d16"/></linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#bgMale)"/>
+                    <path d="M14 98 C14 72, 86 72, 86 98 Z" fill="#1e293b"/>
+                    <rect x="34" y="75" width="32" height="23" rx="3" fill="#4b5563"/>
+                    <rect x="43" y="62" width="14" height="16" rx="4" fill="#c68b59"/>
+                    <path d="M33 41 C33 27, 67 27, 67 41 L66 57 C66 67, 34 67, 34 57 Z" fill="#d49b6a"/>
+                    <path d="M32 37 C31 20, 69 20, 68 37 C63 29, 37 29, 32 37 Z" fill="#e2e8f0"/>
+                    <path d="M34 51 C34 65, 66 65, 66 51 L63 60 C55 66, 45 66, 37 60 Z" fill="#cbd5e1"/>
+                    <path d="M38 43 L46 45 M54 45 L62 43" stroke="#475569" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="42" cy="47" r="2.1" fill="#0f172a"/>
+                    <circle cx="58" cy="47" r="2.1" fill="#0f172a"/>
+                </svg>`
+            };
+
+            function getPortraitWithMusicState(key) {
+                let actualKey = key;
+                if (key === 'mall' && player && player.hasMolleVest) {
+                    actualKey = 'mall_geared';
+                }
+                const base = PORTRAIT_SVGS[actualKey] || PORTRAIT_SVGS.male;
+                if (!sfx.musicEnabled) return base;
+                const earbudOverlay = `<circle cx="33" cy="51" r="2.7" fill="#ffffff" stroke="#090d16" stroke-width="0.8"/><path d="M33 53 Q31 66 36 80" stroke="#ffffff" stroke-width="1.6" fill="none"/></svg>`;
+                return base.replace('</svg>', earbudOverlay);
             }
 
-            function populateStartCardAvatars() {
-                const map = {
-                    avatarTraining: 'young_yael',
-                    avatarMall: 'mall',
-                    avatarCbd: 'female',
-                    avatarSuburbs: 'male',
-                    avatarSniper: 'sniper'
-                };
-                Object.keys(map).forEach((id) => {
-                    const el = document.getElementById(id);
-                    if (el) el.innerHTML = getPortraitSVG(map[id], false);
-                });
+            function updatePortraitSVG(gender) {
+                const el = document.getElementById('portrait');
+                if (el) el.innerHTML = getPortraitWithMusicState(gender);
+                const monoEl = document.getElementById('monoAvatar');
+                if (monoEl) monoEl.innerHTML = getPortraitWithMusicState(gender);
             }
 
-            // ============================================================================
-            // SMARTPHONE COMMS & CHECKPOINT MESSENGER CUTSCENE ENGINE
-            // ============================================================================
-            function showBanner(text, duration = 2000) {
+            document.getElementById('avatarTraining').innerHTML = PORTRAIT_SVGS.training;
+            document.getElementById('avatarMall').innerHTML = PORTRAIT_SVGS.mall;
+            document.getElementById('avatarCbd').innerHTML = PORTRAIT_SVGS.female;
+            document.getElementById('avatarSniper').innerHTML = PORTRAIT_SVGS.sniper;
+            document.getElementById('avatarSuburbs').innerHTML = PORTRAIT_SVGS.male;
+            updatePortraitSVG('training');
+
+            function showBanner(text, duration = 2200, isExec = false) {
                 const banner = document.getElementById('promptBanner');
                 banner.innerText = text;
+                banner.classList.toggle('exec-ready', isExec);
                 banner.classList.add('visible');
                 if (bannerTimer) clearTimeout(bannerTimer);
                 bannerTimer = setTimeout(() => {
                     banner.classList.remove('visible');
+                    banner.classList.remove('exec-ready');
                 }, duration);
             }
 
-            function showPhoneMessage(sender, timeStr, message, duration = 6400) {
+            function showPhoneMessage(sender, timeStr, message, duration = 5200) {
                 const toast = document.getElementById('phoneToast');
-                if (!toast) return;
-                document.getElementById('phoneSender').innerText = sender;
-                document.getElementById('phoneTime').innerText = timeStr;
-                document.getElementById('phoneMsg').innerText = message;
+                const senderEl = document.getElementById('phoneSender');
+                const timeEl = document.getElementById('phoneTime');
+                const msgEl = document.getElementById('phoneMsg');
+                if (!toast || !senderEl || !timeEl || !msgEl) return;
+
+                senderEl.innerText = sender;
+                timeEl.innerText = timeStr;
+                msgEl.innerText = message;
                 toast.classList.add('visible');
                 sfx.playPhonePing();
+
                 if (phoneTimer) clearTimeout(phoneTimer);
                 phoneTimer = setTimeout(() => {
                     toast.classList.remove('visible');
                 }, duration);
             }
 
+            function showMonologue(tag, text, duration = 5400) {
+                const toast = document.getElementById('monologueToast');
+                const tagEl = document.getElementById('monoTag');
+                const textEl = document.getElementById('monoText');
+                if (!toast || !tagEl || !textEl) return;
+
+                if (player) {
+                    const monoEl = document.getElementById('monoAvatar');
+                    if (monoEl) monoEl.innerHTML = getPortraitWithMusicState(player.gender);
+                }
+                tagEl.innerText = tag;
+                textEl.innerText = `"${text}"`;
+                toast.classList.add('visible');
+
+                if (monoTimer) clearTimeout(monoTimer);
+                monoTimer = setTimeout(() => {
+                    toast.classList.remove('visible');
+                }, duration);
+            }
+
+            // ============================================================================
+            // CHECKPOINT SMARTPHONE MESSENGER CUTSCENE SYSTEM (MANUAL CLICK/TAP ADVANCE)
+            // ============================================================================
             const phoneCutscene = {
                 active: false,
                 messages: [],
                 index: 0,
-                typingTimer: null,
+                onComplete: null,
 
                 start(config) {
-                    if (!config || !config.messages || config.messages.length === 0) return;
                     this.active = true;
-                    this.messages = config.messages;
+                    this.messages = config.messages || [];
                     this.index = 0;
+                    this.onComplete = config.onComplete || null;
 
-                    gameState = 'cutscene';
                     mouse.down = false;
+                    mouse.rightDown = false;
                     touchInput.firing = false;
-                    syncMobileControlsVisibility();
+                    keys = {};
 
                     const overlay = document.getElementById('cutsceneOverlay');
-                    const stream = document.getElementById('phoneChatStream');
+                    const clockEl = document.getElementById('phoneClockTop');
                     const opsecEl = document.getElementById('phoneOpsecBanner');
-                    document.getElementById('phoneClockTop').innerText = config.clock || '07:00 AM';
-                    opsecEl.innerText = config.opsec || 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)';
-                    opsecEl.classList.toggle('training-banner', Boolean(config.isTraining));
-                    document.getElementById('phoneContactName').innerText = config.contactName || 'EXFIL RELAY';
-                    document.getElementById('phoneContactSub').innerText = config.contactSub || 'CELLULAR TOWER BACKUP // ACTIVE';
-
                     const avatarEl = document.getElementById('phoneContactAvatar');
-                    if (avatarEl) {
-                        avatarEl.innerHTML = getPortraitSVG(config.contactAvatar || 'male', false);
-                    }
+                    const nameEl = document.getElementById('phoneContactName');
+                    const subEl = document.getElementById('phoneContactSub');
+                    const streamEl = document.getElementById('phoneChatStream');
 
-                    stream.innerHTML = '';
+                    if (clockEl) clockEl.innerText = config.clock || '07:00 AM';
+                    if (opsecEl) {
+                        opsecEl.innerText = config.opsec || 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)';
+                        opsecEl.classList.toggle('training-banner', Boolean(config.isTraining));
+                    }
+                    if (avatarEl) {
+                        const avKey = config.contactAvatar || 'male';
+                        avatarEl.innerHTML = PORTRAIT_SVGS[avKey] || PORTRAIT_SVGS.male;
+                    }
+                    if (nameEl) nameEl.innerText = config.contactName || 'EXFIL OPS';
+                    if (subEl) subEl.innerHTML = config.contactSub || 'BURNER SIM &bull; CELL RELAY';
+                    if (streamEl) streamEl.innerHTML = '';
+
+                    gameState = 'cutscene';
                     overlay.classList.remove('hidden');
-                    this.revealNext();
+
+                    if (this.messages.length > 0) {
+                        this.revealNext();
+                    }
                 },
 
                 revealNext() {
                     if (!this.active) return;
-                    if (this.typingTimer) {
-                        clearTimeout(this.typingTimer);
-                        this.typingTimer = null;
-                    }
-
                     if (this.index >= this.messages.length) {
                         this.close();
                         return;
                     }
 
-                    const msg = this.messages[this.index];
-                    this.index++;
-
-                    const stream = document.getElementById('phoneChatStream');
-                    const bubble = document.createElement('div');
-                    bubble.className = `chat-bubble ${msg.side || 'incoming'}`;
-
-                    if (msg.side === 'system') {
-                        bubble.innerText = msg.text;
-                    } else {
-                        bubble.innerHTML = `
-                            <div class="chat-sender-tag">
-                                <span>${msg.sender}</span>
-                                <span>${msg.time || ''}</span>
-                            </div>
-                            <div>${msg.text}</div>
-                        `;
-                    }
-
-                    stream.appendChild(bubble);
-                    stream.scrollTop = stream.scrollHeight;
-                    sfx.playPhonePing();
-
+                    const msg = this.messages[this.index++];
+                    const streamEl = document.getElementById('phoneChatStream');
                     const typingBar = document.getElementById('phoneTypingBar');
                     const nextBtn = document.getElementById('btnCutsceneNext');
+
+                    const bubble = document.createElement('div');
+                    if (msg.side === 'system') {
+                        bubble.className = 'chat-bubble system';
+                        bubble.innerText = msg.text;
+                    } else {
+                        bubble.className = `chat-bubble ${msg.side === 'outgoing' ? 'outgoing' : 'incoming'}`;
+                        const tag = document.createElement('div');
+                        tag.className = 'chat-sender-tag';
+                        tag.innerHTML = `<span>${msg.sender || ''}</span><span>${msg.time || ''}</span>`;
+                        const body = document.createElement('div');
+                        body.innerText = msg.text;
+                        bubble.appendChild(tag);
+                        bubble.appendChild(body);
+                    }
+
+                    streamEl.appendChild(bubble);
+                    streamEl.scrollTop = streamEl.scrollHeight;
+                    sfx.playPhonePing();
 
                     if (this.index < this.messages.length) {
                         const upcoming = this.messages[this.index];
                         typingBar.innerText = upcoming.side === 'outgoing'
-                            ? 'Composing reply...'
-                            : `${upcoming.sender} is typing...`;
-                        nextBtn.innerText = isMobileDevice ? 'NEXT MESSAGE' : 'NEXT [SPACE]';
-
-                        this.typingTimer = setTimeout(() => {
-                            if (this.active) this.revealNext();
-                        }, 1850);
+                            ? 'Click / Tap or press [SPACE] to send reply...'
+                            : `${upcoming.sender} sent a message — Click / Tap or [SPACE] to read next...`;
+                        nextBtn.innerText = isMobileDevice ? 'NEXT MESSAGE' : 'NEXT [CLICK / SPACE]';
                     } else {
-                        typingBar.innerText = 'End of transmission — standing by.';
-                        nextBtn.innerText = isMobileDevice ? 'RESUME ACTION' : 'RESUME [SPACE]';
+                        typingBar.innerText = 'End of transmission — Click / Tap or press [SPACE] to resume.';
+                        nextBtn.innerText = isMobileDevice ? 'RESUME ACTION' : 'RESUME [CLICK / SPACE]';
                     }
                 },
 
                 close() {
-                    if (this.typingTimer) {
-                        clearTimeout(this.typingTimer);
-                        this.typingTimer = null;
-                    }
+                    if (!this.active) return;
                     this.active = false;
                     document.getElementById('cutsceneOverlay').classList.add('hidden');
-                    if (gameState === 'cutscene') {
-                        gameState = 'playing';
-                        syncMobileControlsVisibility();
-                    }
+                    gameState = 'playing';
+                    syncMobileControlsVisibility();
+                    lastTime = performance.now();
+                    const cb = this.onComplete;
+                    this.onComplete = null;
+                    if (cb) cb();
                 }
             };
 
             document.getElementById('btnCutsceneNext').addEventListener('click', () => phoneCutscene.revealNext());
             document.getElementById('btnCutsceneSkip').addEventListener('click', () => phoneCutscene.close());
             document.getElementById('phoneChatStream').addEventListener('click', () => phoneCutscene.revealNext());
+            document.getElementById('phoneChassis').addEventListener('click', (e) => {
+                if (e.target && (e.target.id === 'btnCutsceneSkip' || e.target.id === 'btnCutsceneNext')) return;
+                if (e.target && e.target.closest('#phoneChatStream')) return;
+                phoneCutscene.revealNext();
+            });
 
             // ============================================================================
             // INPUT HANDLERS
@@ -436,6 +622,11 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 if (gameState !== 'playing' || !player) return;
 
+                if ((k === 'c' || e.key === 'Control') && !player.vehicle) {
+                    e.preventDefault();
+                    player.toggleSneak();
+                }
+
                 if (k === 'b' && !player.vehicle) {
                     player.toggleAmmoLoad();
                 }
@@ -445,28 +636,30 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
 
                 if (k === 'f' && !player.vehicle) {
-                    player.toggleFlashlight();
+                    player.toggleUtilityLight();
                 }
 
                 if (k === 't' && !player.vehicle) {
                     player.toggleStrobe();
                 }
 
-                if (['1', '2', '3', '4', '5', '6'].includes(e.key) && !player.vehicle) {
-                    const idx = parseInt(e.key, 10) - 1;
-                    if (WEAPONS[idx] && WEAPONS[idx].unlocked) {
-                        player.wepIdx = idx;
-                        player.isReloading = false;
-                        updateHUD();
-                    }
-                }
+                if (k === '1') player.switchWeapon(0);
+                if (k === '2') player.switchWeapon(1);
+                if (k === '3') player.switchWeapon(2);
+                if (k === '4') player.switchWeapon(3);
+                if (k === '5') player.switchWeapon(4);
 
                 if (k === 'r' && !player.vehicle) {
-                    player.reloadWeapon();
+                    player.reload();
                 }
 
                 if (k === 'e') {
-                    player.toggleVehicle();
+                    eKeyJustPressed = true;
+                    player.handleContextInteract();
+                }
+
+                if (k === 'h' && player.vehicle) {
+                    sfx.playHorn();
                 }
             });
 
@@ -482,26 +675,36 @@ import { createAudioEngine } from './audio/sfx.js';
             });
 
             window.addEventListener('mousedown', (e) => {
-                if (gameState === 'cutscene') return;
+                if (e.target && e.target.closest && (
+                    e.target.closest('.modal-overlay') ||
+                    e.target.closest('#cutsceneOverlay') ||
+                    e.target.closest('#mobileControls') ||
+                    e.target.closest('.wep-slot') ||
+                    e.target.closest('#radioStatus') ||
+                    e.target.closest('#opticsStatus') ||
+                    e.target.closest('#stanceStatus') ||
+                    e.target.closest('#ammoTypeToggle')
+                )) {
+                    return;
+                }
                 if (e.button === 0) {
                     mouse.down = true;
                     mouse.justClicked = true;
-                    sfx.init();
                 } else if (e.button === 2) {
                     mouse.rightDown = true;
                 }
             });
 
             window.addEventListener('mouseup', (e) => {
-                if (e.button === 0) {
-                    mouse.down = false;
-                } else if (e.button === 2) {
-                    mouse.rightDown = false;
-                }
+                if (e.button === 0) mouse.down = false;
+                if (e.button === 2) mouse.rightDown = false;
             });
 
             canvas.addEventListener('contextmenu', (e) => e.preventDefault());
             document.getElementById('radioStatus').addEventListener('click', () => sfx.toggleMusic());
+            document.getElementById('stanceStatus').addEventListener('click', () => {
+                if (gameState === 'playing' && player && !player.vehicle) player.toggleSneak();
+            });
             document.getElementById('opticsStatus').addEventListener('click', () => {
                 if (gameState === 'playing' && player && !player.vehicle) player.cycleOptics();
             });
@@ -512,103 +715,89 @@ import { createAudioEngine } from './audio/sfx.js';
             window.addEventListener('wheel', (e) => {
                 if (gameState !== 'playing' || !player || player.vehicle) return;
                 const dir = e.deltaY > 0 ? 1 : -1;
-                let next = player.wepIdx;
-                for (let i = 0; i < WEAPONS.length; i++) {
+                let next = player.weaponIdx;
+                for (let step = 0; step < WEAPONS.length; step++) {
                     next = (next + dir + WEAPONS.length) % WEAPONS.length;
                     if (WEAPONS[next].unlocked) {
-                        player.wepIdx = next;
-                        player.isReloading = false;
-                        updateHUD();
+                        player.switchWeapon(next);
                         break;
                     }
                 }
             });
 
             // ============================================================================
-            // PLATFORM DETECTION & MOBILE TOUCH CONTROLS
+            // PLATFORM DETECTION (MOBILE TOUCH vs. DESKTOP)
             // ============================================================================
-            function syncMobileControlsVisibility() {
-                const mobEl = document.getElementById('mobileControls');
-                if (!mobEl) return;
-                if (isMobileDevice && gameState === 'playing') {
-                    mobEl.classList.remove('hidden');
-                } else {
-                    mobEl.classList.add('hidden');
-                }
-            }
-
             function detectPlatform() {
                 const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-                const coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-                const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                const detected = Boolean(mobileUA || (hasTouch && (coarsePointer || window.innerWidth <= 920)));
+                const smallViewport = window.innerWidth <= 920;
+                const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+                isMobileDevice = Boolean(mobileUA || (hasTouch && smallViewport));
 
-                if (detected !== isMobileDevice) {
-                    isMobileDevice = detected;
-                    document.body.classList.toggle('mobile-mode', isMobileDevice);
+                document.body.classList.toggle('mobile-mode', isMobileDevice);
+                const mobileEl = document.getElementById('mobileControls');
+                if (mobileEl) {
+                    mobileEl.classList.toggle('hidden', !isMobileDevice);
+                }
 
-                    const controlsGrid = document.getElementById('controlsGrid');
-                    if (controlsGrid) {
-                        if (isMobileDevice) {
-                            controlsGrid.innerHTML = `
-                                <div><strong>Left Stick:</strong> Move &amp; Drive</div>
-                                <div><strong>Right Stick:</strong> Aim &amp; Auto-Fire</div>
-                                <div><strong>Optics / Light:</strong> NVG/FLIR &bull; Beam &bull; Strobe</div>
-                                <div><strong>Ammo Badge:</strong> Tap to Swap FMJ / +P JHP</div>
-                                <div><strong>Reload Button:</strong> Toss Mag (Forfeits Rounds)</div>
-                                <div><strong>Weapon Bar:</strong> Tap Slots to Switch</div>
-                            `;
-                        } else {
-                            controlsGrid.innerHTML = `
-                                <div><strong>WASD / Arrows:</strong> Move &amp; Drive</div>
-                                <div><strong>LMB / RMB:</strong> Fire &amp; Sniper Scope</div>
-                                <div><strong>M (iPods):</strong> Toggle Earbuds + 150 BPM Psytrance / Metal</div>
-                                <div><strong>V / F / T / B:</strong> Optics &bull; Light &bull; Strobe &bull; FMJ/JHP</div>
-                                <div><strong>R (Reload):</strong> Toss Mag (Forfeits Leftover Rounds)</div>
-                                <div><strong>1–6 / E / H:</strong> Weapons &bull; Vehicle &bull; Horn</div>
-                            `;
-                        }
+                const controlsGrid = document.getElementById('controlsGrid');
+                if (controlsGrid) {
+                    if (isMobileDevice) {
+                        controlsGrid.innerHTML = `
+                            <div><strong>Left Stick:</strong> Run &amp; Drive (<strong>SNEAK:</strong> Crouch)</div>
+                            <div><strong>Right Stick:</strong> Aim &amp; Auto-Fire</div>
+                            <div><strong>Optics / Light:</strong> NVG/FLIR &bull; Beam &bull; Strobe</div>
+                            <div><strong>USE [E] Button:</strong> Talk &bull; Stairs &bull; Boot &bull; Execute</div>
+                            <div><strong>Reload Button:</strong> Toss Mag (Forfeits Rounds)</div>
+                            <div><strong>Weapon Bar:</strong> Tap Slots to Switch</div>
+                        `;
+                    } else {
+                        controlsGrid.innerHTML = `
+                            <div><strong>WASD / Arrows:</strong> Run &amp; Drive (<strong>C:</strong> Toggle Sneak)</div>
+                            <div><strong>LMB / RMB:</strong> Fire &amp; Sniper Scope</div>
+                            <div><strong>M (iPods):</strong> Toggle Earbuds + 150 BPM Psytrance / Metal</div>
+                            <div><strong>V / F / T / B:</strong> Optics &bull; Light &bull; Strobe &bull; FMJ/JHP</div>
+                            <div><strong>E (Interact):</strong> Talk &bull; Stairs &bull; Boot &bull; Execute</div>
+                            <div><strong>R (Reload):</strong> Toss Mag (Forfeits Leftover Rounds)</div>
+                        `;
                     }
-                    syncMobileControlsVisibility();
                 }
             }
 
-            function initMobileControls() {
-                const leftZone = document.getElementById('leftStickZone');
+            function initMobileTouchControls() {
+                detectPlatform();
+
                 const leftBase = document.getElementById('leftStickBase');
                 const leftKnob = document.getElementById('leftStickKnob');
-
-                const rightZone = document.getElementById('rightStickZone');
                 const rightBase = document.getElementById('rightStickBase');
                 const rightKnob = document.getElementById('rightStickKnob');
 
                 let leftTouchId = null;
                 let rightTouchId = null;
-                const maxRadius = 38;
+                const maxRadius = 40;
 
-                function handleStickMove(touch, baseEl, knobEl, isLeft) {
+                function updateStick(touch, baseEl, knobEl, isLeft) {
                     const rect = baseEl.getBoundingClientRect();
                     const cx = rect.left + rect.width / 2;
                     const cy = rect.top + rect.height / 2;
-                    const dx = touch.clientX - cx;
-                    const dy = touch.clientY - cy;
+                    let dx = touch.clientX - cx;
+                    let dy = touch.clientY - cy;
                     const dist = Math.hypot(dx, dy);
-                    const clamped = Math.min(dist, maxRadius);
-                    const ang = Math.atan2(dy, dx);
-                    const nx = dist > 0.001 ? (Math.cos(ang) * clamped) : 0;
-                    const ny = dist > 0.001 ? (Math.sin(ang) * clamped) : 0;
-
-                    knobEl.style.transform = `translate(${nx}px, ${ny}px)`;
+                    if (dist > maxRadius) {
+                        dx = (dx / dist) * maxRadius;
+                        dy = (dy / dist) * maxRadius;
+                    }
+                    knobEl.style.transform = `translate(${dx}px, ${dy}px)`;
 
                     if (isLeft) {
-                        touchInput.moveX = nx / maxRadius;
-                        touchInput.moveY = ny / maxRadius;
+                        touchInput.moveX = dx / maxRadius;
+                        touchInput.moveY = dy / maxRadius;
                     } else {
-                        if (dist > 6) {
-                            touchInput.aimAngle = ang;
+                        if (dist > 8) {
                             touchInput.aimActive = true;
+                            touchInput.aimAngle = Math.atan2(dy, dx);
                         }
-                        if (dist > 14) {
+                        if (dist > 15) {
                             if (!touchInput.firing) touchInput.justFired = true;
                             touchInput.firing = true;
                         } else {
@@ -617,72 +806,72 @@ import { createAudioEngine } from './audio/sfx.js';
                     }
                 }
 
-                leftZone.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    sfx.init();
-                    if (leftTouchId === null && e.changedTouches.length > 0) {
-                        const t = e.changedTouches[0];
-                        leftTouchId = t.identifier;
-                        handleStickMove(t, leftBase, leftKnob, true);
+                function resetStick(knobEl, isLeft) {
+                    knobEl.style.transform = 'translate(0px, 0px)';
+                    if (isLeft) {
+                        touchInput.moveX = 0;
+                        touchInput.moveY = 0;
+                    } else {
+                        touchInput.aimActive = false;
+                        touchInput.firing = false;
                     }
+                }
+
+                leftBase.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (leftTouchId !== null) return;
+                    const t = e.changedTouches[0];
+                    leftTouchId = t.identifier;
+                    updateStick(t, leftBase, leftKnob, true);
                 }, { passive: false });
 
-                leftZone.addEventListener('touchmove', (e) => {
+                leftBase.addEventListener('touchmove', (e) => {
                     e.preventDefault();
                     for (let i = 0; i < e.changedTouches.length; i++) {
-                        const t = e.changedTouches[i];
-                        if (t.identifier === leftTouchId) {
-                            handleStickMove(t, leftBase, leftKnob, true);
+                        if (e.changedTouches[i].identifier === leftTouchId) {
+                            updateStick(e.changedTouches[i], leftBase, leftKnob, true);
                         }
                     }
                 }, { passive: false });
 
-                function resetLeftStick(e) {
+                const endLeft = (e) => {
                     for (let i = 0; i < e.changedTouches.length; i++) {
                         if (e.changedTouches[i].identifier === leftTouchId) {
                             leftTouchId = null;
-                            touchInput.moveX = 0;
-                            touchInput.moveY = 0;
-                            leftKnob.style.transform = 'translate(0px, 0px)';
+                            resetStick(leftKnob, true);
                         }
                     }
-                }
-                leftZone.addEventListener('touchend', resetLeftStick);
-                leftZone.addEventListener('touchcancel', resetLeftStick);
+                };
+                leftBase.addEventListener('touchend', endLeft);
+                leftBase.addEventListener('touchcancel', endLeft);
 
-                rightZone.addEventListener('touchstart', (e) => {
+                rightBase.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    sfx.init();
-                    if (rightTouchId === null && e.changedTouches.length > 0) {
-                        const t = e.changedTouches[0];
-                        rightTouchId = t.identifier;
-                        touchInput.justFired = true;
-                        handleStickMove(t, rightBase, rightKnob, false);
-                    }
+                    if (rightTouchId !== null) return;
+                    const t = e.changedTouches[0];
+                    rightTouchId = t.identifier;
+                    updateStick(t, rightBase, rightKnob, false);
                 }, { passive: false });
 
-                rightZone.addEventListener('touchmove', (e) => {
+                rightBase.addEventListener('touchmove', (e) => {
                     e.preventDefault();
                     for (let i = 0; i < e.changedTouches.length; i++) {
-                        const t = e.changedTouches[i];
-                        if (t.identifier === rightTouchId) {
-                            handleStickMove(t, rightBase, rightKnob, false);
+                        if (e.changedTouches[i].identifier === rightTouchId) {
+                            updateStick(e.changedTouches[i], rightBase, rightKnob, false);
                         }
                     }
                 }, { passive: false });
 
-                function resetRightStick(e) {
+                const endRight = (e) => {
                     for (let i = 0; i < e.changedTouches.length; i++) {
                         if (e.changedTouches[i].identifier === rightTouchId) {
                             rightTouchId = null;
-                            touchInput.aimActive = false;
-                            touchInput.firing = false;
-                            rightKnob.style.transform = 'translate(0px, 0px)';
+                            resetStick(rightKnob, false);
                         }
                     }
-                }
-                rightZone.addEventListener('touchend', resetRightStick);
-                rightZone.addEventListener('touchcancel', resetRightStick);
+                };
+                rightBase.addEventListener('touchend', endRight);
+                rightBase.addEventListener('touchcancel', endRight);
 
                 const btnSprint = document.getElementById('btnSprint');
                 btnSprint.addEventListener('touchstart', (e) => {
@@ -701,33 +890,27 @@ import { createAudioEngine } from './audio/sfx.js';
                 const btnReload = document.getElementById('btnReload');
                 btnReload.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    if (player && !player.vehicle) player.reloadWeapon();
+                    if (player && !player.vehicle) player.reload();
                 }, { passive: false });
 
                 const btnVehicle = document.getElementById('btnVehicle');
                 btnVehicle.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    if (player) player.toggleVehicle();
+                    if (player) player.handleContextInteract();
                 }, { passive: false });
 
                 const btnOptics = document.getElementById('btnOptics');
                 btnOptics.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    if (player && !player.vehicle) player.cycleOptics();
+                    if (!player || player.vehicle) return;
+                    player.cycleOptics();
                 }, { passive: false });
 
                 const btnUtil = document.getElementById('btnUtil');
                 btnUtil.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    if (!player) return;
-                    if (player.vehicle) {
-                        sfx.playHorn();
-                    } else if (player.hasFlashlight) {
-                        player.toggleFlashlight();
-                    } else {
-                        touchInput.scopeActive = !touchInput.scopeActive;
-                        btnUtil.classList.toggle('active', touchInput.scopeActive);
-                    }
+                    if (!player || player.vehicle) return;
+                    player.toggleUtilityLight();
                 }, { passive: false });
 
                 const btnStrobe = document.getElementById('btnStrobe');
@@ -737,193 +920,21 @@ import { createAudioEngine } from './audio/sfx.js';
                     player.toggleStrobe();
                 }, { passive: false });
 
+                const btnSneak = document.getElementById('btnSneak');
+                btnSneak.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (!player || player.vehicle) return;
+                    player.toggleSneak();
+                }, { passive: false });
+
                 window.addEventListener('resize', detectPlatform);
-                window.addEventListener('touchstart', () => {
-                    if (!isMobileDevice) detectPlatform();
-                }, { once: true, passive: true });
             }
 
             // ============================================================================
-            // PERSISTENT DECALS, BRASS SHELLS, TOSSED MAGAZINES & PARTICLES
+            // PARTICLES, BLOOD DECALS, SHELL CASINGS, TOSSED MAGAZINES & PICKUPS
             // ============================================================================
-            class Decal {
-                constructor(x, y, type, angle = 0, size = 6) {
-                    this.x = x;
-                    this.y = y;
-                    this.type = type;
-                    this.angle = angle;
-                    this.size = size;
-                    this.alpha = type === 'skid' ? 0.34 : (type === 'scorch' ? 0.52 : (type === 'bb_scatter' ? 0.85 : 0.72));
-                }
-                draw(ctx) {
-                    ctx.save();
-                    ctx.translate(this.x, this.y);
-                    ctx.rotate(this.angle);
-                    ctx.globalAlpha = this.alpha;
-                    if (this.type === 'bb_scatter') {
-                        ctx.fillStyle = '#f8fafc';
-                        for (let i = 0; i < 4; i++) {
-                            ctx.beginPath();
-                            ctx.arc(Math.cos(i * 1.7) * 5, Math.sin(i * 2.1) * 5, 1.5, 0, Math.PI * 2);
-                            ctx.fill();
-                        }
-                    } else if (this.type === 'blood') {
-                        ctx.fillStyle = '#7f1d1d';
-                        ctx.beginPath();
-                        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.beginPath();
-                        ctx.arc(this.size * 0.65, this.size * 0.3, this.size * 0.45, 0, Math.PI * 2);
-                        ctx.fill();
-                    } else if (this.type === 'scorch') {
-                        const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, this.size);
-                        grad.addColorStop(0, 'rgba(9, 13, 22, 0.92)');
-                        grad.addColorStop(0.6, 'rgba(28, 25, 23, 0.58)');
-                        grad.addColorStop(1, 'rgba(28, 25, 23, 0)');
-                        ctx.fillStyle = grad;
-                        ctx.beginPath();
-                        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
-                        ctx.fill();
-                    } else if (this.type === 'skid') {
-                        ctx.fillStyle = '#090d16';
-                        ctx.fillRect(-this.size, -2.5, this.size * 2, 5);
-                    }
-                    ctx.restore();
-                }
-            }
-
-            class Shell {
-                constructor(x, y, ejectAngle) {
-                    this.x = x;
-                    this.y = y;
-                    this.z = 12;
-                    const speed = Math2.rand(70, 145);
-                    this.vx = Math.cos(ejectAngle) * speed;
-                    this.vy = Math.sin(ejectAngle) * speed;
-                    this.vz = Math2.rand(75, 130);
-                    this.rot = Math2.rand(0, Math.PI * 2);
-                    this.vRot = Math2.rand(-18, 18);
-                    this.settled = false;
-                }
-                update(dt) {
-                    if (this.settled) return;
-                    this.x += this.vx * dt;
-                    this.y += this.vy * dt;
-                    this.z += this.vz * dt;
-                    this.vz -= 480 * dt;
-                    this.rot += this.vRot * dt;
-
-                    if (this.z <= 0) {
-                        this.z = 0;
-                        if (Math.abs(this.vz) > 35) {
-                            this.vz = -this.vz * 0.42;
-                            this.vx *= 0.55;
-                            this.vy *= 0.55;
-                            this.vRot *= 0.5;
-                        } else {
-                            this.settled = true;
-                        }
-                    }
-                }
-                draw(ctx) {
-                    ctx.save();
-                    ctx.translate(this.x, this.y - this.z * 0.35);
-                    ctx.rotate(this.rot);
-                    ctx.fillStyle = this.settled ? '#b45309' : '#facc15';
-                    ctx.fillRect(-2.4, -1.1, 4.8, 2.2);
-                    ctx.restore();
-                }
-            }
-
-            class DroppedMag {
-                constructor(x, y, tossAngle, wepId, hasLiveRounds = false) {
-                    this.x = x;
-                    this.y = y;
-                    this.z = 14;
-                    const speed = Math2.rand(95, 165);
-                    this.vx = Math.cos(tossAngle) * speed;
-                    this.vy = Math.sin(tossAngle) * speed;
-                    this.vz = Math2.rand(95, 145);
-                    this.rot = tossAngle + Math2.rand(-0.5, 0.5);
-                    this.vRot = Math2.rand(-14, 14);
-                    this.wepId = wepId;
-                    this.hasLiveRounds = hasLiveRounds;
-                    this.settled = false;
-                }
-
-                update(dt) {
-                    if (this.settled) return;
-                    this.x += this.vx * dt;
-                    this.y += this.vy * dt;
-                    this.z += this.vz * dt;
-                    this.vz -= 510 * dt;
-                    this.rot += this.vRot * dt;
-
-                    if (this.z <= 0) {
-                        this.z = 0;
-                        if (Math.abs(this.vz) > 42) {
-                            this.vz = -this.vz * 0.38;
-                            this.vx *= 0.5;
-                            this.vy *= 0.5;
-                            this.vRot *= 0.45;
-                            sfx.playMagClatter();
-                        } else {
-                            this.settled = true;
-                        }
-                    }
-                }
-
-                draw(ctx) {
-                    ctx.save();
-                    ctx.translate(this.x, this.y - this.z * 0.35);
-                    ctx.rotate(this.rot);
-
-                    if (!this.settled && this.z > 1) {
-                        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-                        ctx.fillRect(-5, this.z * 0.35 - 2, 11, 5);
-                    }
-
-                    if (this.wepId === 'flamethrower') {
-                        ctx.fillStyle = '#ea580c';
-                        ctx.fillRect(-6, -3.5, 12, 7);
-                        ctx.fillStyle = '#facc15';
-                        ctx.fillRect(-2, -3.5, 4, 7);
-                    } else if (this.wepId === 'shotgun') {
-                        ctx.fillStyle = '#dc2626';
-                        ctx.fillRect(-4, -1.6, 6, 3.2);
-                        ctx.fillStyle = '#facc15';
-                        ctx.fillRect(2, -1.6, 2.2, 3.2);
-                    } else {
-                        const isRifle = (this.wepId === 'lm4' || this.wepId === 'ar15' || this.wepId === 'ak47' || this.wepId === 'airsoft_aeg');
-                        const len = isRifle ? 12 : 9.5;
-                        const wid = isRifle ? 4.4 : 3.8;
-
-                        ctx.fillStyle = this.wepId === 'ak47' ? '#78350f' : '#1e293b';
-                        ctx.fillRect(-len / 2, -wid / 2, len, wid);
-                        ctx.strokeStyle = '#64748b';
-                        ctx.lineWidth = 0.8;
-                        ctx.strokeRect(-len / 2, -wid / 2, len, wid);
-
-                        if (this.wepId === 'glock26' || this.wepId === 'airsoft_pistol') {
-                            ctx.fillStyle = '#ec4899';
-                            ctx.fillRect(-len / 2 - 1.5, -wid / 2 - 0.5, 2.6, wid + 1);
-                        } else {
-                            ctx.fillStyle = '#475569';
-                            ctx.fillRect(-len / 2 - 1.2, -wid / 2 - 0.4, 2.2, wid + 0.8);
-                        }
-
-                        if (this.hasLiveRounds) {
-                            ctx.fillStyle = (this.wepId === 'airsoft_pistol' || this.wepId === 'airsoft_aeg') ? '#f8fafc' : '#facc15';
-                            ctx.fillRect(len / 2 - 1.5, -wid / 2 + 0.7, 2.6, wid - 1.4);
-                        }
-                    }
-
-                    ctx.restore();
-                }
-            }
-
             class Particle {
-                constructor(x, y, angle, color, size, speed, life) {
+                constructor(x, y, angle, color, size, speed, life, gravity = 0) {
                     this.x = x;
                     this.y = y;
                     this.vx = Math.cos(angle) * speed;
@@ -932,18 +943,22 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.size = size;
                     this.life = life;
                     this.maxLife = life;
+                    this.gravity = gravity;
                 }
+
                 update(dt) {
                     this.x += this.vx * dt;
                     this.y += this.vy * dt;
-                    this.vx *= Math.pow(0.08, dt);
-                    this.vy *= Math.pow(0.08, dt);
+                    this.vy += this.gravity * dt;
+                    this.vx *= Math.pow(0.06, dt);
+                    this.vy *= Math.pow(0.06, dt);
                     this.life -= dt;
                 }
+
                 draw(ctx) {
                     if (this.life <= 0) return;
                     ctx.save();
-                    ctx.globalAlpha = Math2.clamp(this.life / this.maxLife, 0, 1);
+                    ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
                     ctx.fillStyle = this.color;
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -952,116 +967,156 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
             }
 
-            function createBlood(x, y, angle, count = 6) {
-                if (decals.length > 520) decals.shift();
-                decals.push(new Decal(x + Math2.rand(-6, 6), y + Math2.rand(-6, 6), 'blood', Math2.rand(0, Math.PI * 2), Math2.rand(4, 10)));
-                for (let i = 0; i < count; i++) {
-                    const spread = angle + Math2.rand(-0.7, 0.7);
-                    particles.push(new Particle(x, y, spread, '#b91c1c', Math2.rand(2, 4.5), Math2.rand(50, 180), Math2.rand(0.2, 0.45)));
-                }
-            }
-
-            function createBBHit(x, y, angle) {
-                if (decals.length > 520) decals.shift();
-                decals.push(new Decal(x + Math2.rand(-4, 4), y + Math2.rand(-4, 4), 'bb_scatter', Math2.rand(0, Math.PI * 2), 4));
-                for (let i = 0; i < 6; i++) {
-                    const spread = angle + Math.PI + Math2.rand(-0.9, 0.9);
-                    particles.push(new Particle(x, y, spread, '#f8fafc', 2.0, Math2.rand(65, 165), Math2.rand(0.16, 0.3)));
-                }
-            }
-
-            function createExplosion(x, y, radius = 140, maxDmg = 130) {
-                sfx.playExplosion();
-                camera.shake = Math.max(camera.shake, 18);
-                if (decals.length > 520) decals.shift();
-                decals.push(new Decal(x, y, 'scorch', 0, radius * 0.55));
-
-                for (let i = 0; i < 42; i++) {
-                    const ang = Math2.rand(0, Math.PI * 2);
-                    const spd = Math2.rand(60, 380);
-                    const col = i % 3 === 0 ? '#facc15' : (i % 3 === 1 ? '#f97316' : '#334155');
-                    particles.push(new Particle(x, y, ang, col, Math2.rand(3, 8), spd, Math2.rand(0.35, 0.85)));
-                }
-
-                if (player && player.hp > 0) {
-                    const d = Math2.dist(x, y, player.x, player.y);
-                    if (d < radius) {
-                        player.takeDamage(Math.round(maxDmg * (1 - d / radius)));
-                    }
-                }
-
-                for (let i = 0; i < enemies.length; i++) {
-                    const e = enemies[i];
-                    if (e.hp <= 0) continue;
-                    const d = Math2.dist(x, y, e.x, e.y);
-                    if (d < radius) {
-                        e.takeDamage(Math.round(maxDmg * (1 - d / radius)), Math2.angle(x, y, e.x, e.y), true);
-                    }
-                }
-
-                for (let i = 0; i < vehicles.length; i++) {
-                    const v = vehicles[i];
-                    if (v.destroyed) continue;
-                    const d = Math2.dist(x, y, v.x, v.y);
-                    if (d < radius && d > 5) {
-                        v.takeDamage(Math.round(maxDmg * 0.75 * (1 - d / radius)));
-                    }
-                }
-            }
-
-            function broadcastGunshot(x, y, radius = 680, isSpotterShout = false) {
-                for (let i = 0; i < enemies.length; i++) {
-                    const e = enemies[i];
-                    if (e.hp <= 0) continue;
-                    if (Math2.dist(x, y, e.x, e.y) <= radius) {
-                        if (isSpotterShout) {
-                            e.onHearSpotterShout(x, y);
-                        } else {
-                            e.onHearGunshot(x, y);
-                        }
-                    }
-                }
-                if (!isSpotterShout) {
-                    for (let i = 0; i < civilians.length; i++) {
-                        const c = civilians[i];
-                        if (Math2.dist(x, y, c.x, c.y) <= radius) {
-                            c.onHearGunshot(x, y);
-                        }
-                    }
-                }
-            }
-
-            function isPlayerIlluminatedByEnvironment() {
-                if (!player) return false;
-                if (!mission || mission.campaign !== 'mall') return true;
-                if (player.x > 3610) return true;
-                for (let i = 0; i < mallLights.length; i++) {
-                    const ml = mallLights[i];
-                    if (Math2.dist(player.x, player.y, ml.x, ml.y) < ml.r * 0.78) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            // ============================================================================
-            // FLAMETHROWER INCENDIARY STREAM
-            // ============================================================================
-            class FlameJet {
-                constructor(x, y, angle, speed, dmg, ownerType, ownerRef) {
+            class Decal {
+                constructor(x, y, type, angle = 0, scale = 1, floor = null) {
                     this.x = x;
                     this.y = y;
+                    this.type = type;
                     this.angle = angle;
+                    this.scale = scale;
+                    this.floor = floor;
+                }
+
+                draw(ctx) {
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+                    if (this.type === 'blood') {
+                        ctx.fillStyle = 'rgba(136, 19, 55, 0.72)';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, this.scale * 1.4, this.scale * 0.9, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (this.type === 'scorch') {
+                        ctx.fillStyle = 'rgba(10, 10, 12, 0.78)';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, this.scale, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (this.type === 'bb') {
+                        ctx.fillStyle = 'rgba(248, 250, 252, 0.85)';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            class Shell {
+                constructor(x, y, ejectAngle, floor = null) {
+                    this.x = x;
+                    this.y = y;
+                    this.floor = floor;
+                    const spd = Math2.rand(70, 145);
+                    this.vx = Math.cos(ejectAngle) * spd;
+                    this.vy = Math.sin(ejectAngle) * spd;
+                    this.angle = Math2.rand(0, Math.PI * 2);
+                    this.vAngle = Math2.rand(-18, 18);
+                    this.life = 4.0;
+                    this.slideTimer = 0.25;
+                }
+
+                update(dt) {
+                    this.life -= dt;
+                    if (this.slideTimer > 0) {
+                        this.slideTimer -= dt;
+                        this.x += this.vx * dt;
+                        this.y += this.vy * dt;
+                        this.angle += this.vAngle * dt;
+                        this.vx *= Math.pow(0.02, dt);
+                        this.vy *= Math.pow(0.02, dt);
+                    }
+                }
+
+                draw(ctx) {
+                    if (this.life <= 0) return;
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    ctx.save();
+                    ctx.globalAlpha = Math.min(1, this.life);
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillRect(-2.5, -1, 5, 2);
+                    ctx.restore();
+                }
+            }
+
+            class DroppedMag {
+                constructor(x, y, tossAngle, isPink = false, isAirsoft = false, forfeitedRounds = 0, floor = null) {
+                    this.x = x;
+                    this.y = y;
+                    this.floor = floor;
+                    const spd = Math2.rand(120, 195);
+                    this.vx = Math.cos(tossAngle) * spd;
+                    this.vy = Math.sin(tossAngle) * spd;
+                    this.angle = tossAngle + Math2.rand(-0.6, 0.6);
+                    this.vAngle = Math2.rand(-14, 14);
+                    this.slideTimer = 0.34;
+                    this.isPink = isPink;
+                    this.isAirsoft = isAirsoft;
+                    this.forfeitedRounds = forfeitedRounds;
+                    this.clattered = false;
+                }
+
+                update(dt) {
+                    if (this.slideTimer > 0) {
+                        this.slideTimer -= dt;
+                        this.x += this.vx * dt;
+                        this.y += this.vy * dt;
+                        this.angle += this.vAngle * dt;
+                        this.vx *= Math.pow(0.03, dt);
+                        this.vy *= Math.pow(0.03, dt);
+                        this.vAngle *= Math.pow(0.05, dt);
+
+                        if (this.slideTimer <= 0.14 && !this.clattered) {
+                            this.clattered = true;
+                            sfx.playMagClatter();
+                        }
+                    }
+                }
+
+                draw(ctx) {
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+
+                    const hopScale = this.slideTimer > 0.14 ? (1.0 + (this.slideTimer - 0.14) * 1.4) : 1.0;
+                    ctx.scale(hopScale, hopScale);
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+                    ctx.fillRect(-3.5, -1.5, 9, 5);
+
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(-4.5, -2.5, 9, 4.5);
+                    ctx.strokeStyle = '#64748b';
+                    ctx.lineWidth = 0.8;
+                    ctx.strokeRect(-4.5, -2.5, 9, 4.5);
+
+                    ctx.fillStyle = this.isPink ? '#ec4899' : '#475569';
+                    ctx.fillRect(-5.5, -3.2, 2.2, 5.8);
+
+                    if (this.forfeitedRounds > 0) {
+                        ctx.fillStyle = this.isAirsoft ? '#ffffff' : '#facc15';
+                        ctx.fillRect(3.2, -1.6, 2.4, 2.6);
+                    }
+
+                    ctx.restore();
+                }
+            }
+
+            class FlameJet {
+                constructor(x, y, angle, speed, dmg) {
+                    this.x = x;
+                    this.y = y;
                     this.vx = Math.cos(angle) * speed;
                     this.vy = Math.sin(angle) * speed;
                     this.dmg = dmg;
-                    this.ownerType = ownerType;
-                    this.ownerRef = ownerRef;
-                    this.life = 0.44;
-                    this.maxLife = 0.44;
-                    this.radius = 6;
+                    this.life = 0.42;
+                    this.maxLife = 0.42;
+                    this.r = 9;
                     this.active = true;
-                    this.hitEntities = new Set();
+                    this.hitSet = new Set();
                 }
 
                 update(dt) {
@@ -1071,82 +1126,387 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.active = false;
                         return;
                     }
-
-                    const progress = 1 - this.life / this.maxLife;
-                    this.radius = 6 + progress * 22;
-
-                    const nextX = this.x + this.vx * dt;
-                    const nextY = this.y + this.vy * dt;
+                    this.x += this.vx * dt;
+                    this.y += this.vy * dt;
                     this.vx *= Math.pow(0.18, dt);
                     this.vy *= Math.pow(0.18, dt);
+                    this.r += 34 * dt;
 
                     for (let i = 0; i < buildings.length; i++) {
                         const b = buildings[i];
-                        if (b.isLowWall) continue;
-                        if (nextX > b.x - 4 && nextX < b.x + b.w + 4 && nextY > b.y - 4 && nextY < b.y + b.h + 4) {
+                        if (!b.isLowWall && this.x > b.x && this.x < b.x + b.w && this.y > b.y && this.y < b.y + b.h) {
                             this.active = false;
-                            if (Math.random() < 0.35 && decals.length < 520) {
-                                decals.push(new Decal(this.x, this.y, 'scorch', 0, Math2.rand(10, 18)));
-                            }
                             return;
                         }
                     }
 
-                    this.x = nextX;
-                    this.y = nextY;
-
-                    if (Math.random() < 0.08 && decals.length < 520) {
-                        decals.push(new Decal(this.x, this.y, 'scorch', 0, Math2.rand(10, 20)));
-                    }
-
                     for (let i = 0; i < enemies.length; i++) {
                         const e = enemies[i];
-                        if (e.hp <= 0 || e === this.ownerRef || this.hitEntities.has(e)) continue;
-                        if (Math2.dist(this.x, this.y, e.x, e.y) <= this.radius + e.r) {
-                            this.hitEntities.add(e);
-                            e.burnTimer = Math.max(e.burnTimer, 3.2);
-                            e.takeDamage(this.dmg, this.angle, true);
+                        if (e.hp > 0 && !this.hitSet.has(e) && Math2.dist(this.x, this.y, e.x, e.y) < this.r + e.r) {
+                            this.hitSet.add(e);
+                            e.takeDamage(this.dmg, Math.atan2(this.vy, this.vx), true);
+                            e.burnTimer = 2.6;
                         }
                     }
 
                     for (let i = 0; i < vehicles.length; i++) {
                         const v = vehicles[i];
-                        if (v.destroyed || this.hitEntities.has(v)) continue;
-                        const vr = Math.max(v.w, v.h) * 0.44;
-                        if (Math2.dist(this.x, this.y, v.x, v.y) <= this.radius + vr) {
-                            this.hitEntities.add(v);
-                            v.takeDamage(this.dmg * 0.85);
+                        if (!v.destroyed && !this.hitSet.has(v) && Math2.dist(this.x, this.y, v.x, v.y) < this.r + Math.max(v.w, v.h) * 0.42) {
+                            this.hitSet.add(v);
+                            v.takeDamage(this.dmg * 1.4);
                         }
                     }
                 }
 
                 draw(ctx) {
                     if (!this.active) return;
-                    const t = 1 - this.life / this.maxLife;
+                    const ratio = Math.max(0, this.life / this.maxLife);
                     ctx.save();
-                    const grad = ctx.createRadialGradient(this.x, this.y, 1, this.x, this.y, this.radius);
-                    if (t < 0.35) {
-                        grad.addColorStop(0, 'rgba(254, 249, 195, 0.95)');
-                        grad.addColorStop(0.5, 'rgba(251, 146, 60, 0.8)');
-                        grad.addColorStop(1, 'rgba(234, 88, 12, 0)');
-                    } else if (t < 0.75) {
-                        grad.addColorStop(0, 'rgba(251, 146, 60, 0.78)');
-                        grad.addColorStop(0.55, 'rgba(220, 38, 38, 0.52)');
-                        grad.addColorStop(1, 'rgba(127, 29, 29, 0)');
-                    } else {
-                        grad.addColorStop(0, 'rgba(87, 83, 78, 0.42)');
-                        grad.addColorStop(1, 'rgba(28, 25, 23, 0)');
-                    }
+                    const grad = ctx.createRadialGradient(this.x, this.y, 2, this.x, this.y, this.r);
+                    grad.addColorStop(0, `rgba(254, 249, 195, ${ratio * 0.95})`);
+                    grad.addColorStop(0.45, `rgba(249, 115, 22, ${ratio * 0.85})`);
+                    grad.addColorStop(1, 'rgba(220, 38, 38, 0)');
                     ctx.fillStyle = grad;
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.restore();
                 }
             }
 
+            class Pickup {
+                constructor(x, y, type, floor = null) {
+                    this.x = x;
+                    this.y = y;
+                    this.type = type;
+                    this.floor = floor;
+                    this.r = 15;
+                    this.bob = Math2.rand(0, Math.PI * 2);
+                    this.collected = false;
+                }
+
+                update(dt) {
+                    this.bob += dt * 4;
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    if (!this.collected && player && Math2.dist(this.x, this.y, player.x, player.y) < this.r + player.r + 8) {
+                        this.collected = true;
+                        sfx.playPickup();
+                        if (this.type === 'health') {
+                            player.hp = Math.min(player.maxHp, player.hp + 35);
+                            showBanner('MEDKIT ACQUIRED (+35 HEALTH)', 1600);
+                        } else if (this.type === 'armor') {
+                            player.armor = Math.min(100, player.armor + 45);
+                            showBanner('KEVLAR VEST ACQUIRED (+45 ARMOR)', 1600);
+                        } else if (this.type === 'ammo') {
+                            const w = WEAPONS[player.weaponIdx];
+                            if (w && w.id === 'glock26') {
+                                w.fmjReserve += 15;
+                                if (w.ammoLoad === 'fmj') w.reserve = w.fmjReserve;
+                                showBanner('SCARCE 9mm (100gr FMJ) FOUND (+15 RDS)', 1800);
+                            } else {
+                                for (let i = 0; i < WEAPONS.length; i++) {
+                                    if (WEAPONS[i].type !== 'melee' && WEAPONS[i].id !== 'flamethrower') {
+                                        WEAPONS[i].reserve += Math.max(8, Math.floor(WEAPONS[i].magMax * 0.8));
+                                    }
+                                }
+                                showBanner('AMMUNITION BOX COLLECTED', 1600);
+                            }
+                        } else if (this.type === 'jhp_stash') {
+                            const g26 = WEAPONS.find((w) => w.id === 'glock26');
+                            if (g26) {
+                                g26.jhpReserve += 15;
+                                g26.ammoLoad = 'jhp';
+                                g26.reserve = g26.jhpReserve;
+                            }
+                            showBanner('120GR (+P) HOLLOW POINTS LOADED! (+15 RDS)', 2200);
+                            showMonologue(
+                                'C // INTERNAL THOUGHT',
+                                '120-grain +P jacketed hollow points—heavier charge than my 100gr FMJ. Brighter fireball and louder crack out of a 3.4-inch barrel, so only use them when I need immediate stopping power.',
+                                6000
+                            );
+                        } else if (this.type === 'hunting_knife') {
+                            const knifeWep = WEAPONS.find((w) => w.id === 'knife');
+                            if (knifeWep) knifeWep.unlocked = true;
+                            if (mission) mission.knifeFound = true;
+                            showBanner('7" FIXED-BLADE HUNTING KNIFE EQUIPPED! (SLOT 2 + SILENT EXECUTIONS [E])', 2400);
+                            showMonologue(
+                                'C // INTERNAL THOUGHT',
+                                '7-inch carbon-steel fixed blade with a leather belt scabbard. Now I can slip behind unaware or strobe-dazed looters in the dark and drop them silently [E] without wasting 9mm.',
+                                6000
+                            );
+                        } else if (this.type === 'crowbar') {
+                            player.hasCrowbar = true;
+                            showBanner('STEEL CROWBAR ACQUIRED — CAN PRY BARRED DOORS!', 2000);
+                        } else if (this.type === 'bb_bag') {
+                            for (let i = 0; i < WEAPONS.length; i++) {
+                                if (WEAPONS[i].isAirsoft && WEAPONS[i].type !== 'melee') {
+                                    WEAPONS[i].reserve += WEAPONS[i].magMax * 2;
+                                }
+                            }
+                            showBanner('6mm BIO-BB POUCH REFILLED (+2 MAGS)', 1600);
+                        } else if (this.type === 'airsoft_aeg') {
+                            const aeg = WEAPONS.find((w) => w.id === 'airsoft_aeg');
+                            if (aeg) {
+                                aeg.unlocked = true;
+                                player.switchWeapon(WEAPONS.indexOf(aeg));
+                            }
+                            showBanner('AIRSOFT M4 CQB AEG PICKED UP!', 1800);
+                        } else if (this.type === 'fuel') {
+                            const ft = WEAPONS.find((w) => w.id === 'flamethrower');
+                            if (ft) ft.reserve += 150;
+                            showBanner('NAPALM FUEL CANISTER (+150 FUEL)', 1600);
+                        } else if (this.type === 'cash') {
+                            const amt = Math2.randInt(250, 950);
+                            cashCollected += amt;
+                            const cashEl = document.getElementById('cashCounter');
+                            if (cashEl) {
+                                cashEl.style.display = 'block';
+                                cashEl.innerText = `CASH LOOTED: R${cashCollected.toLocaleString()}`;
+                            }
+                            showBanner(`CASH STASH COLLECTED (+R${amt})`, 1500);
+                        } else if (this.type === 'food') {
+                            player.hp = Math.min(player.maxHp, player.hp + 20);
+                            player.stamina = 100;
+                            showBanner('CANNED RATIONS EATEN (+20 HP, STAMINA FULL)', 1600);
+                        } else if (this.type === 'water') {
+                            player.stamina = 100;
+                            player.hp = Math.min(player.maxHp, player.hp + 10);
+                            showBanner('BOTTLED WATER CONSUMED (+10 HP, +STAMINA)', 1500);
+                        } else if (this.type === 'shotgun') {
+                            const idx = WEAPONS.findIndex((w) => w.id === 'shotgun');
+                            if (idx >= 0) {
+                                WEAPONS[idx].unlocked = true;
+                                player.switchWeapon(idx);
+                            }
+                            showBanner('SECURITY PUMP SHOTGUN ACQUIRED!', 1900);
+                        } else if (this.type === 'ar15') {
+                            const idx = WEAPONS.findIndex((w) => w.id === 'ar15');
+                            if (idx >= 0) {
+                                WEAPONS[idx].unlocked = true;
+                                player.switchWeapon(idx);
+                            }
+                            showBanner('TACTICAL AR-15 ACQUIRED!', 1800);
+                        }
+                        updateHUD();
+                    }
+                }
+
+                draw(ctx) {
+                    if (this.collected) return;
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    const offset = Math.sin(this.bob) * 3;
+                    ctx.save();
+                    ctx.translate(this.x, this.y + offset);
+
+                    const glowColors = {
+                        health: 'rgba(239, 68, 68, 0.3)',
+                        armor: 'rgba(56, 189, 248, 0.3)',
+                        fuel: 'rgba(249, 115, 22, 0.35)',
+                        cash: 'rgba(74, 222, 128, 0.35)',
+                        food: 'rgba(251, 191, 36, 0.3)',
+                        water: 'rgba(56, 189, 248, 0.3)',
+                        jhp_stash: 'rgba(239, 68, 68, 0.38)',
+                        hunting_knife: 'rgba(203, 213, 225, 0.38)',
+                        crowbar: 'rgba(248, 113, 113, 0.35)',
+                        bb_bag: 'rgba(255, 255, 255, 0.35)',
+                        airsoft_aeg: 'rgba(74, 222, 128, 0.35)'
+                    };
+                    ctx.fillStyle = glowColors[this.type] || 'rgba(250, 204, 21, 0.28)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (this.type === 'health') {
+                        ctx.fillStyle = '#f8fafc';
+                        ctx.fillRect(-10, -8, 20, 16);
+                        ctx.fillStyle = '#dc2626';
+                        ctx.fillRect(-2.5, -5.5, 5, 11);
+                        ctx.fillRect(-5.5, -2.5, 11, 5);
+                    } else if (this.type === 'armor') {
+                        ctx.fillStyle = '#2563eb';
+                        ctx.beginPath();
+                        ctx.moveTo(-9, -8); ctx.lineTo(9, -8); ctx.lineTo(11, 8); ctx.lineTo(0, 11); ctx.lineTo(-11, 8);
+                        ctx.closePath();
+                        ctx.fill();
+                    } else if (this.type === 'fuel') {
+                        ctx.fillStyle = '#ea580c';
+                        ctx.fillRect(-8, -10, 16, 20);
+                        ctx.fillStyle = '#facc15';
+                        ctx.fillRect(-5, -4, 10, 8);
+                    } else if (this.type === 'cash') {
+                        ctx.fillStyle = '#15803d';
+                        ctx.fillRect(-11, -6, 22, 12);
+                        ctx.strokeStyle = '#86efac';
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeRect(-11, -6, 22, 12);
+                        ctx.fillStyle = '#dcfce7';
+                        ctx.font = '900 10px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('R', 0, 3.5);
+                    } else if (this.type === 'food') {
+                        ctx.fillStyle = '#d97706';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 9, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#fef3c7';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    } else if (this.type === 'water') {
+                        ctx.fillStyle = '#0284c7';
+                        ctx.fillRect(-5, -10, 10, 20);
+                        ctx.fillStyle = '#e0f2fe';
+                        ctx.fillRect(-3, -13, 6, 3);
+                    } else if (this.type === 'jhp_stash') {
+                        ctx.fillStyle = '#7f1d1d';
+                        ctx.fillRect(-11, -7, 22, 14);
+                        ctx.strokeStyle = '#fca5a5';
+                        ctx.lineWidth = 1.4;
+                        ctx.strokeRect(-11, -7, 22, 14);
+                        ctx.fillStyle = '#fef08a';
+                        ctx.font = '900 8px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('+P JHP', 0, 3);
+                    } else if (this.type === 'hunting_knife') {
+                        ctx.fillStyle = '#78350f';
+                        ctx.fillRect(-11, -3, 12, 6);
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.beginPath();
+                        ctx.moveTo(1, -2.5); ctx.lineTo(13, 0); ctx.lineTo(1, 2.5);
+                        ctx.closePath();
+                        ctx.fill();
+                    } else if (this.type === 'crowbar') {
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = 3.2;
+                        ctx.beginPath();
+                        ctx.moveTo(-11, 4); ctx.lineTo(8, -4); ctx.lineTo(12, -1);
+                        ctx.stroke();
+                    } else if (this.type === 'bb_bag') {
+                        ctx.fillStyle = '#334155';
+                        ctx.fillRect(-9, -9, 18, 18);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath(); ctx.arc(-3, -2, 2.2, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(3, 2, 2.2, 0, Math.PI * 2); ctx.fill();
+                    } else if (this.type === 'airsoft_aeg') {
+                        ctx.fillStyle = '#1e293b';
+                        ctx.fillRect(-14, -3, 26, 6);
+                        ctx.fillStyle = '#f97316';
+                        ctx.fillRect(12, -2.5, 3, 5);
+                    } else {
+                        ctx.fillStyle = '#b45309';
+                        ctx.fillRect(-11, -7, 22, 14);
+                        ctx.strokeStyle = '#fde047';
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeRect(-11, -7, 22, 14);
+                    }
+
+                    ctx.restore();
+                }
+            }
+
             // ============================================================================
-            // HIGH-VELOCITY SWEPT-SEGMENT BALLISTICS & 6MM AIRSOFT BBS
+            // PERSISTENT CORPSES (MULTI-POSE COLLAPSE ON FLOOR)
+            // ============================================================================
+            class Corpse {
+                constructor(x, y, hitAngle, bodyColor, skinColor, isBoss = false, floor = null, faction = 'looter') {
+                    this.x = x;
+                    this.y = y;
+                    this.floor = floor;
+                    this.faction = faction;
+                    this.bodyColor = bodyColor;
+                    this.skinColor = skinColor;
+                    this.isBoss = isBoss;
+                    this.angle = hitAngle + Math2.rand(-0.55, 0.55);
+                    this.vx = Math.cos(hitAngle) * Math2.rand(55, 115);
+                    this.vy = Math.sin(hitAngle) * Math2.rand(55, 115);
+                    this.slideTimer = 0.22;
+                    this.pose = ['sprawl_face', 'side_curl', 'supine', 'twisted'][Math2.randInt(0, 3)];
+                }
+
+                update(dt) {
+                    if (this.slideTimer > 0) {
+                        this.slideTimer -= dt;
+                        this.x += this.vx * dt;
+                        this.y += this.vy * dt;
+                        this.vx *= Math.pow(0.03, dt);
+                        this.vy *= Math.pow(0.03, dt);
+                        for (let i = 0; i < buildings.length; i++) {
+                            circleRectResolve({ x: this.x, y: this.y, r: 12 }, buildings[i]);
+                        }
+                    }
+                }
+
+                draw(ctx) {
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+
+                    const scale = this.isBoss ? 1.2 : 1.0;
+                    ctx.scale(scale, scale);
+
+                    ctx.fillStyle = 'rgba(127, 29, 29, 0.78)';
+                    ctx.beginPath();
+                    ctx.ellipse(2, 1, 16, 11, 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (this.faction === 'dog') {
+                        ctx.fillStyle = '#451a03';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, 12, 6, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                        return;
+                    }
+
+                    ctx.fillStyle = '#0f172a';
+                    if (this.pose === 'side_curl') {
+                        ctx.fillRect(-16, -5, 13, 4.5);
+                        ctx.fillRect(-13, 1, 11, 4.5);
+                    } else if (this.pose === 'twisted') {
+                        ctx.save();
+                        ctx.rotate(0.28);
+                        ctx.fillRect(-18, -5.5, 14, 4.5);
+                        ctx.restore();
+                        ctx.save();
+                        ctx.rotate(-0.35);
+                        ctx.fillRect(-17, 1.5, 14, 4.5);
+                        ctx.restore();
+                    } else {
+                        ctx.fillRect(-18, -5.2, 14, 4.4);
+                        ctx.fillRect(-18, 1.0, 14, 4.4);
+                    }
+
+                    ctx.fillStyle = this.skinColor;
+                    if (this.pose === 'supine') {
+                        ctx.fillRect(0, -13, 4, 8);
+                        ctx.fillRect(2, 6, 4, 8);
+                    } else if (this.pose === 'side_curl') {
+                        ctx.fillRect(4, -7, 7, 3.6);
+                        ctx.fillRect(2, 3, 6, 3.6);
+                    } else {
+                        ctx.fillRect(3, -12, 4.2, 8);
+                        ctx.fillRect(-2, 6, 4.2, 8);
+                    }
+
+                    ctx.fillStyle = this.bodyColor;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 10.5, 7.2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+                    ctx.lineWidth = 1.1;
+                    ctx.stroke();
+
+                    ctx.fillStyle = this.skinColor;
+                    ctx.beginPath();
+                    ctx.arc(10.5, this.pose === 'side_curl' ? 2 : 0, 5.6, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+            }
+
+            // ============================================================================
+            // HIGH-VELOCITY SWEPT-SEGMENT BALLISTICS (CROSS-NPC FRIENDLY FIRE ENABLED)
             // ============================================================================
             class Bullet {
                 constructor(x, y, angle, speed, dmg, ownerType, ownerRef, pierce = false, isAirsoft = false, isJHP = false) {
@@ -1164,7 +1524,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.isAirsoft = isAirsoft;
                     this.isJHP = isJHP;
                     this.hitSet = new Set();
-                    this.life = isAirsoft ? 0.42 : (pierce ? 0.75 : 0.55);
+                    this.life = isAirsoft ? 0.34 : (pierce ? 0.28 : 0.22);
                     this.active = true;
                 }
 
@@ -1176,8 +1536,9 @@ import { createAudioEngine } from './audio/sfx.js';
                         return;
                     }
 
-                    const subSteps = 2;
+                    const subSteps = 4;
                     const subDt = dt / subSteps;
+                    const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
 
                     for (let step = 0; step < subSteps; step++) {
                         if (!this.active) return;
@@ -1186,7 +1547,6 @@ import { createAudioEngine } from './audio/sfx.js';
                         const nextX = this.x + this.vx * subDt;
                         const nextY = this.y + this.vy * subDt;
 
-                        // Check solid walls
                         for (let i = 0; i < buildings.length; i++) {
                             const b = buildings[i];
                             if (b.isLowWall) continue;
@@ -1203,7 +1563,6 @@ import { createAudioEngine } from './audio/sfx.js';
                             }
                         }
 
-                        // Check woodland tree trunks
                         for (let i = 0; i < woodlandTrees.length; i++) {
                             const tr = woodlandTrees[i];
                             const t = segmentCircleIntersectT(this.prevX, this.prevY, nextX, nextY, tr.x, tr.y, tr.trunkR);
@@ -1218,7 +1577,6 @@ import { createAudioEngine } from './audio/sfx.js';
                         let hitTarget = null;
                         let hitKind = null;
 
-                        // Check Player hit (for hostile bullets)
                         if (this.ownerType === 'enemy' && player && player.hp > 0 && !player.vehicle) {
                             const t = segmentCircleIntersectT(this.prevX, this.prevY, nextX, nextY, player.x, player.y, player.r);
                             if (t !== null && t < bestT) {
@@ -1228,7 +1586,6 @@ import { createAudioEngine } from './audio/sfx.js';
                             }
                         }
 
-                        // Check Friendly Allies hit (for hostile bullets in Training stage)
                         if (this.ownerType === 'enemy') {
                             for (let i = 0; i < allies.length; i++) {
                                 const al = allies[i];
@@ -1242,11 +1599,10 @@ import { createAudioEngine } from './audio/sfx.js';
                             }
                         }
 
-                        // Check Enemies hit
                         for (let i = 0; i < enemies.length; i++) {
                             const e = enemies[i];
                             if (e.hp <= 0 || e === this.ownerRef || this.hitSet.has(e)) continue;
-                            if (this.ownerType === 'enemy' && this.ownerRef && e.faction === this.ownerRef.faction) continue;
+                            if (fl && e.floor !== fl) continue;
                             const t = segmentCircleIntersectT(this.prevX, this.prevY, nextX, nextY, e.x, e.y, e.r);
                             if (t !== null && t < bestT) {
                                 bestT = t;
@@ -1255,10 +1611,20 @@ import { createAudioEngine } from './audio/sfx.js';
                             }
                         }
 
-                        // Check Vehicles hit
+                        for (let i = 0; i < civilians.length; i++) {
+                            const c = civilians[i];
+                            if (c.dead || (fl && c.floor !== fl)) continue;
+                            const t = segmentCircleIntersectT(this.prevX, this.prevY, nextX, nextY, c.x, c.y, c.r);
+                            if (t !== null && t < bestT) {
+                                bestT = t;
+                                hitTarget = c;
+                                hitKind = 'civilian';
+                            }
+                        }
+
                         for (let i = 0; i < vehicles.length; i++) {
                             const v = vehicles[i];
-                            if (v.destroyed) continue;
+                            if (v.destroyed || (fl && v.floor !== fl)) continue;
                             const vr = Math.max(v.w, v.h) * 0.42;
                             const t = segmentCircleIntersectT(this.prevX, this.prevY, nextX, nextY, v.x, v.y, vr);
                             if (t !== null && t < bestT) {
@@ -1290,6 +1656,11 @@ import { createAudioEngine } from './audio/sfx.js';
                                 hitTarget.takeDamage(this.dmg);
                                 sfx.playBBImpact();
                                 createBBHit(this.x, this.y, this.angle);
+                            } else if (hitKind === 'civilian') {
+                                this.x = hitX;
+                                this.y = hitY;
+                                this.active = false;
+                                hitTarget.takeDamage(this.dmg, this.angle);
                             } else if (hitKind === 'enemy') {
                                 hitTarget.takeDamage(this.dmg, this.angle, false, this.isJHP);
                                 if (this.pierce && this.dmg > 45 && !this.isAirsoft) {
@@ -1324,8 +1695,8 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (!this.active) return;
                     ctx.save();
                     if (this.isAirsoft) {
-                        const tx = this.x - Math.cos(this.angle) * 22;
-                        const ty = this.y - Math.sin(this.angle) * 22;
+                        const tx = this.x - Math.cos(this.angle) * 28;
+                        const ty = this.y - Math.sin(this.angle) * 28;
                         const grad = ctx.createLinearGradient(tx, ty, this.x, this.y);
                         grad.addColorStop(0, 'rgba(248, 250, 252, 0)');
                         grad.addColorStop(1, 'rgba(248, 250, 252, 0.85)');
@@ -1344,7 +1715,7 @@ import { createAudioEngine } from './audio/sfx.js';
                         return;
                     }
 
-                    const tailLen = this.pierce ? 85 : (this.isJHP ? 54 : 46);
+                    const tailLen = this.pierce ? 140 : (this.isJHP ? 95 : 80);
                     const tx = this.x - Math.cos(this.angle) * tailLen;
                     const ty = this.y - Math.sin(this.angle) * tailLen;
 
@@ -1361,7 +1732,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     }
 
                     ctx.strokeStyle = grad;
-                    ctx.lineWidth = this.pierce ? 3.0 : (this.isJHP ? 2.4 : 2.1);
+                    ctx.lineWidth = this.pierce ? 2.8 : (this.isJHP ? 2.3 : 1.9);
                     ctx.beginPath();
                     ctx.moveTo(tx, ty);
                     ctx.lineTo(this.x, this.y);
@@ -1369,513 +1740,30 @@ import { createAudioEngine } from './audio/sfx.js';
 
                     ctx.fillStyle = '#ffffff';
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.pierce ? 2.4 : 1.7, 0, Math.PI * 2);
+                    ctx.arc(this.x, this.y, this.pierce ? 2.2 : 1.6, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.restore();
                 }
             }
 
             // ============================================================================
-            // PICKUPS & STASHES (INCLUDING 120GR +P JHP STASHES & AIRSOFT CRATES)
-            // ============================================================================
-            class Pickup {
-                constructor(x, y, type) {
-                    this.x = x;
-                    this.y = y;
-                    this.type = type;
-                    this.r = 15;
-                    this.collected = false;
-                    this.bob = Math2.rand(0, Math.PI * 2);
-                }
-
-                update(dt) {
-                    if (this.collected || !player || player.hp <= 0) return;
-                    this.bob += dt * 4;
-                    const px = player.vehicle ? player.vehicle.x : player.x;
-                    const py = player.vehicle ? player.vehicle.y : player.y;
-                    if (Math2.dist(this.x, this.y, px, py) < 28) {
-                        this.apply();
-                    }
-                }
-
-                apply() {
-                    this.collected = true;
-                    sfx.playPickup();
-                    let msg = '';
-                    if (this.type === 'jhp_stash') {
-                        const g26 = WEAPONS.find((w) => w.id === 'glock26');
-                        if (g26) {
-                            g26.jhpReserve += 15;
-                            g26.ammoLoad = 'jhp';
-                            g26.reserve = g26.jhpReserve;
-                            g26.mag = Math.min(g26.magMax, g26.jhpReserve);
-                            g26.jhpReserve -= g26.mag;
-                            g26.reserve = g26.jhpReserve;
-                            msg = 'STASH FOUND: 120GR +P JHP HOLLOW POINTS LOADED! [B: TOGGLE FMJ/JHP]';
-                        }
-                    } else if (this.type === 'airsoft_aeg') {
-                        const idx = WEAPONS.findIndex((w) => w.id === 'airsoft_aeg');
-                        if (idx !== -1) {
-                            WEAPONS[idx].unlocked = true;
-                            WEAPONS[idx].mag = WEAPONS[idx].magMax;
-                            WEAPONS[idx].reserve += 90;
-                            player.wepIdx = idx;
-                            sfx.playReload();
-                            msg = `EQUIPPED: AIRSOFT M4 CQB AEG [SLOT ${idx + 1}]`;
-                        }
-                    } else if (this.type === 'bb_bag') {
-                        for (let i = 0; i < WEAPONS.length; i++) {
-                            const w = WEAPONS[i];
-                            if (w.unlocked && w.type !== 'melee') {
-                                w.reserve += w.magMax * 2;
-                            }
-                        }
-                        msg = 'RESUPPLIED: 6MM AIRSOFT BBS & GREEN GAS';
-                    } else if (this.type === 'cash') {
-                        const amount = Math2.randInt(3, 12) * 100;
-                        cashCollected += amount;
-                        const cashEl = document.getElementById('cashCounter');
-                        if (cashEl) {
-                            cashEl.style.display = 'block';
-                            cashEl.innerText = `CASH LOOTED: R${cashCollected.toLocaleString()}`;
-                        }
-                        msg = `LOOTED: CASH STACK (+R${amount})`;
-                    } else if (this.type === 'food') {
-                        player.hp = Math.min(100, player.hp + 25);
-                        player.stamina = Math.min(100, player.stamina + 25);
-                        cashCollected += 150;
-                        const cashEl = document.getElementById('cashCounter');
-                        if (cashEl && mission && mission.campaign === 'mall') {
-                            cashEl.style.display = 'block';
-                            cashEl.innerText = `CASH LOOTED: R${cashCollected.toLocaleString()}`;
-                        }
-                        msg = 'CONSUMED: CANNED FOOD (+25 HP, +25 STAMINA)';
-                    } else if (this.type === 'water') {
-                        player.stamina = Math.min(100, player.stamina + 50);
-                        player.hp = Math.min(100, player.hp + 10);
-                        cashCollected += 100;
-                        const cashEl = document.getElementById('cashCounter');
-                        if (cashEl && mission && mission.campaign === 'mall') {
-                            cashEl.style.display = 'block';
-                            cashEl.innerText = `CASH LOOTED: R${cashCollected.toLocaleString()}`;
-                        }
-                        msg = 'CONSUMED: BOTTLED WATER (+50 STAMINA, +10 HP)';
-                    } else if (this.type === 'health') {
-                        player.hp = Math.min(100, player.hp + 45);
-                        msg = (mission && mission.campaign === 'training')
-                            ? 'STAGING MEDIC: HYDRATION & COOLING TOWEL (+45 STAMINA/READY)'
-                            : 'PICKED UP: FIRST-AID KIT (+45 HP)';
-                    } else if (this.type === 'armor') {
-                        player.armor = Math.min(100, player.armor + 35);
-                        msg = (mission && mission.campaign === 'training')
-                            ? 'EQUIPPED: PADDED CHEST RIG (+35 PROTECTION)'
-                            : 'PICKED UP: KEVLAR INSERT (+35 ARMOR)';
-                    } else if (this.type === 'fuel') {
-                        const fWep = WEAPONS.find((w) => w.id === 'flamethrower');
-                        if (fWep) {
-                            fWep.unlocked = true;
-                            fWep.reserve += 150;
-                        }
-                        msg = 'PICKED UP: NAPALM FUEL CANISTER (+150 FUEL)';
-                    } else if (this.type === 'ammo') {
-                        const isMall = mission && mission.campaign === 'mall';
-                        for (let i = 0; i < WEAPONS.length; i++) {
-                            const w = WEAPONS[i];
-                            if (w.unlocked && w.type !== 'melee') {
-                                if (w.id === 'glock26') {
-                                    w.fmjReserve += w.magMax;
-                                    if (w.ammoLoad === 'fmj') w.reserve = w.fmjReserve;
-                                } else {
-                                    w.reserve += isMall ? w.magMax : (w.type === 'flame' ? 120 : w.magMax * 2);
-                                }
-                            }
-                        }
-                        msg = isMall ? 'SCAVENGED: +1 SPARE 100GR FMJ MAGAZINE' : 'PICKED UP: SPARE MAGAZINES & FUEL';
-                    } else if (this.type === 'shotgun') {
-                        const idx = WEAPONS.findIndex((w) => w.id === 'shotgun');
-                        if (idx !== -1) {
-                            WEAPONS[idx].unlocked = true;
-                            WEAPONS[idx].mag = WEAPONS[idx].magMax;
-                            WEAPONS[idx].reserve += (mission && mission.campaign === 'mall') ? 8 : 24;
-                            player.wepIdx = idx;
-                            sfx.playReload();
-                            msg = `ACQUIRED: PUMP SHOTGUN [SLOT ${idx + 1}]`;
-                        }
-                    } else if (this.type === 'ak47') {
-                        const idx = WEAPONS.findIndex((w) => w.id === 'ak47');
-                        if (idx !== -1) {
-                            WEAPONS[idx].unlocked = true;
-                            WEAPONS[idx].mag = WEAPONS[idx].magMax;
-                            WEAPONS[idx].reserve += 30;
-                            player.wepIdx = idx;
-                            sfx.playReload();
-                            msg = `ACQUIRED: KALASHNIKOV AK-47 [SLOT ${idx + 1}]`;
-                        }
-                    } else if (this.type === 'ar15') {
-                        const idx = WEAPONS.findIndex((w) => w.id === 'ar15');
-                        if (idx !== -1) {
-                            WEAPONS[idx].unlocked = true;
-                            WEAPONS[idx].mag = WEAPONS[idx].magMax;
-                            WEAPONS[idx].reserve += 90;
-                            player.wepIdx = idx;
-                            sfx.playReload();
-                            msg = `ACQUIRED: TACTICAL AR-15 [SLOT ${idx + 1}]`;
-                        }
-                    }
-                    showBanner(msg, 2400);
-                    updateHUD();
-                }
-
-                draw(ctx) {
-                    if (this.collected) return;
-                    const offset = Math.sin(this.bob) * 3;
-                    ctx.save();
-                    ctx.translate(this.x, this.y + offset);
-
-                    const glowColors = {
-                        jhp_stash: 'rgba(239, 68, 68, 0.48)',
-                        airsoft_aeg: 'rgba(74, 222, 128, 0.45)',
-                        bb_bag: 'rgba(248, 250, 252, 0.4)',
-                        cash: 'rgba(34, 197, 94, 0.38)',
-                        food: 'rgba(249, 115, 22, 0.38)',
-                        water: 'rgba(56, 189, 248, 0.42)',
-                        health: 'rgba(239, 68, 68, 0.35)',
-                        armor: 'rgba(56, 189, 248, 0.35)',
-                        fuel: 'rgba(249, 115, 22, 0.45)',
-                        ammo: 'rgba(250, 204, 21, 0.35)',
-                        shotgun: 'rgba(245, 158, 11, 0.45)',
-                        ak47: 'rgba(245, 158, 11, 0.45)',
-                        ar15: 'rgba(245, 158, 11, 0.5)'
-                    };
-
-                    ctx.fillStyle = glowColors[this.type] || 'rgba(255,255,255,0.25)';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 17, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    if (this.type === 'jhp_stash') {
-                        ctx.fillStyle = '#7f1d1d';
-                        ctx.fillRect(-11, -7, 22, 14);
-                        ctx.fillStyle = '#fca5a5';
-                        ctx.fillRect(-7, -2.5, 14, 5);
-                    } else if (this.type === 'bb_bag') {
-                        ctx.fillStyle = '#e2e8f0';
-                        ctx.fillRect(-8, -9, 16, 18);
-                        ctx.fillStyle = '#16a34a';
-                        ctx.fillRect(-6, -3, 12, 6);
-                    } else if (this.type === 'cash') {
-                        ctx.fillStyle = '#16a34a';
-                        ctx.fillRect(-10, -6, 20, 12);
-                        ctx.fillStyle = '#bbf7d0';
-                        ctx.fillRect(-3, -6, 6, 12);
-                    } else if (this.type === 'food') {
-                        ctx.fillStyle = '#ea580c';
-                        ctx.beginPath();
-                        ctx.arc(0, 0, 8, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.fillStyle = '#fef08a';
-                        ctx.fillRect(-5, -2.5, 10, 5);
-                    } else if (this.type === 'water') {
-                        ctx.fillStyle = '#0ea5e9';
-                        ctx.fillRect(-5, -9, 10, 18);
-                        ctx.fillStyle = '#f8fafc';
-                        ctx.fillRect(-3, -11, 6, 3);
-                    } else if (this.type === 'health') {
-                        ctx.fillStyle = '#f8fafc';
-                        ctx.fillRect(-10, -8, 20, 16);
-                        ctx.fillStyle = '#dc2626';
-                        ctx.fillRect(-2.5, -5, 5, 10);
-                        ctx.fillRect(-5, -2.5, 10, 5);
-                    } else if (this.type === 'armor') {
-                        ctx.fillStyle = '#0284c7';
-                        ctx.beginPath();
-                        ctx.moveTo(-8, -9);
-                        ctx.lineTo(8, -9);
-                        ctx.lineTo(10, 4);
-                        ctx.lineTo(0, 11);
-                        ctx.lineTo(-10, 4);
-                        ctx.closePath();
-                        ctx.fill();
-                    } else if (this.type === 'fuel') {
-                        ctx.fillStyle = '#ea580c';
-                        ctx.fillRect(-8, -10, 16, 20);
-                        ctx.fillStyle = '#facc15';
-                        ctx.fillRect(-5, -3, 10, 6);
-                    } else if (this.type === 'ammo') {
-                        ctx.fillStyle = '#3f6212';
-                        ctx.fillRect(-11, -7, 22, 14);
-                        ctx.fillStyle = '#facc15';
-                        ctx.fillRect(-7, -2, 14, 4);
-                    } else {
-                        ctx.fillStyle = '#1e293b';
-                        ctx.fillRect(-16, -4, 32, 8);
-                        ctx.fillStyle = this.type === 'airsoft_aeg' ? '#4ade80' : '#f59e0b';
-                        ctx.fillRect(-6, -2, 12, 4);
-                    }
-                    ctx.restore();
-                }
-            }
-
-            // ============================================================================
-            // DRIVABLE SOUTH AFRICAN VEHICLES
-            // ============================================================================
-            class Vehicle {
-                constructor(x, y, angle, kind = 'bakkie', lockedBlockade = false) {
-                    this.x = x;
-                    this.y = y;
-                    this.angle = angle;
-                    this.kind = kind;
-                    this.lockedBlockade = lockedBlockade;
-                    this.speed = 0;
-                    this.driver = null;
-                    this.destroyed = false;
-
-                    if (kind === 'nyala') {
-                        this.w = 74;
-                        this.h = 36;
-                        this.maxSpeed = 340;
-                        this.accel = 420;
-                        this.hp = 450;
-                        this.maxHp = 450;
-                        this.color = '#1e3a8a';
-                    } else if (kind === 'saps') {
-                        this.w = 68;
-                        this.h = 32;
-                        this.maxSpeed = 390;
-                        this.accel = 500;
-                        this.hp = 260;
-                        this.maxHp = 260;
-                        this.color = '#f8fafc';
-                    } else if (kind === 'taxi') {
-                        this.w = 68;
-                        this.h = 32;
-                        this.maxSpeed = 400;
-                        this.accel = 510;
-                        this.hp = 230;
-                        this.maxHp = 230;
-                        this.color = '#f8fafc';
-                    } else if (kind === 'hatchback') {
-                        this.w = 54;
-                        this.h = 28;
-                        this.maxSpeed = 450;
-                        this.accel = 580;
-                        this.hp = 165;
-                        this.maxHp = 165;
-                        this.color = '#dc2626';
-                    } else {
-                        this.w = 64;
-                        this.h = 30;
-                        this.maxSpeed = 420;
-                        this.accel = 540;
-                        this.hp = 250;
-                        this.maxHp = 250;
-                        this.color = '#e2e8f0';
-                    }
-                }
-
-                takeDamage(amount) {
-                    if (this.destroyed) return;
-                    this.hp -= amount;
-                    if (this.hp <= 0) {
-                        this.hp = 0;
-                        this.destroyed = true;
-                        if (this.driver) {
-                            const drv = this.driver;
-                            this.driver = null;
-                            drv.vehicle = null;
-                            drv.x = this.x + Math.cos(this.angle + Math.PI / 2) * 34;
-                            drv.y = this.y + Math.sin(this.angle + Math.PI / 2) * 34;
-                        }
-                        createExplosion(this.x, this.y, 155, 130);
-                    }
-                }
-
-                update(dt) {
-                    if (this.destroyed) return;
-
-                    if (this.driver === player) {
-                        let throttle = 0;
-                        if (keys['w'] || keys['arrowup']) throttle += 1;
-                        if (keys['s'] || keys['arrowdown']) throttle -= 1;
-                        if (Math.abs(touchInput.moveY) > 0.15) throttle -= touchInput.moveY;
-                        throttle = Math2.clamp(throttle, -1, 1);
-
-                        let turn = 0;
-                        if (keys['a'] || keys['arrowleft']) turn -= 1;
-                        if (keys['d'] || keys['arrowright']) turn += 1;
-                        if (Math.abs(touchInput.moveX) > 0.15) turn += touchInput.moveX;
-                        turn = Math2.clamp(turn, -1, 1);
-
-                        const handbrake = keys['space'] || touchInput.sprint;
-
-                        if (keys['h']) {
-                            keys['h'] = false;
-                            sfx.playHorn();
-                        }
-
-                        if (throttle > 0) {
-                            this.speed += this.accel * dt;
-                        } else if (throttle < 0) {
-                            this.speed -= this.accel * 0.85 * dt;
-                        } else {
-                            this.speed *= Math.pow(0.18, dt);
-                        }
-
-                        if (handbrake) {
-                            this.speed *= Math.pow(0.06, dt);
-                        }
-
-                        this.speed = Math2.clamp(this.speed, -this.maxSpeed * 0.45, this.maxSpeed);
-
-                        if (Math.abs(this.speed) > 12) {
-                            const dir = this.speed >= 0 ? 1 : -1;
-                            const turnRate = handbrake ? 3.6 : 2.6;
-                            this.angle += turn * turnRate * dir * dt;
-
-                            if (handbrake && Math.abs(turn) > 0 && Math.abs(this.speed) > 140) {
-                                if (decals.length > 520) decals.shift();
-                                decals.push(new Decal(this.x, this.y, 'skid', this.angle, 8));
-                            }
-                        }
-                    } else {
-                        this.speed *= Math.pow(0.08, dt);
-                    }
-
-                    if (Math.abs(this.speed) > 1) {
-                        this.x += Math.cos(this.angle) * this.speed * dt;
-                        this.y += Math.sin(this.angle) * this.speed * dt;
-                    }
-
-                    this.x = Math2.clamp(this.x, 45, WORLD_SIZE - 45);
-                    this.y = Math2.clamp(this.y, 45, WORLD_SIZE - 45);
-
-                    const vr = Math.min(this.w, this.h) * 0.52;
-                    for (let i = 0; i < buildings.length; i++) {
-                        const b = buildings[i];
-                        const proxy = { x: this.x, y: this.y, r: vr };
-                        if (circleRectResolve(proxy, b)) {
-                            this.x = proxy.x;
-                            this.y = proxy.y;
-                            this.speed *= -0.35;
-                        }
-                    }
-
-                    if (Math.abs(this.speed) > 110) {
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp <= 0) continue;
-                            if (Math2.dist(this.x, this.y, e.x, e.y) < vr + e.r) {
-                                e.takeDamage(Math.round(Math.abs(this.speed) * 0.45), this.angle, true);
-                                this.speed *= 0.88;
-                            }
-                        }
-                    }
-
-                    if (this.driver === player) {
-                        player.x = this.x;
-                        player.y = this.y;
-                        player.angle = this.angle;
-                    }
-
-                    if (this.hp < this.maxHp * 0.45 && Math.random() < 0.25) {
-                        particles.push(new Particle(
-                            this.x + Math.cos(this.angle) * (this.w * 0.35),
-                            this.y + Math.sin(this.angle) * (this.w * 0.35),
-                            -Math.PI / 2 + Math2.rand(-0.4, 0.4),
-                            '#475569',
-                            Math2.rand(4, 8),
-                            Math2.rand(25, 65),
-                            0.6
-                        ));
-                    }
-                }
-
-                draw(ctx) {
-                    ctx.save();
-                    ctx.translate(this.x, this.y);
-                    ctx.rotate(this.angle);
-
-                    const hw = this.w / 2;
-                    const hh = this.h / 2;
-
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
-                    ctx.fillRect(-hw + 4, -hh + 5, this.w, this.h);
-
-                    ctx.fillStyle = this.destroyed ? '#1e293b' : this.color;
-                    ctx.beginPath();
-                    ctx.roundRect(-hw, -hh, this.w, this.h, 5);
-                    ctx.fill();
-
-                    if (!this.destroyed) {
-                        if (this.kind === 'taxi') {
-                            ctx.fillStyle = '#0284c7';
-                            ctx.fillRect(-hw + 3, -hh + 1, this.w - 6, 4);
-                            ctx.fillRect(-hw + 3, hh - 5, this.w - 6, 4);
-                            ctx.fillStyle = '#facc15';
-                            ctx.fillRect(-8, -4, 14, 8);
-                        } else if (this.kind === 'saps') {
-                            ctx.fillStyle = '#1d4ed8';
-                            ctx.fillRect(-hw + 3, -hh + 1, this.w - 6, 4);
-                            ctx.fillRect(-hw + 3, hh - 5, this.w - 6, 4);
-                            ctx.fillStyle = '#facc15';
-                            ctx.fillRect(-hw + 5, -hh + 5, this.w - 10, 2.5);
-                            const flash = Math.sin(performance.now() * 0.02) > 0;
-                            ctx.fillStyle = flash ? '#38bdf8' : '#1e3a8a';
-                            ctx.fillRect(0, -hh + 3, 6, this.h - 6);
-                        } else if (this.kind === 'bakkie') {
-                            ctx.fillStyle = '#0f172a';
-                            ctx.fillRect(-hw + 4, -hh + 3, hw * 0.85, this.h - 6);
-                            ctx.strokeStyle = '#94a3b8';
-                            ctx.lineWidth = 2;
-                            ctx.beginPath();
-                            ctx.moveTo(-2, -hh + 3);
-                            ctx.lineTo(-2, hh - 3);
-                            ctx.stroke();
-                        } else if (this.kind === 'nyala') {
-                            ctx.fillStyle = '#172554';
-                            ctx.fillRect(-hw + 6, -hh + 4, this.w - 14, this.h - 8);
-                            ctx.fillStyle = '#38bdf8';
-                            ctx.fillRect(0, -4, 8, 8);
-                        }
-
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillRect(hw * 0.25, -hh + 3, hw * 0.35, this.h - 6);
-
-                        if (this.driver || this.lockedBlockade) {
-                            ctx.fillStyle = 'rgba(254, 249, 195, 0.2)';
-                            ctx.beginPath();
-                            ctx.moveTo(hw, -hh + 4);
-                            ctx.lineTo(hw + 135, -hh - 24);
-                            ctx.lineTo(hw + 135, hh + 24);
-                            ctx.lineTo(hw, hh - 4);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-
-                    ctx.restore();
-                }
-            }
-
-            // ============================================================================
-            // FRIENDLY YOUTH SQUAD ALLIES (YOUNGER G & YOUNGER BLAZE IN WOODLAND AIRSOFT)
+            // YOUTH AIRSOFT SQUADMATES (YOUNGER G & YOUNGER BLAZE)
             // ============================================================================
             class Ally {
-                constructor(x, y, identity) {
+                constructor(x, y, name, hairColor, shirtColor, offsetAngle) {
                     this.x = x;
                     this.y = y;
-                    this.spawnX = x;
-                    this.spawnY = y;
-                    this.identity = identity; // 'young_g' | 'young_blaze'
-                    this.name = identity === 'young_g' ? 'YOUNGER G' : 'YOUNGER BLAZE';
-                    this.r = 10.5;
-                    this.hp = 110;
-                    this.maxHp = 110;
-                    this.angle = -Math.PI / 4;
+                    this.name = name;
+                    this.hairColor = hairColor;
+                    this.shirtColor = shirtColor;
+                    this.offsetAngle = offsetAngle;
+                    this.r = 11;
+                    this.hp = 85;
+                    this.maxHp = 85;
+                    this.angle = 0;
                     this.lastShot = 0;
                     this.isOut = false;
                     this.respawnTimer = 0;
-                    this.formationOffsetAngle = identity === 'young_g' ? -0.95 : 0.95;
                 }
 
                 takeDamage(amount) {
@@ -1884,78 +1772,62 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (this.hp <= 0) {
                         this.hp = 0;
                         this.isOut = true;
-                        this.respawnTimer = 6.5;
-                        showBanner(`${this.name}: "HIT! WALKING BACK TO STAGING!"`, 1800);
+                        this.respawnTimer = 8.0;
+                        showBanner(`${this.name}: "HIT! HEADING TO RESPAWN!"`, 1800);
                     }
                 }
 
                 update(dt) {
                     if (this.isOut) {
                         this.respawnTimer -= dt;
-                        // Jog back toward youth staging camp while holding orange dead rag
-                        const dHome = Math2.dist(this.x, this.y, this.spawnX, this.spawnY);
-                        if (dHome > 25) {
-                            this.angle = Math2.angle(this.x, this.y, this.spawnX, this.spawnY);
-                            this.x += Math.cos(this.angle) * 165 * dt;
-                            this.y += Math.sin(this.angle) * 165 * dt;
-                        }
-                        if (this.respawnTimer <= 0) {
+                        if (this.respawnTimer <= 0 && player) {
                             this.isOut = false;
                             this.hp = this.maxHp;
-                            showBanner(`${this.name} IS BACK IN THE SKIRMISH!`, 1500);
+                            this.x = player.x + Math.cos(this.offsetAngle) * 55;
+                            this.y = player.y + Math.sin(this.offsetAngle) * 55;
+                            showBanner(`${this.name} IS BACK IN PLAY!`, 1500);
                         }
                         return;
                     }
 
-                    // Find closest active adult airsoft player in sight
-                    let target = null;
-                    let bestDist = 480;
+                    if (!player) return;
+
+                    let nearestEnemy = null;
+                    let bestDist = 460;
                     for (let i = 0; i < enemies.length; i++) {
                         const e = enemies[i];
                         if (e.hp <= 0) continue;
                         const d = Math2.dist(this.x, this.y, e.x, e.y);
                         if (d < bestDist && hasLoS(this.x, this.y, e.x, e.y)) {
                             bestDist = d;
-                            target = e;
+                            nearestEnemy = e;
                         }
                     }
 
-                    if (target) {
-                        this.angle = Math2.angle(this.x, this.y, target.x, target.y);
-                        if (bestDist > 260) {
-                            this.x += Math.cos(this.angle) * 155 * dt;
-                            this.y += Math.sin(this.angle) * 155 * dt;
-                        } else if (bestDist < 140) {
-                            this.x -= Math.cos(this.angle) * 110 * dt;
-                            this.y -= Math.sin(this.angle) * 110 * dt;
-                        }
+                    const formX = player.x + Math.cos(player.angle + this.offsetAngle) * 65;
+                    const formY = player.y + Math.sin(player.angle + this.offsetAngle) * 65;
+                    const distToForm = Math2.dist(this.x, this.y, formX, formY);
 
+                    if (distToForm > 24) {
+                        const moveAng = Math2.angle(this.x, this.y, formX, formY);
+                        const spd = distToForm > 220 ? 245 : 185;
+                        this.x += Math.cos(moveAng) * spd * dt;
+                        this.y += Math.sin(moveAng) * spd * dt;
+                        if (!nearestEnemy) this.angle = moveAng;
+                    }
+
+                    if (nearestEnemy) {
+                        this.angle = Math2.angle(this.x, this.y, nearestEnemy.x, nearestEnemy.y);
                         const now = performance.now();
-                        const delay = this.identity === 'young_blaze' ? 210 : 270;
-                        if (now - this.lastShot >= delay) {
+                        if (now - this.lastShot >= 280) {
                             this.lastShot = now;
                             sfx.playGunshot('airsoft_aeg');
                             const mx = this.x + Math.cos(this.angle) * 18;
                             const my = this.y + Math.sin(this.angle) * 18;
-                            bullets.push(new Bullet(mx, my, this.angle + Math2.rand(-0.07, 0.07), 2650, 22, 'ally', this, false, true, false));
-                        }
-                    } else if (player && player.hp > 0) {
-                        // Advance in tactical buddy formation alongside Younger Yael
-                        const desiredX = player.x + Math.cos(player.angle + Math.PI + this.formationOffsetAngle) * 78;
-                        const desiredY = player.y + Math.sin(player.angle + Math.PI + this.formationOffsetAngle) * 78;
-                        const distToSlot = Math2.dist(this.x, this.y, desiredX, desiredY);
-                        if (distToSlot > 26) {
-                            this.angle = Math2.angle(this.x, this.y, desiredX, desiredY);
-                            const spd = distToSlot > 180 ? 235 : 185;
-                            this.x += Math.cos(this.angle) * spd * dt;
-                            this.y += Math.sin(this.angle) * spd * dt;
-                        } else {
-                            this.angle = player.angle;
+                            bullets.push(new Bullet(mx, my, this.angle + Math2.rand(-0.07, 0.07), 4600, 18, 'ally', this, false, true, false));
                         }
                     }
 
-                    this.x = Math2.clamp(this.x, 40, WORLD_SIZE - 40);
-                    this.y = Math2.clamp(this.y, 40, WORLD_SIZE - 40);
                     for (let i = 0; i < buildings.length; i++) {
                         circleRectResolve(this, buildings[i]);
                     }
@@ -1966,96 +1838,175 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
 
                 draw(ctx) {
+                    if (this.isOut) return;
                     ctx.save();
                     ctx.translate(this.x, this.y);
                     ctx.rotate(this.angle);
 
-                    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                    ctx.fillStyle = 'rgba(0,0,0,0.38)';
                     ctx.beginPath();
-                    ctx.ellipse(2, 3, 10, 12, 0, 0, Math.PI * 2);
+                    ctx.ellipse(2, 2, 10, 11.5, 0, 0, Math.PI * 2);
                     ctx.fill();
 
-                    // Torso
-                    ctx.fillStyle = this.identity === 'young_g' ? '#334155' : '#18181b';
+                    ctx.fillStyle = this.shirtColor;
                     ctx.beginPath();
-                    ctx.ellipse(-2, 0, 8.8, 11.5, 0, 0, Math.PI * 2);
+                    ctx.ellipse(-1, 0, 8.5, 11.5, 0, 0, Math.PI * 2);
                     ctx.fill();
 
-                    // Airsoft AEG Carbine
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(5, 2.8, 18, 3.6);
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(5, 3, 17, 3.2);
                     ctx.fillStyle = '#f97316';
-                    ctx.fillRect(22, 3.0, 2.5, 3.2); // Orange airsoft tip
+                    ctx.fillRect(21, 3, 2.5, 3.2);
 
-                    // Head
-                    ctx.fillStyle = this.identity === 'young_g' ? '#d4a373' : '#fbd3b0';
+                    ctx.fillStyle = '#e0a986';
                     ctx.beginPath();
-                    ctx.arc(0, 0, 6.2, 0, Math.PI * 2);
+                    ctx.arc(0, 0, 6, 0, Math.PI * 2);
                     ctx.fill();
 
-                    if (this.identity === 'young_g') {
-                        // Younger G's dark brown hair
-                        ctx.fillStyle = '#451a03';
-                        ctx.beginPath();
-                        ctx.arc(-1, 0, 6.7, Math.PI * 0.45, Math.PI * 1.55);
-                        ctx.fill();
-                    } else {
-                        // Younger Blaze's fiery red hair & ponytail
-                        ctx.fillStyle = '#ea580c';
-                        ctx.beginPath();
-                        ctx.arc(-1, 0, 6.8, Math.PI * 0.42, Math.PI * 1.58);
-                        ctx.fill();
-                        ctx.fillStyle = '#c2410c';
-                        ctx.beginPath();
-                        ctx.arc(-10, 0, 4.0, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
+                    ctx.fillStyle = this.hairColor;
+                    ctx.beginPath();
+                    ctx.arc(-1, 0, 6.2, Math.PI * 0.45, Math.PI * 1.55);
+                    ctx.fill();
 
                     ctx.restore();
 
-                    // Nameplate / HIT Dead Rag
-                    ctx.font = '900 9.5px ui-monospace, monospace';
+                    ctx.fillStyle = '#86efac';
+                    ctx.font = '800 9px ui-monospace, monospace';
                     ctx.textAlign = 'center';
-                    if (this.isOut) {
-                        ctx.fillStyle = '#fb923c';
-                        ctx.fillText('HIT! (RESPAWNING)', this.x, this.y - 18);
-                    } else {
-                        ctx.fillStyle = '#4ade80';
-                        ctx.fillText(this.name, this.x, this.y - 17);
-                    }
+                    ctx.fillText(this.name, this.x, this.y - 16);
                 }
             }
 
             // ============================================================================
-            // FRIGHTENED MALL SHOPPERS (CIVILIANS TRAPPED IN THE MALL)
+            // FRIGHTENED MALL SHOPPERS, SHOPKEEPER CONTACT & KNEELING HOSTAGES
             // ============================================================================
             class Civilian {
-                constructor(x, y) {
+                constructor(x, y, floor = null, label = null, isHostage = false) {
                     this.x = x;
                     this.y = y;
+                    this.floor = floor;
+                    this.label = label;
+                    this.isHostage = isHostage;
+                    this.rescued = false;
+                    this.rewardGiven = false;
+                    this.dead = false;
                     this.r = 10.5;
                     this.angle = Math2.rand(0, Math.PI * 2);
-                    this.state = 'huddled';
+                    this.state = isHostage ? 'hostage' : 'huddled';
                     this.panicTimer = 0;
                     this.fleeAngle = this.angle;
                     this.shirtColor = ['#38bdf8', '#a855f7', '#eab308', '#14b8a6', '#f43f5e'][Math2.randInt(0, 4)];
                 }
 
+                takeDamage(amount, hitAngle = 0) {
+                    if (this.dead) return;
+                    this.dead = true;
+                    createBlood(this.x, this.y, hitAngle, 6);
+                    corpses.push(new Corpse(this.x, this.y, hitAngle, this.shirtColor, '#8d5524', false, this.floor, 'civilian'));
+                    if (this.isHostage) {
+                        showBanner('HOSTAGE KILLED IN CROSSFIRE!', 2200, true);
+                    }
+                }
+
+                interact() {
+                    if (this.dead) return;
+                    if (this.label && this.label.includes('CHEN')) {
+                        phoneCutscene.start({
+                            clock: '07:03 AM',
+                            opsec: 'FACE-TO-FACE WHISPER // GOLDEN DRAGON BACK ROOM',
+                            contactName: 'MR. CHEN // GOLDEN DRAGON',
+                            contactSub: 'SHOPKEEPER CONTACT &bull; LEVEL 1',
+                            contactAvatar: 'sniper',
+                            messages: [
+                                { side: 'incoming', sender: 'MR. CHEN', time: '07:03', text: 'C, thank goodness you stayed to help lock the back vault. The looters broke the outer mall shutters at 05:00 and speak only isiZulu—they will not negotiate.' },
+                                { side: 'outgoing', sender: 'C', time: '07:03', text: 'Keep the back shutter bolted behind me, Chen. I am heading down the central escalator to Ground [G] and then B1 for my car boot.' },
+                                { side: 'incoming', sender: 'MR. CHEN', time: '07:03', text: 'Check the Safari Outdoor & Butchery section on Ground Floor—my cousin left a 7-inch carbon-steel hunting knife in a leather scabbard behind the counter. Take this cash and water too.' }
+                            ],
+                            onComplete: () => {
+                                if (!this.rewardGiven) {
+                                    this.rewardGiven = true;
+                                    cashCollected += 600;
+                                    player.stamina = 100;
+                                    const cashEl = document.getElementById('cashCounter');
+                                    if (cashEl) {
+                                        cashEl.style.display = 'block';
+                                        cashEl.innerText = `CASH LOOTED: R${cashCollected.toLocaleString()}`;
+                                    }
+                                    sfx.playPickup();
+                                    showBanner('MR. CHEN GAVE YOU R600 CASH & BOTTLED WATER!', 2200);
+                                }
+                            }
+                        });
+                        return;
+                    }
+
+                    if (this.isHostage && this.rescued) {
+                        if (!this.rewardGiven) {
+                            this.rewardGiven = true;
+                            sfx.playPickup();
+                            cashCollected += 850;
+                            const cashEl = document.getElementById('cashCounter');
+                            if (cashEl) {
+                                cashEl.style.display = 'block';
+                                cashEl.innerText = `CASH LOOTED: R${cashCollected.toLocaleString()}`;
+                            }
+                            const g26 = WEAPONS.find((w) => w.id === 'glock26');
+                            if (g26) {
+                                g26.fmjReserve += 8;
+                                if (g26.ammoLoad === 'fmj') g26.reserve = g26.fmjReserve;
+                            }
+                            player.hp = Math.min(100, player.hp + 20);
+                            updateHUD();
+                            showMonologue(
+                                'RESCUED SHOP STAFF // WHISPER',
+                                'Thank you! Those gunmen kept shouting at us in isiZulu to open the safe. Take the till cash, a first-aid wrap, and a box of 9mm rounds the mall guard dropped!',
+                                5600
+                            );
+                        } else {
+                            showBanner('RESCUED STAFF: "STAY SAFE — WE ARE HIDING IN THE STOREROOM!"', 1800);
+                        }
+                        return;
+                    }
+
+                    showBanner('SHOPPER: "PLEASE — KEEP YOUR LIGHT LOW, LOOTERS ARE EVERYWHERE!"', 1800);
+                }
+
                 onHearGunshot(gx, gy) {
+                    if (this.dead || this.isHostage) return;
                     this.state = 'fleeing';
                     this.panicTimer = Math2.rand(3.0, 5.5);
                     this.fleeAngle = Math2.angle(gx, gy, this.x, this.y) + Math2.rand(-0.5, 0.5);
                 }
 
                 update(dt) {
+                    if (this.dead) return;
+                    if (this.floor && this.floor !== currentMallFloor) return;
+
+                    if (this.isHostage && !this.rescued) {
+                        let captorAlive = false;
+                        for (let i = 0; i < enemies.length; i++) {
+                            const e = enemies[i];
+                            if (e.hp > 0 && e.floor === this.floor && e.faction === 'hostage_taker' && Math2.dist(this.x, this.y, e.x, e.y) < 260) {
+                                captorAlive = true;
+                                break;
+                            }
+                        }
+                        if (!captorAlive) {
+                            this.rescued = true;
+                            this.state = 'rescued';
+                            showBanner('HOSTAGE RESCUED! PRESS [E] TO TALK & COLLECT SUPPLIES', 2400);
+                        }
+                        return;
+                    }
+
                     if (this.state === 'fleeing') {
                         this.panicTimer -= dt;
                         this.angle = this.fleeAngle;
                         this.x += Math.cos(this.angle) * 165 * dt;
                         this.y += Math.sin(this.angle) * 165 * dt;
 
-                        this.x = Math2.clamp(this.x, 480, 3580);
-                        this.y = Math2.clamp(this.y, 480, 3500);
+                        this.x = Math2.clamp(this.x, 320, WORLD_SIZE - 320);
+                        this.y = Math2.clamp(this.y, 320, WORLD_SIZE - 320);
 
                         for (let i = 0; i < buildings.length; i++) {
                             if (circleRectResolve(this, buildings[i])) {
@@ -2070,19 +2021,35 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
 
                 draw(ctx) {
+                    if (this.dead) return;
+                    if (this.floor && this.floor !== currentMallFloor) return;
                     ctx.save();
                     ctx.translate(this.x, this.y);
                     ctx.rotate(this.angle);
+
+                    const walkBob = this.state === 'fleeing' ? Math.sin(performance.now() * 0.02 + this.x) * 3.5 : 0;
 
                     ctx.fillStyle = 'rgba(0,0,0,0.35)';
                     ctx.beginPath();
                     ctx.ellipse(2, 2, 9.5, 11.5, 0, 0, Math.PI * 2);
                     ctx.fill();
 
+                    if (this.state === 'fleeing') {
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(-3 + walkBob, -5.5, 5, 3.2);
+                        ctx.fillRect(-3 - walkBob, 2.3, 5, 3.2);
+                    }
+
                     ctx.fillStyle = this.shirtColor;
                     ctx.beginPath();
-                    ctx.ellipse(-1, 0, 8.5, 11, 0, 0, Math.PI * 2);
+                    ctx.ellipse(-1, 0, this.isHostage && !this.rescued ? 7.2 : 8.5, 11, 0, 0, Math.PI * 2);
                     ctx.fill();
+
+                    if (this.isHostage && !this.rescued) {
+                        ctx.fillStyle = '#8d5524';
+                        ctx.beginPath(); ctx.arc(-4, -5.5, 2.5, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(-4, 5.5, 2.5, 0, Math.PI * 2); ctx.fill();
+                    }
 
                     ctx.fillStyle = '#8d5524';
                     ctx.beginPath();
@@ -2091,7 +2058,22 @@ import { createAudioEngine } from './audio/sfx.js';
 
                     ctx.restore();
 
-                    if (this.state === 'fleeing') {
+                    if (this.label) {
+                        ctx.fillStyle = '#38bdf8';
+                        ctx.font = '800 9px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(this.label, this.x, this.y - 16);
+                    } else if (this.isHostage && !this.rescued) {
+                        ctx.fillStyle = '#f87171';
+                        ctx.font = '900 9px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('HOSTAGE [KNEELING]', this.x, this.y - 16);
+                    } else if (this.isHostage && this.rescued) {
+                        ctx.fillStyle = '#4ade80';
+                        ctx.font = '900 9px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('RESCUED [E]', this.x, this.y - 16);
+                    } else if (this.state === 'fleeing') {
                         ctx.fillStyle = '#fef08a';
                         ctx.font = '900 11px ui-monospace, monospace';
                         ctx.textAlign = 'center';
@@ -2101,23 +2083,33 @@ import { createAudioEngine } from './audio/sfx.js';
             }
 
             // ============================================================================
-            // TACTICAL FACTION AI (INCLUDING GROWN-UP AIRSOFT ADULTS)
+            // TACTICAL FACTION AI (SIGHT CONES, ISIZULU HOSTAGE-TAKERS, MELEE DASHERS & LOOTERS)
             // ============================================================================
+            const ZULU_HOSTAGE_BARKS = ['HLALA PHANSI!', 'VULA I-SAFE!', 'THULA!', 'NGIZOKUDUBULA!'];
+            const ZULU_ALARM_BARKS = ['NANGU UMUNTU!', 'NAYA IMPI!', 'BAMBA LO!', 'BALEKANI!'];
+
             class Enemy {
-                constructor(x, y, faction = 'looter', isBoss = false) {
+                constructor(x, y, faction = 'looter', isBoss = false, floor = null, activity = null) {
                     this.x = x;
                     this.y = y;
                     this.faction = faction;
                     this.isBoss = isBoss;
+                    this.floor = floor;
+                    this.activity = activity;
                     this.angle = Math2.rand(0, Math.PI * 2);
                     this.lastShot = 0;
                     this.burnTimer = 0;
                     this.burnTick = 0;
                     this.wanderAngle = this.angle;
                     this.wanderTimer = Math2.rand(1, 3);
+                    this.animPhase = Math2.rand(0, Math.PI * 2);
+                    this.barkText = '';
+                    this.barkTimer = 0;
+                    this.barkCooldown = Math2.rand(1.5, 4.5);
 
                     this.isUnarmed = (faction === 'unarmed_looter');
-                    this.isSpotter = this.isUnarmed && Math.random() < 0.38;
+                    this.isMeleeLooter = (faction === 'melee_looter');
+                    this.isSpotter = this.isUnarmed && Math.random() < 0.42;
                     this.spotterWarnTimer = 0;
                     this.spotterCooldown = 0;
 
@@ -2126,7 +2118,10 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.fleeAngle = 0;
                     this.nearbyAllyDeaths = 0;
                     this.moraleThreshold = isBoss ? 99 : Math2.randInt(2, 3);
-                    this.carryingLoot = this.isUnarmed && !this.isSpotter && Math.random() < 0.65;
+                    this.carryingLoot = (this.isUnarmed && !this.isSpotter && (activity === 'haul_crate' || Math.random() < 0.55));
+                    this.dashCooldown = 0;
+                    this.dashTimer = 0;
+                    this.hostageExecuteTimer = 0;
 
                     this.lkpX = null;
                     this.lkpY = null;
@@ -2136,22 +2131,24 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.blindTimer = 0;
                     this.blindPanicShotTimer = 0;
 
+                    this.fovHalfAngle = 1.05;
+
                     if (faction === 'airsoft_adult') {
                         this.r = 12.5;
                         this.hp = isBoss ? 140 : 65;
                         this.maxHp = this.hp;
-                        this.speed = 148;
+                        this.speed = 152;
                         this.dmg = 16;
                         this.fireDelay = 310;
-                        this.sightRange = 510;
-                        this.attackRange = 390;
+                        this.sightRange = 540;
+                        this.attackRange = 410;
                         this.hesitationRequired = 0.42;
                     } else if (faction === 'dog') {
                         this.r = 9;
                         this.hp = 48;
                         this.maxHp = 48;
                         this.speed = 235;
-                        this.dmg = 18;
+                        this.dmg = 22;
                         this.fireDelay = 520;
                         this.sightRange = 460;
                         this.attackRange = 24;
@@ -2163,15 +2160,38 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.speed = 195;
                         this.dmg = 0;
                         this.fireDelay = 9999;
-                        this.sightRange = 360;
+                        this.sightRange = 340;
                         this.attackRange = 0;
                         this.hesitationRequired = 0.6;
+                        this.fovHalfAngle = 0.95;
+                    } else if (faction === 'melee_looter') {
+                        this.r = 11.5;
+                        this.hp = 58;
+                        this.maxHp = 58;
+                        this.speed = 188;
+                        this.dmg = 28;
+                        this.fireDelay = 620;
+                        this.sightRange = 390;
+                        this.attackRange = 28;
+                        this.hesitationRequired = 0.45;
+                        this.fovHalfAngle = 1.0;
+                    } else if (faction === 'hostage_taker') {
+                        this.r = 12;
+                        this.hp = 72;
+                        this.maxHp = 72;
+                        this.speed = 148;
+                        this.dmg = 26;
+                        this.fireDelay = 540;
+                        this.sightRange = 380;
+                        this.attackRange = 260;
+                        this.hesitationRequired = 0.85;
+                        this.fovHalfAngle = 0.92;
                     } else if (faction === 'blockade_goon') {
                         this.r = 12.5;
-                        this.hp = isBoss ? 250 : 115;
+                        this.hp = isBoss ? 240 : 110;
                         this.maxHp = this.hp;
-                        this.speed = 138;
-                        this.dmg = 34;
+                        this.speed = 142;
+                        this.dmg = 44;
                         this.fireDelay = 340;
                         this.sightRange = 540;
                         this.attackRange = 410;
@@ -2180,8 +2200,8 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.r = 12;
                         this.hp = isBoss ? 220 : 110;
                         this.maxHp = this.hp;
-                        this.speed = 135;
-                        this.dmg = 30;
+                        this.speed = 138;
+                        this.dmg = 34;
                         this.fireDelay = 360;
                         this.sightRange = 500;
                         this.attackRange = 370;
@@ -2190,8 +2210,8 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.r = isBoss ? 15 : 12;
                         this.hp = isBoss ? 300 : 90;
                         this.maxHp = this.hp;
-                        this.speed = isBoss ? 122 : 145;
-                        this.dmg = isBoss ? 36 : 26;
+                        this.speed = isBoss ? 125 : 148;
+                        this.dmg = isBoss ? 42 : 28;
                         this.fireDelay = isBoss ? 270 : 440;
                         this.sightRange = 490;
                         this.attackRange = 340;
@@ -2201,12 +2221,25 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.hp = 68;
                         this.maxHp = 68;
                         this.speed = 160;
-                        this.dmg = 24;
+                        this.dmg = 26;
                         this.fireDelay = 580;
-                        this.sightRange = 430;
+                        this.sightRange = 410;
                         this.attackRange = 260;
                         this.hesitationRequired = Math2.rand(0.95, 1.45);
                     }
+                }
+
+                sayZulu(phrase, dur = 2.4) {
+                    this.barkText = phrase;
+                    this.barkTimer = dur;
+                }
+
+                isExecutionVulnerable(attacker) {
+                    if (this.hp <= 0 || this.isBoss || this.faction === 'dog') return false;
+                    if (this.blindTimer > 0.2 || this.panicState === 'in_cover' || this.panicState === 'frozen') return true;
+                    const angEnemyToAttacker = Math2.angle(this.x, this.y, attacker.x, attacker.y);
+                    const behindEnemy = Math2.angleDiff(this.angle, angEnemyToAttacker) > 1.72;
+                    return behindEnemy && this.hesitationTimer < 0.15;
                 }
 
                 setLKP(x, y, duration = 7.5) {
@@ -2220,6 +2253,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     const newBlind = isDarkAmbient ? 2.6 : 1.15;
                     if (this.blindTimer < 0.4) {
                         this.hesitationTimer = 0;
+                        this.hostageExecuteTimer = 0;
                         this.setLKP(sourceX + Math2.rand(-90, 90), sourceY + Math2.rand(-90, 90), 4.0);
                     }
                     this.blindTimer = Math.max(this.blindTimer, newBlind);
@@ -2228,7 +2262,13 @@ import { createAudioEngine } from './audio/sfx.js';
                 onHearGunshot(gx, gy) {
                     if (this.hp <= 0 || this.panicState === 'fleeing' || this.panicState === 'wounded_retreat') return;
 
+                    if (this.faction === 'hostage_taker' && this.hostageExecuteTimer <= 0) {
+                        this.hostageExecuteTimer = 3.8;
+                        this.sayZulu('NGIZOKUDUBULA!', 3.2);
+                    }
+
                     if (this.isUnarmed) {
+                        this.sayZulu('BALEKANI!', 2.2);
                         if (Math.random() < 0.35 && this.panicState === 'normal') {
                             this.panicState = 'frozen';
                             this.panicTimer = Math2.rand(0.7, 1.3);
@@ -2255,6 +2295,7 @@ import { createAudioEngine } from './audio/sfx.js';
                             this.panicState = 'fleeing';
                             this.panicTimer = Math2.rand(6.5, 10.5);
                             this.fleeAngle = Math2.angle(deadX, deadY, this.x, this.y) + Math2.rand(-0.4, 0.4);
+                            this.sayZulu('BALEKANI!', 2.2);
                         }
                     }
                 }
@@ -2282,13 +2323,26 @@ import { createAudioEngine } from './audio/sfx.js';
                             : `HOSTILES NEUTRALIZED: ${kills}`;
                         document.getElementById('killCounter').innerText = killLabel;
 
-                        if (isAirsoft) {
+                        if (!isAirsoft) {
+                            const bodyColors = {
+                                unarmed_looter: this.isSpotter ? '#eab308' : '#d97706',
+                                melee_looter: '#9a3412',
+                                hostage_taker: '#7f1d1d',
+                                looter: '#b45309',
+                                blockade_goon: '#991b1b',
+                                syndicate: '#15803d',
+                                security: '#1d4ed8'
+                            };
+                            const bCol = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (bodyColors[this.faction] || '#b45309');
+                            corpses.push(new Corpse(this.x, this.y, hitAngle, bCol, '#5c3a21', this.isBoss, this.floor, this.faction));
+                            if (corpses.length > 160) corpses.shift();
+                        } else {
                             showBanner(this.isBoss ? 'ADULT SQUAD CAPTAIN: "HIT! GOOD SHOT!"' : 'ADULT PLAYER: "HIT! OUT!"', 1300);
                         }
 
                         for (let i = 0; i < enemies.length; i++) {
                             const other = enemies[i];
-                            if (other !== this && other.hp > 0) {
+                            if (other !== this && other.hp > 0 && (!this.floor || other.floor === this.floor)) {
                                 other.onComradeKilled(this.x, this.y);
                             }
                         }
@@ -2301,12 +2355,14 @@ import { createAudioEngine } from './audio/sfx.js';
                             }
                         } else if (isMall) {
                             const r = Math.random();
-                            if (this.faction === 'blockade_goon' && r < 0.25) {
-                                pickups.push(new Pickup(this.x, this.y, 'ammo'));
+                            if (this.isMeleeLooter && r < 0.45) {
+                                pickups.push(new Pickup(this.x, this.y, 'crowbar', this.floor));
+                            } else if (this.faction === 'blockade_goon' && r < 0.25) {
+                                pickups.push(new Pickup(this.x, this.y, 'ammo', this.floor));
                             } else if (r < 0.35) {
-                                pickups.push(new Pickup(this.x, this.y, 'cash'));
+                                pickups.push(new Pickup(this.x, this.y, 'cash', this.floor));
                             } else if (r < 0.52) {
-                                pickups.push(new Pickup(this.x, this.y, Math.random() < 0.5 ? 'food' : 'water'));
+                                pickups.push(new Pickup(this.x, this.y, Math.random() < 0.5 ? 'food' : 'water', this.floor));
                             }
                         } else if (Math.random() < 0.32) {
                             const dropType = (mission && mission.campaign === 'cbd' && Math.random() < 0.45)
@@ -2316,9 +2372,8 @@ import { createAudioEngine } from './audio/sfx.js';
                         }
                     } else if (!isAirsoft) {
                         if (!this.isBoss && this.faction !== 'dog' && this.panicState !== 'fleeing') {
-                            const isLooter = (this.faction === 'looter' || this.isUnarmed);
+                            const isLooter = (this.faction === 'looter' || this.isUnarmed || this.isMeleeLooter);
                             const hpRatio = this.hp / this.maxHp;
-                            // 120gr +P JHP causes massive flesh trauma -> guaranteed immediate stagger/retreat!
                             const retreatChance = isJHP ? 0.96 : (isLooter ? 0.82 : (hpRatio < 0.55 ? 0.62 : 0.22));
                             if (Math.random() < retreatChance) {
                                 this.panicState = 'wounded_retreat';
@@ -2330,35 +2385,49 @@ import { createAudioEngine } from './audio/sfx.js';
                     }
                 }
 
+                getEffectiveSightRange() {
+                    const isDarkMall = (mission && mission.campaign === 'mall' && this.faction !== 'blockade_goon');
+                    if (!isDarkMall || !player) return this.sightRange;
+                    if (player.flashlightOn && !player.vehicle) return 460;
+                    if (isPlayerIlluminatedByEnvironment()) return 275;
+                    if (player.isSneaking) return 44;
+                    const isSprinting = (keys['shift'] || touchInput.sprint) && (keys['w'] || keys['a'] || keys['s'] || keys['d'] || Math.hypot(touchInput.moveX, touchInput.moveY) > 0.2);
+                    return isSprinting ? 195 : 94;
+                }
+
                 canDetectPlayer() {
                     if (!player || player.hp <= 0) return false;
+                    if (this.floor && this.floor !== currentMallFloor) return false;
                     const d = Math2.dist(this.x, this.y, player.x, player.y);
                     if (!hasLoS(this.x, this.y, player.x, player.y)) return false;
 
                     const angToPlayer = Math2.angle(this.x, this.y, player.x, player.y);
                     const viewDiff = Math2.angleDiff(this.angle, angToPlayer);
-                    const inFrontCone = viewDiff <= 1.38;
+                    const inFrontCone = viewDiff <= this.fovHalfAngle;
 
-                    const isDarkMall = (mission && mission.campaign === 'mall' && player.x <= 3610 && this.faction !== 'blockade_goon');
+                    const isDarkMall = (mission && mission.campaign === 'mall' && this.faction !== 'blockade_goon');
                     if (isDarkMall) {
                         if (player.flashlightOn && !player.vehicle) {
-                            if (inFrontCone && d < 470) return true;
+                            if (inFrontCone && d < 460) return true;
                             const beamAng = Math2.angle(player.x, player.y, this.x, this.y);
-                            if (d < 450 && Math2.angleDiff(player.angle, beamAng) < 0.38) return true;
+                            if (d < 440 && Math2.angleDiff(player.angle, beamAng) < 0.36) return true;
                         }
-                        if (isPlayerIlluminatedByEnvironment() && inFrontCone && d < 280) {
+                        if (isPlayerIlluminatedByEnvironment() && inFrontCone && d < 275) {
                             return true;
+                        }
+                        if (player.isSneaking) {
+                            return inFrontCone ? d < 44 : d < 24;
                         }
                         const isSprinting = (keys['shift'] || touchInput.sprint) && (keys['w'] || keys['a'] || keys['s'] || keys['d'] || Math.hypot(touchInput.moveX, touchInput.moveY) > 0.2);
                         if (isSprinting && d < 195) {
                             return true;
                         }
-                        const shadowRadius = inFrontCone ? 92 : 52;
+                        const shadowRadius = inFrontCone ? 94 : 48;
                         return d < shadowRadius;
                     }
 
                     if (inFrontCone && d < this.sightRange) return true;
-                    return d < 125;
+                    return player.isSneaking ? d < 45 : d < 120;
                 }
 
                 findTarget() {
@@ -2375,7 +2444,6 @@ import { createAudioEngine } from './audio/sfx.js';
                         bestTarget = player;
                     }
 
-                    // Also check friendly youth allies (Younger G & Younger Blaze) in Training stage!
                     for (let i = 0; i < allies.length; i++) {
                         const al = allies[i];
                         if (al.isOut) continue;
@@ -2389,9 +2457,11 @@ import { createAudioEngine } from './audio/sfx.js';
                     for (let i = 0; i < enemies.length; i++) {
                         const other = enemies[i];
                         if (other === this || other.hp <= 0 || other.isUnarmed) continue;
+                        if (this.floor && other.floor !== this.floor) continue;
                         if (other.faction === this.faction) continue;
                         if ((this.faction === 'syndicate' && other.faction === 'dog') || (this.faction === 'dog' && other.faction === 'syndicate')) continue;
-                        if ((this.faction === 'blockade_goon' && other.faction === 'looter') || (this.faction === 'looter' && other.faction === 'blockade_goon')) continue;
+                        const isMallLooterGroup = (f) => (f === 'looter' || f === 'melee_looter' || f === 'hostage_taker' || f === 'blockade_goon');
+                        if (isMallLooterGroup(this.faction) && isMallLooterGroup(other.faction)) continue;
 
                         const d = Math2.dist(this.x, this.y, other.x, other.y);
                         if (d < bestDist && hasLoS(this.x, this.y, other.x, other.y)) {
@@ -2405,8 +2475,22 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 update(dt) {
                     if (this.hp <= 0) return;
+                    if (this.floor && this.floor !== currentMallFloor) return;
 
                     if (this.spotterCooldown > 0) this.spotterCooldown -= dt;
+                    if (this.dashCooldown > 0) this.dashCooldown -= dt;
+                    if (this.dashTimer > 0) this.dashTimer -= dt;
+                    if (this.barkTimer > 0) this.barkTimer -= dt;
+                    if (this.barkCooldown > 0) this.barkCooldown -= dt;
+
+                    if (this.barkCooldown <= 0 && this.panicState === 'normal') {
+                        this.barkCooldown = Math2.rand(4.5, 9.0);
+                        if (this.faction === 'hostage_taker') {
+                            this.sayZulu(ZULU_HOSTAGE_BARKS[Math2.randInt(0, ZULU_HOSTAGE_BARKS.length - 1)], 2.6);
+                        } else if (this.activity === 'pry_shutter' && Math.random() < 0.5) {
+                            this.sayZulu('VULA LO MNYANGO!', 2.0);
+                        }
+                    }
 
                     if (this.burnTimer > 0) {
                         this.burnTimer -= dt;
@@ -2426,8 +2510,9 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.x -= Math.cos(this.angle) * 42 * dt;
                         this.y -= Math.sin(this.angle) * 42 * dt;
                         this.angle += Math.sin(performance.now() * 0.025 + this.x) * 2.2 * dt;
+                        this.animPhase += dt * 7;
 
-                        if (!this.isUnarmed && this.faction !== 'dog' && this.blindTimer > 0.7) {
+                        if (!this.isUnarmed && !this.isMeleeLooter && this.faction !== 'dog' && this.blindTimer > 0.7) {
                             this.blindPanicShotTimer += dt;
                             if (this.blindPanicShotTimer > 0.65 && Math.random() < 0.04) {
                                 this.blindPanicShotTimer = 0;
@@ -2436,7 +2521,7 @@ import { createAudioEngine } from './audio/sfx.js';
                                 sfx.playGunshot(isAirsoft ? 'airsoft_aeg' : (isRifle ? 'ak47' : 'glock'));
                                 const mx = this.x + Math.cos(this.angle) * 18;
                                 const my = this.y + Math.sin(this.angle) * 18;
-                                bullets.push(new Bullet(mx, my, this.angle + Math2.rand(-0.72, 0.72), isAirsoft ? 2450 : 3400, this.dmg, 'enemy', this, false, isAirsoft, false));
+                                bullets.push(new Bullet(mx, my, this.angle + Math2.rand(-0.72, 0.72), isAirsoft ? 4400 : 14000, this.dmg, 'enemy', this, false, isAirsoft, false));
                             }
                         }
 
@@ -2461,9 +2546,10 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.angle = this.fleeAngle;
                         this.x += Math.cos(this.angle) * (this.speed * 1.18) * dt;
                         this.y += Math.sin(this.angle) * (this.speed * 1.18) * dt;
+                        this.animPhase += dt * 13;
 
                         if (Math.random() < 0.14 && decals.length < 520) {
-                            decals.push(new Decal(this.x, this.y, 'blood', Math2.rand(0, Math.PI * 2), 4));
+                            decals.push(new Decal(this.x, this.y, 'blood', Math2.rand(0, Math.PI * 2), 4, this.floor));
                         }
 
                         this.x = Math2.clamp(this.x, 40, WORLD_SIZE - 40);
@@ -2499,6 +2585,7 @@ import { createAudioEngine } from './audio/sfx.js';
                         const fleeSpeed = this.isUnarmed ? 215 : 205;
                         this.x += Math.cos(this.angle) * fleeSpeed * dt;
                         this.y += Math.sin(this.angle) * fleeSpeed * dt;
+                        this.animPhase += dt * 15;
 
                         this.x = Math2.clamp(this.x, 40, WORLD_SIZE - 40);
                         this.y = Math2.clamp(this.y, 40, WORLD_SIZE - 40);
@@ -2519,10 +2606,11 @@ import { createAudioEngine } from './audio/sfx.js';
                             if (player) this.angle = Math2.angle(this.x, this.y, player.x, player.y);
                             if (this.spotterWarnTimer <= 0) {
                                 sfx.playAlarmShout();
+                                this.sayZulu(ZULU_ALARM_BARKS[Math2.randInt(0, ZULU_ALARM_BARKS.length - 1)], 2.6);
                                 if (player) {
                                     broadcastGunshot(player.x, player.y, 580, true);
                                     if (mission && mission.campaign === 'mall') {
-                                        showBanner('LOOTER SPOTTER RAISED THE ALARM! RELOCATE IN THE DARK!', 2100);
+                                        showBanner('SPOTTER SHOUTED IN ISIZULU — ALARM RAISED! RELOCATE!', 2100);
                                     }
                                     this.fleeAngle = Math2.angle(player.x, player.y, this.x, this.y) + Math2.rand(-0.3, 0.3);
                                 }
@@ -2536,9 +2624,11 @@ import { createAudioEngine } from './audio/sfx.js';
                         if (this.canDetectPlayer()) {
                             if (this.isSpotter && this.spotterCooldown <= 0) {
                                 this.spotterWarnTimer = 0.58;
+                                this.sayZulu('NANGU!', 1.2);
                                 this.angle = Math2.angle(this.x, this.y, player.x, player.y);
                                 return;
                             } else {
+                                this.sayZulu('BALEKANI!', 2.0);
                                 this.panicState = 'fleeing';
                                 this.panicTimer = 6.5;
                                 this.fleeAngle = Math2.angle(player.x, player.y, this.x, this.y) + Math2.rand(-0.35, 0.35);
@@ -2552,31 +2642,47 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (target) {
                         this.setLKP(target.x, target.y, 7.5);
 
+                        if (this.faction === 'hostage_taker' && this.hostageExecuteTimer <= 0) {
+                            this.hostageExecuteTimer = 3.8;
+                            this.sayZulu('NGIZOKUDUBULA!', 3.0);
+                        }
+
                         const desiredAngle = Math2.angle(this.x, this.y, target.x, target.y);
                         this.angle = desiredAngle;
                         const d = Math2.dist(this.x, this.y, target.x, target.y);
 
                         let effectiveHesitation = this.hesitationRequired;
-                        if (target === player && (this.faction === 'looter' || this.faction === 'syndicate')) {
+                        if (target === player && (this.faction === 'looter' || this.faction === 'syndicate' || this.faction === 'hostage_taker')) {
                             const pAimDiff = Math2.angleDiff(player.angle, Math2.angle(player.x, player.y, this.x, this.y));
                             if (pAimDiff < 0.25) effectiveHesitation += 0.32;
                         }
 
                         this.hesitationTimer += dt;
 
+                        if (this.isMeleeLooter && d < 185 && d > 36 && this.dashCooldown <= 0) {
+                            this.dashTimer = 0.36;
+                            this.dashCooldown = 3.2;
+                            this.sayZulu('BAMBA!', 1.4);
+                        }
+
+                        const moveMult = this.dashTimer > 0 ? 2.15 : 1.0;
+
                         if (d > this.attackRange * 0.85) {
-                            this.x += Math.cos(this.angle) * this.speed * dt;
-                            this.y += Math.sin(this.angle) * this.speed * dt;
-                        } else if (this.faction !== 'dog' && d < this.attackRange * 0.45) {
+                            this.x += Math.cos(this.angle) * (this.speed * moveMult) * dt;
+                            this.y += Math.sin(this.angle) * (this.speed * moveMult) * dt;
+                            this.animPhase += dt * 13 * moveMult;
+                        } else if (this.faction !== 'dog' && !this.isMeleeLooter && d < this.attackRange * 0.45) {
                             this.x -= Math.cos(this.angle) * this.speed * 0.55 * dt;
                             this.y -= Math.sin(this.angle) * this.speed * 0.55 * dt;
+                            this.animPhase += dt * 8;
                         }
 
                         if (this.hesitationTimer >= effectiveHesitation && d <= this.attackRange) {
                             const now = performance.now();
                             if (now - this.lastShot >= this.fireDelay) {
                                 this.lastShot = now;
-                                if (this.faction === 'dog') {
+                                if (this.faction === 'dog' || this.isMeleeLooter) {
+                                    if (this.isMeleeLooter) sfx.playMelee();
                                     if (target === player && !player.vehicle) {
                                         player.takeDamage(this.dmg);
                                         createBlood(player.x, player.y, this.angle, 4);
@@ -2590,7 +2696,7 @@ import { createAudioEngine } from './audio/sfx.js';
                                     const mx = this.x + Math.cos(this.angle) * 18;
                                     const my = this.y + Math.sin(this.angle) * 18;
                                     const spread = isAirsoft ? 0.08 : (isRifle ? 0.085 : 0.14);
-                                    const spd = isAirsoft ? 2450 : (isRifle ? 4800 : 3650);
+                                    const spd = isAirsoft ? 4500 : (isRifle ? 26500 : 14000);
                                     bullets.push(new Bullet(mx, my, this.angle + Math2.rand(-spread, spread), spd, this.dmg, 'enemy', this, false, isAirsoft, false));
                                 }
                             }
@@ -2603,19 +2709,53 @@ import { createAudioEngine } from './audio/sfx.js';
                             this.angle = Math2.angle(this.x, this.y, this.lkpX, this.lkpY);
                             this.x += Math.cos(this.angle) * (this.speed * 0.85) * dt;
                             this.y += Math.sin(this.angle) * (this.speed * 0.85) * dt;
+                            this.animPhase += dt * 11;
                         } else {
                             this.angle += Math.sin(performance.now() * 0.006 + this.x) * 2.4 * dt;
                         }
                     } else {
                         this.hesitationTimer = Math.max(0, this.hesitationTimer - dt);
-                        this.wanderTimer -= dt;
-                        if (this.wanderTimer <= 0) {
-                            this.wanderTimer = Math2.rand(1.5, 4.0);
-                            this.wanderAngle += Math2.rand(-1.8, 1.8);
+
+                        if (this.faction === 'hostage_taker' && this.hostageExecuteTimer > 0) {
+                            this.hostageExecuteTimer -= dt;
+                            if (this.hostageExecuteTimer <= 0) {
+                                for (let i = 0; i < civilians.length; i++) {
+                                    const c = civilians[i];
+                                    if (!c.dead && c.isHostage && !c.rescued && c.floor === this.floor && Math2.dist(this.x, this.y, c.x, c.y) < 220) {
+                                        sfx.playGunshot('glock');
+                                        c.takeDamage(100, Math2.angle(this.x, this.y, c.x, c.y));
+                                        break;
+                                    }
+                                }
+                            }
                         }
-                        this.angle = this.wanderAngle;
-                        this.x += Math.cos(this.angle) * (this.speed * 0.35) * dt;
-                        this.y += Math.sin(this.angle) * (this.speed * 0.35) * dt;
+
+                        if (this.activity === 'pry_shutter' || this.activity === 'rummage') {
+                            this.animPhase += dt * 9;
+                            if (this.activity === 'pry_shutter' && Math.random() < 0.08) {
+                                particles.push(new Particle(
+                                    this.x + Math.cos(this.angle) * 14,
+                                    this.y + Math.sin(this.angle) * 14,
+                                    this.angle + Math.PI + Math2.rand(-0.7, 0.7),
+                                    '#facc15',
+                                    1.8,
+                                    Math2.rand(45, 110),
+                                    0.18
+                                ));
+                            }
+                        } else if (this.activity === 'guard_hostage') {
+                            this.angle += Math.sin(performance.now() * 0.003 + this.x) * 0.7 * dt;
+                        } else {
+                            this.wanderTimer -= dt;
+                            if (this.wanderTimer <= 0) {
+                                this.wanderTimer = Math2.rand(1.5, 4.0);
+                                this.wanderAngle += Math2.rand(-1.8, 1.8);
+                            }
+                            this.angle = this.wanderAngle;
+                            this.x += Math.cos(this.angle) * (this.speed * 0.42) * dt;
+                            this.y += Math.sin(this.angle) * (this.speed * 0.42) * dt;
+                            this.animPhase += dt * 7;
+                        }
                     }
 
                     this.x = Math2.clamp(this.x, 30, WORLD_SIZE - 30);
@@ -2637,8 +2777,38 @@ import { createAudioEngine } from './audio/sfx.js';
                     }
                 }
 
+                drawVisionCone(ctx) {
+                    if (this.hp <= 0 || this.blindTimer > 0 || this.panicState === 'fleeing' || this.panicState === 'in_cover') return;
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    if (!mission || mission.campaign !== 'mall') return;
+
+                    const range = this.getEffectiveSightRange();
+                    if (range < 40) return;
+
+                    ctx.save();
+                    const grad = ctx.createRadialGradient(this.x, this.y, 8, this.x, this.y, range);
+                    if (this.hesitationTimer > 0.08) {
+                        grad.addColorStop(0, 'rgba(239, 68, 68, 0.24)');
+                        grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+                    } else if (this.isSpotter) {
+                        grad.addColorStop(0, 'rgba(250, 204, 21, 0.16)');
+                        grad.addColorStop(1, 'rgba(250, 204, 21, 0)');
+                    } else {
+                        grad.addColorStop(0, 'rgba(248, 113, 113, 0.13)');
+                        grad.addColorStop(1, 'rgba(248, 113, 113, 0)');
+                    }
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.arc(this.x, this.y, range, this.angle - this.fovHalfAngle, this.angle + this.fovHalfAngle);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+
                 draw(ctx) {
                     if (this.hp <= 0) return;
+                    if (this.floor && this.floor !== currentMallFloor) return;
                     ctx.save();
                     ctx.translate(this.x, this.y);
                     ctx.rotate(this.angle);
@@ -2656,6 +2826,12 @@ import { createAudioEngine } from './audio/sfx.js';
                         return;
                     }
 
+                    const stride = Math.sin(this.animPhase) * 4.2;
+
+                    ctx.fillStyle = '#090d16';
+                    ctx.fillRect(-3 + stride, -6.5, 5.5, 3.2);
+                    ctx.fillRect(-3 - stride, 3.3, 5.5, 3.2);
+
                     ctx.fillStyle = 'rgba(0,0,0,0.38)';
                     ctx.beginPath();
                     ctx.ellipse(2, 3, 11, 13.5, 0, 0, Math.PI * 2);
@@ -2664,6 +2840,8 @@ import { createAudioEngine } from './audio/sfx.js';
                     const bodyColors = {
                         airsoft_adult: this.isBoss ? '#3f6212' : '#4d7c0f',
                         unarmed_looter: this.isSpotter ? '#eab308' : '#d97706',
+                        melee_looter: '#9a3412',
+                        hostage_taker: '#7f1d1d',
                         looter: '#b45309',
                         blockade_goon: '#991b1b',
                         syndicate: '#15803d',
@@ -2680,14 +2858,30 @@ import { createAudioEngine } from './audio/sfx.js';
                         ctx.beginPath(); ctx.arc(6, 4, 3, 0, Math.PI * 2); ctx.fill();
                     } else if (this.isUnarmed) {
                         if (this.carryingLoot) {
-                            ctx.fillStyle = '#78350f';
-                            ctx.fillRect(6, -6, 9, 12);
+                            ctx.fillStyle = '#334155';
+                            ctx.fillRect(5, -8.5, 11, 17);
+                            ctx.strokeStyle = '#94a3b8';
+                            ctx.lineWidth = 1;
+                            ctx.strokeRect(5, -8.5, 11, 17);
+                        } else {
+                            ctx.fillStyle = '#5c3a21';
+                            ctx.beginPath(); ctx.arc(5 - stride * 0.5, -8.5, 2.8, 0, Math.PI * 2); ctx.fill();
+                            ctx.beginPath(); ctx.arc(5 + stride * 0.5, 8.5, 2.8, 0, Math.PI * 2); ctx.fill();
                         }
+                    } else if (this.isMeleeLooter) {
+                        const prySwing = Math.sin(this.animPhase * 1.4) * 0.35;
+                        ctx.save();
+                        ctx.rotate(prySwing);
+                        ctx.fillStyle = '#cbd5e1';
+                        ctx.fillRect(4, 5, 18, 3);
+                        ctx.fillStyle = '#ef4444';
+                        ctx.fillRect(19, 4, 4, 5);
+                        ctx.restore();
                     } else if (this.faction === 'airsoft_adult') {
                         ctx.fillStyle = '#1e293b';
                         ctx.fillRect(5, 3, 18, 3.6);
                         ctx.fillStyle = '#f97316';
-                        ctx.fillRect(22, 3.1, 2.5, 3.4); // Orange airsoft muzzle tip
+                        ctx.fillRect(22, 3.1, 2.5, 3.4);
                     } else if (this.faction === 'blockade_goon') {
                         ctx.fillStyle = '#78350f';
                         ctx.fillRect(3, 3, 12, 3.8);
@@ -2706,7 +2900,6 @@ import { createAudioEngine } from './audio/sfx.js';
                     ctx.fill();
 
                     if (this.faction === 'airsoft_adult') {
-                        // Grown-up MilSim boonie hat
                         ctx.fillStyle = '#365314';
                         ctx.beginPath();
                         ctx.arc(-0.5, 0, 8.6, 0, Math.PI * 2);
@@ -2722,24 +2915,28 @@ import { createAudioEngine } from './audio/sfx.js';
 
                     ctx.font = '900 10px ui-monospace, monospace';
                     ctx.textAlign = 'center';
+                    if (this.barkTimer > 0 && this.barkText) {
+                        ctx.fillStyle = '#fde047';
+                        ctx.fillText(`"${this.barkText}"`, this.x, this.y - 26);
+                    }
                     if (this.blindTimer > 0) {
                         ctx.fillStyle = '#e0f2fe';
-                        ctx.fillText('BLINDED', this.x, this.y - 19);
+                        ctx.fillText('BLINDED', this.x, this.y - 18);
                     } else if (this.spotterWarnTimer > 0) {
                         ctx.fillStyle = '#facc15';
-                        ctx.fillText('! ALARM !', this.x, this.y - 19);
+                        ctx.fillText('! NANGU !', this.x, this.y - 18);
                     } else if (this.panicState === 'wounded_retreat') {
                         ctx.fillStyle = '#f87171';
-                        ctx.fillText('WOUNDED', this.x, this.y - 19);
+                        ctx.fillText('WOUNDED', this.x, this.y - 18);
                     } else if (this.panicState === 'in_cover') {
                         ctx.fillStyle = '#94a3b8';
-                        ctx.fillText('COVER', this.x, this.y - 19);
+                        ctx.fillText('COVER', this.x, this.y - 18);
                     } else if (this.panicState === 'fleeing' || this.panicState === 'frozen') {
                         ctx.fillStyle = this.panicState === 'frozen' ? '#38bdf8' : '#facc15';
-                        ctx.fillText(this.panicState === 'frozen' ? '?!' : 'FLEE', this.x, this.y - 19);
+                        ctx.fillText(this.panicState === 'frozen' ? '?!' : 'FLEE', this.x, this.y - 18);
                     } else if (this.hesitationTimer > 0.08 && this.hesitationTimer < this.hesitationRequired) {
                         ctx.fillStyle = '#fde047';
-                        ctx.fillText('?', this.x, this.y - 19);
+                        ctx.fillText('?', this.x, this.y - 18);
                     } else if (this.hp < this.maxHp || this.isBoss) {
                         const bw = this.isBoss ? 36 : 24;
                         ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
@@ -2751,169 +2948,578 @@ import { createAudioEngine } from './audio/sfx.js';
             }
 
             // ============================================================================
-            // PLAYER CONTROLLER (WITH 100GR FMJ vs 120GR JHP, OPTICS & EARBUD TOGGLE)
+            // VEHICLE CLASS (PLAYER & CIVILIAN DRIVER AI + TAXI RANK + STAGED CAR BOOT)
             // ============================================================================
-            class Player {
-                constructor(x, y, archetype = 'young_yael') {
+            class Vehicle {
+                constructor(x, y, type = 'sedan', angle = 0, lockedBlockade = false, floor = null, isPlayerStagedCar = false) {
                     this.x = x;
                     this.y = y;
+                    this.type = type;
+                    this.angle = angle;
+                    this.lockedBlockade = lockedBlockade;
+                    this.floor = floor;
+                    this.isPlayerStagedCar = isPlayerStagedCar;
+                    this.goBagLooted = false;
+                    this.speed = 0;
+                    this.driver = null;
+                    this.destroyed = false;
+                    this.smokeTimer = 0;
+
+                    if (type === 'taxi') {
+                        this.w = 64;
+                        this.h = 30;
+                        this.maxSpeed = 480;
+                        this.hp = 380;
+                        this.color = '#f8fafc';
+                        this.stripe = '#2563eb';
+                    } else if (type === 'armored') {
+                        this.w = 72;
+                        this.h = 34;
+                        this.maxSpeed = 430;
+                        this.hp = 700;
+                        this.color = '#365314';
+                        this.stripe = '#a3e635';
+                    } else if (type === 'police') {
+                        this.w = 56;
+                        this.h = 27;
+                        this.maxSpeed = 590;
+                        this.hp = 340;
+                        this.color = '#f8fafc';
+                        this.stripe = '#1d4ed8';
+                    } else {
+                        this.w = 54;
+                        this.h = 26;
+                        this.maxSpeed = 540;
+                        this.hp = 280;
+                        const palette = ['#dc2626', '#d97706', '#0284c7', '#475569', '#6d28d9'];
+                        this.color = isPlayerStagedCar ? '#334155' : palette[Math2.randInt(0, palette.length - 1)];
+                        this.stripe = null;
+                    }
+                    this.maxHp = this.hp;
+                }
+
+                takeDamage(amount) {
+                    if (this.destroyed || this.isPlayerStagedCar) return;
+                    this.hp -= amount;
+                    if (this.hp <= 0) {
+                        this.hp = 0;
+                        this.destroyed = true;
+                        this.speed = 0;
+                        sfx.playExplosion();
+                        camera.shake = 18;
+                        decals.push(new Decal(this.x, this.y, 'scorch', this.angle, 48, this.floor));
+
+                        for (let i = 0; i < 36; i++) {
+                            const a = Math2.rand(0, Math.PI * 2);
+                            const col = ['#ef4444', '#f97316', '#facc15', '#1e293b'][Math2.randInt(0, 3)];
+                            particles.push(new Particle(this.x, this.y, a, col, Math2.rand(4, 10), Math2.rand(80, 340), Math2.rand(0.4, 0.9)));
+                        }
+
+                        if (this.driver === 'player' && player) {
+                            player.vehicle = null;
+                            player.x = this.x + 36;
+                            player.y = this.y + 36;
+                            player.takeDamage(55);
+                        }
+                        this.driver = null;
+                    }
+                }
+
+                update(dt) {
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    if (this.destroyed) {
+                        this.smokeTimer += dt;
+                        if (this.smokeTimer > 0.14) {
+                            this.smokeTimer = 0;
+                            particles.push(new Particle(this.x, this.y, -Math.PI / 2 + Math2.rand(-0.4, 0.4), '#334155', Math2.rand(5, 9), Math2.rand(25, 65), 0.7));
+                        }
+                        return;
+                    }
+
+                    if (this.driver === 'player' && player) {
+                        let throttle = 0;
+                        let steer = 0;
+                        if (keys['w'] || keys['arrowup']) throttle += 1;
+                        if (keys['s'] || keys['arrowdown']) throttle -= 1;
+                        if (keys['a'] || keys['arrowleft']) steer -= 1;
+                        if (keys['d'] || keys['arrowright']) steer += 1;
+
+                        if (isMobileDevice && (Math.abs(touchInput.moveX) > 0.1 || Math.abs(touchInput.moveY) > 0.1)) {
+                            const mag = Math.min(1, Math.hypot(touchInput.moveX, touchInput.moveY));
+                            const desired = Math.atan2(touchInput.moveY, touchInput.moveX);
+                            const diff = Math.atan2(Math.sin(desired - this.angle), Math.cos(desired - this.angle));
+                            throttle = mag;
+                            steer = Math2.clamp(diff * 2.4, -1, 1);
+                        }
+
+                        if (throttle > 0) this.speed += 460 * dt;
+                        else if (throttle < 0) this.speed -= 380 * dt;
+                        else this.speed *= Math.pow(0.18, dt);
+
+                        if (keys['space'] || touchInput.sprint) {
+                            this.speed *= Math.pow(0.03, dt);
+                        }
+
+                        this.speed = Math2.clamp(this.speed, -190, this.maxSpeed);
+
+                        if (Math.abs(this.speed) > 12) {
+                            const dir = this.speed >= 0 ? 1 : -1;
+                            this.angle += steer * 2.85 * dir * dt;
+                        }
+
+                        this.x += Math.cos(this.angle) * this.speed * dt;
+                        this.y += Math.sin(this.angle) * this.speed * dt;
+                        this.x = Math2.clamp(this.x, 45, WORLD_SIZE - 45);
+                        this.y = Math2.clamp(this.y, 45, WORLD_SIZE - 45);
+
+                        const colProxy = { x: this.x, y: this.y, r: 22 };
+                        for (let i = 0; i < buildings.length; i++) {
+                            if (circleRectResolve(colProxy, buildings[i])) {
+                                this.x = colProxy.x;
+                                this.y = colProxy.y;
+                                this.speed *= -0.35;
+                            }
+                        }
+
+                        if (Math.abs(this.speed) > 130) {
+                            for (let i = 0; i < enemies.length; i++) {
+                                const e = enemies[i];
+                                if (e.hp > 0 && Math2.dist(this.x, this.y, e.x, e.y) < 28 + e.r) {
+                                    e.takeDamage(Math.abs(this.speed) * 0.48, this.angle);
+                                    this.speed *= 0.86;
+                                    camera.shake = 6;
+                                }
+                            }
+                        }
+
+                        player.x = this.x;
+                        player.y = this.y;
+                        player.angle = this.angle;
+                    } else if (this.driver === 'civilian') {
+                        this.speed = Math2.lerp(this.speed, 175, dt * 2);
+                        this.x += Math.cos(this.angle) * this.speed * dt;
+                        this.y += Math.sin(this.angle) * this.speed * dt;
+
+                        if (this.x < 160 || this.x > WORLD_SIZE - 160 || this.y < 160 || this.y > WORLD_SIZE - 160) {
+                            this.angle += Math.PI * 0.5;
+                        }
+                        const colProxy = { x: this.x, y: this.y, r: 22 };
+                        for (let i = 0; i < buildings.length; i++) {
+                            if (circleRectResolve(colProxy, buildings[i])) {
+                                this.x = colProxy.x;
+                                this.y = colProxy.y;
+                                this.angle += Math.PI * 0.5;
+                            }
+                        }
+                    } else {
+                        this.speed *= Math.pow(0.08, dt);
+                    }
+                }
+
+                draw(ctx) {
+                    if (this.floor && this.floor !== currentMallFloor) return;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+                    ctx.fillRect(-this.w / 2 + 4, -this.h / 2 + 5, this.w, this.h);
+
+                    ctx.fillStyle = this.destroyed ? '#1e293b' : this.color;
+                    ctx.beginPath();
+                    ctx.roundRect(-this.w / 2, -this.h / 2, this.w, this.h, 5);
+                    ctx.fill();
+
+                    if (!this.destroyed && this.stripe) {
+                        ctx.fillStyle = this.stripe;
+                        ctx.fillRect(-this.w * 0.35, -this.h / 2 + 2, this.w * 0.7, 4);
+                        ctx.fillRect(-this.w * 0.35, this.h / 2 - 6, this.w * 0.7, 4);
+                    }
+
+                    ctx.fillStyle = this.destroyed ? '#090d16' : '#0f172a';
+                    ctx.fillRect(this.w * 0.1, -this.h * 0.38, this.w * 0.22, this.h * 0.76);
+                    ctx.fillRect(-this.w * 0.34, -this.h * 0.36, this.w * 0.16, this.h * 0.72);
+
+                    if (!this.destroyed && this.type === 'police') {
+                        const pulse = Math.sin(performance.now() * 0.015) > 0;
+                        ctx.fillStyle = pulse ? '#3b82f6' : '#ef4444';
+                        ctx.fillRect(-3, -this.h * 0.32, 6, this.h * 0.32);
+                        ctx.fillStyle = pulse ? '#ef4444' : '#3b82f6';
+                        ctx.fillRect(-3, 0, 6, this.h * 0.32);
+                    }
+
+                    if (!this.destroyed) {
+                        ctx.fillStyle = '#fef08a';
+                        ctx.fillRect(this.w / 2 - 2, -this.h * 0.38, 3, 5);
+                        ctx.fillRect(this.w / 2 - 2, this.h * 0.38 - 5, 3, 5);
+                        ctx.fillStyle = '#ef4444';
+                        ctx.fillRect(-this.w / 2 - 1, -this.h * 0.38, 2, 5);
+                        ctx.fillRect(-this.w / 2 - 1, this.h * 0.38 - 5, 2, 5);
+                    }
+
+                    ctx.restore();
+
+                    if (!this.destroyed && this.isPlayerStagedCar) {
+                        ctx.fillStyle = this.goBagLooted ? '#4ade80' : '#facc15';
+                        ctx.font = '900 9.5px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(this.goBagLooted ? 'C\'S CAR [GEAR RECOVERED]' : 'C\'S CAR [GO-BAG IN BOOT]', this.x, this.y - 22);
+                    } else if (!this.destroyed && this.type === 'taxi' && this.lockedBlockade) {
+                        ctx.fillStyle = '#38bdf8';
+                        ctx.font = '800 9px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('TAXI RANK [IDLING]', this.x, this.y - 20);
+                    }
+                }
+            }
+
+            // ============================================================================
+            // PLAYER CONTROLLER (WITH STANCE, GO-BAG, MOLLE VEST, POWER BANK & EXECUTIONS)
+            // ============================================================================
+            class Player {
+                constructor(x, y, archetype = 'suburbs') {
+                    this.x = x;
+                    this.y = y;
+                    this.archetype = archetype;
                     this.gender = archetype;
-                    this.angle = 0;
-                    this.speed = (archetype === 'mall' || archetype === 'young_yael') ? 206 : 192;
-                    this.r = (archetype === 'mall' || archetype === 'young_yael') ? 10.5 : 12;
+                    this.r = (archetype === 'mall' || archetype === 'training') ? 10.5 : 12;
                     this.hp = 100;
-                    this.armor = archetype === 'young_yael' ? 25 : (archetype === 'mall' ? 16 : 28);
+                    this.maxHp = 100;
+                    this.armor = (archetype === 'training') ? 0 : ((archetype === 'mall') ? 0 : ((archetype === 'sniper') ? 25 : 20));
                     this.stamina = 100;
-                    this.wepIdx = 0;
+                    this.speed = (archetype === 'mall' || archetype === 'training') ? 236 : 225;
+                    this.angle = 0;
+                    this.weaponIdx = 0;
                     this.lastShot = 0;
-                    this.vehicle = null;
-                    this.isReloading = false;
+                    this.reloading = false;
                     this.reloadStart = 0;
-                    this.portraitFlashTimer = 0;
-                    this.hasFlashlight = (archetype === 'mall');
-                    this.lightMode = (archetype === 'mall') ? 'steady' : 'off';
-                    this.opticsMode = 'standard'; // 'standard' | 'nvg' | 'thermal'
+                    this.vehicle = null;
+                    this.lightMode = 'off';
+                    this.strobePhase = 0;
+                    this.opticsMode = 'normal';
+
+                    this.hasGoBag = (archetype !== 'mall');
+                    this.hasMolleVest = (archetype !== 'mall');
+                    this.hasCrowbar = false;
+                    this.isSneaking = false;
+                    this.walkPhase = 0;
+                    this.opticCharge = (archetype !== 'mall') ? 100 : 0;
+                    this.powerBankMah = (archetype !== 'mall') ? 10000 : 0;
+                    this.powerBankMaxMah = 10000;
+                    this.lowBatteryWarned = false;
                 }
 
                 get flashlightOn() {
                     return this.lightMode !== 'off';
                 }
 
-                // Toggle between 100gr FMJ and 120gr +P JHP on Yael's Glock 26
+                toggleSneak() {
+                    this.isSneaking = !this.isSneaking;
+                    sfx.playClick();
+                    showBanner(
+                        this.isSneaking
+                            ? 'STANCE: CROUCH / SNEAK (SILENT FOOTSTEPS • LOW PROFILE)'
+                            : 'STANCE: RUN (NORMAL SPEED)',
+                        1400
+                    );
+                    updateHUD();
+                }
+
                 toggleAmmoLoad() {
-                    const wep = WEAPONS[this.wepIdx];
-                    if (!wep || wep.id !== 'glock26') {
-                        showBanner('AMMO LOAD SELECT: GLOCK 26 ONLY', 1200);
-                        return;
-                    }
+                    const wep = WEAPONS[this.weaponIdx];
+                    if (!wep || wep.id !== 'glock26') return;
                     if (wep.ammoLoad === 'fmj') {
                         if (wep.jhpReserve <= 0) {
-                            showBanner('NO 120GR +P JHP IN STASH YET — CHECK MALL SECURITY OFFICE!', 1800);
+                            sfx.playClick();
+                            showBanner('NO 120GR +P HOLLOW POINTS SCAVENGED YET', 1500);
                             return;
                         }
-                        // Return current FMJ mag rounds to FMJ reserve and swap to 120gr +P JHP
-                        wep.fmjReserve += wep.mag;
                         wep.ammoLoad = 'jhp';
-                        const loadAmt = Math.min(wep.magMax, wep.jhpReserve);
-                        wep.mag = loadAmt;
-                        wep.jhpReserve -= loadAmt;
                         wep.reserve = wep.jhpReserve;
                         sfx.playReload();
-                        showBanner('LOADED: 120GR +P JHP (HIGH STOPPING POWER • BRIGHT FLASH • LOUD)', 2100);
+                        showBanner('SWITCHED TO 120GR (+P) JHP — HIGH FLASH & STOPPING POWER', 1800);
                     } else {
-                        wep.jhpReserve += wep.mag;
                         wep.ammoLoad = 'fmj';
-                        const loadAmt = Math.min(wep.magMax, wep.fmjReserve);
-                        wep.mag = loadAmt;
-                        wep.fmjReserve -= loadAmt;
                         wep.reserve = wep.fmjReserve;
                         sfx.playReload();
-                        showBanner('LOADED: 100GR FMJ BALL (LOW FLASH • LOWER RECOIL)', 1800);
+                        showBanner('SWITCHED TO 100GR FMJ — LOW FLASH & QUIETER REPORT', 1800);
                     }
                     updateHUD();
                 }
 
                 cycleOptics() {
-                    const order = ['standard', 'nvg', 'thermal'];
-                    const nextIdx = (order.indexOf(this.opticsMode) + 1) % order.length;
-                    this.opticsMode = order[nextIdx];
-                    sfx.playOpticsWhine();
-                    if (this.opticsMode === 'nvg') {
-                        showBanner('OPTICS: NIGHT VISION [NVG] + INVISIBLE IR LASER ACTIVE', 1700);
-                    } else if (this.opticsMode === 'thermal') {
-                        showBanner('OPTICS: THERMAL IMAGING [FLIR] + INVISIBLE IR LASER ACTIVE', 1700);
+                    if (!this.hasGoBag) {
+                        sfx.playClick();
+                        showMonologue(
+                            'C // INTERNAL THOUGHT',
+                            'My thermal/NVG monocular, power bank, and MOLLE rig are locked in the boot of my car down in the B1 Underground Parkade. Have to reach B1 first.',
+                            5600
+                        );
+                        return;
+                    }
+
+                    if (this.opticsMode === 'normal') {
+                        if (this.opticCharge < 6) {
+                            sfx.playClick();
+                            showBanner('MONOCULAR CELL DEPLETED — LET POWER BANK TRICKLE-CHARGE!', 1800);
+                            return;
+                        }
+                        this.opticsMode = 'nvg';
+                        sfx.playOpticsWhine();
+                        showBanner('OPTICS: NIGHT VISION (NVG) + INVISIBLE IR LASER', 1600);
+                    } else if (this.opticsMode === 'nvg') {
+                        this.opticsMode = 'thermal';
+                        sfx.playOpticsWhine();
+                        showBanner('OPTICS: WHITE-HOT THERMAL (FLIR) + IR LASER (BATTERY DRAINING)', 1700);
                     } else {
-                        showBanner('OPTICS: STANDARD VISION (IR LASER OFF)', 1400);
+                        this.opticsMode = 'normal';
+                        sfx.playClick();
+                        showBanner('OPTICS: OFF (TRICKLE CHARGING FROM USB-C POWER BANK)', 1500);
                     }
                     updateHUD();
                 }
 
-                toggleFlashlight() {
-                    if (!this.hasFlashlight) {
-                        showBanner('NO TACTICAL LIGHT ATTACHED', 1200);
-                        return;
+                toggleUtilityLight() {
+                    if (this.lightMode === 'off') {
+                        this.lightMode = 'beam';
+                        sfx.playClick();
+                        showBanner('UNDER-BARREL LIGHT: STEADY BEAM (EXPOSES POSITION)', 1500);
+                    } else {
+                        this.lightMode = 'off';
+                        sfx.playClick();
+                        showBanner('UNDER-BARREL LIGHT: OFF (SHADOW CONCEALMENT)', 1400);
                     }
-                    this.lightMode = (this.lightMode === 'off') ? 'steady' : 'off';
-                    sfx.playClick();
-                    showBanner(this.lightMode === 'steady' ? 'UNDER-BARREL LIGHT: STEADY ON' : 'UNDER-BARREL LIGHT: OFF (STEALTH)', 1200);
                     updateHUD();
                 }
 
                 toggleStrobe() {
-                    if (!this.hasFlashlight) {
-                        showBanner('NO TACTICAL STROBE ATTACHED', 1200);
+                    if (this.lightMode === 'strobe') {
+                        this.lightMode = 'off';
+                        sfx.playClick();
+                        showBanner('TACTICAL STROBE: OFF', 1300);
+                    } else {
+                        this.lightMode = 'strobe';
+                        this.strobePhase = 0;
+                        sfx.playClick();
+                        showBanner('TACTICAL STROBE: ACTIVE (DISORIENTS ENEMIES IN CONE)', 1700);
+                    }
+                    updateHUD();
+                }
+
+                findExecutableEnemy() {
+                    if (this.vehicle) return null;
+                    const knifeUnlocked = WEAPONS.some((w) => (w.id === 'knife' || w.id === 'panga' || w.id === 'rubber_knife') && w.unlocked);
+                    if (!knifeUnlocked) return null;
+
+                    const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
+                    let best = null;
+                    let bestDist = 42;
+                    for (let i = 0; i < enemies.length; i++) {
+                        const e = enemies[i];
+                        if (e.hp <= 0 || (fl && e.floor !== fl)) continue;
+                        const d = Math2.dist(this.x, this.y, e.x, e.y);
+                        if (d < bestDist && e.isExecutionVulnerable(this) && hasLoS(this.x, this.y, e.x, e.y)) {
+                            bestDist = d;
+                            best = e;
+                        }
+                    }
+                    return best;
+                }
+
+                performSilentExecution(target) {
+                    const isTraining = (mission && mission.campaign === 'training');
+                    this.angle = Math2.angle(this.x, this.y, target.x, target.y);
+                    sfx.playExecution();
+                    camera.shake = 4.5;
+                    target.takeDamage(999, this.angle, true, false);
+                    showBanner(
+                        isTraining
+                            ? 'SILENT RUBBER KNIFE TAP! ("HIT! NICE SNEAK!")'
+                            : 'SILENT 7" BLADE TAKEDOWN — ZERO GUNSHOT NOISE!',
+                        1800,
+                        true
+                    );
+                }
+
+                unlockGoBagFromBoot(car) {
+                    car.goBagLooted = true;
+                    this.hasGoBag = true;
+                    this.hasMolleVest = true;
+                    this.armor = 55;
+                    this.opticCharge = 100;
+                    this.powerBankMah = 10000;
+                    this.lowBatteryWarned = false;
+
+                    const g26 = WEAPONS.find((w) => w.id === 'glock26');
+                    if (g26) {
+                        g26.fmjReserve += 15;
+                        g26.jhpReserve += 15;
+                        g26.reserve = (g26.ammoLoad === 'jhp') ? g26.jhpReserve : g26.fmjReserve;
+                    }
+
+                    updatePortraitSVG(this.gender);
+                    sfx.playPickup();
+                    updateHUD();
+
+                    phoneCutscene.start({
+                        clock: '07:22 AM',
+                        opsec: 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)',
+                        contactName: 'DAVID // EXFIL OPS',
+                        contactSub: 'BURNER SIM &bull; B1 PARKADE REPEATER',
+                        contactAvatar: 'male',
+                        messages: [
+                            { side: 'system', text: 'GO-BAG & MOLLE PLATE CARRIER EQUIPPED // +55 ARMOR' },
+                            { side: 'outgoing', sender: 'C', time: '07:22', text: 'Popped the boot on B1. Slipped into my MOLLE carrier, grabbed my spare mags, and pulled out the thermal/NVG monocular + 10,000 mAh USB-C power bank.' },
+                            { side: 'incoming', sender: 'DAVID', time: '07:22', text: 'Careful with continuous thermal—that sensor draws heavy current. Snap it on [V] to scan dark concourses with your IR laser, then switch it off so the 10,000 mAh bank trickle-charges the cell.' },
+                            { side: 'incoming', sender: 'DAVID', time: '07:23', text: 'Main central escalators just dropped their steel fire shutters! Take the North Service Stairwell up through Ground [G] and Level 1 to reach the L2 Skybridge!' }
+                        ]
+                    });
+                }
+
+                handleContextInteract() {
+                    if (this.vehicle) {
+                        this.toggleVehicle();
                         return;
                     }
-                    this.lightMode = (this.lightMode === 'strobe') ? 'steady' : 'strobe';
-                    sfx.playStrobeHum();
-                    showBanner(this.lightMode === 'strobe' ? 'TACTICAL STROBE: ACTIVE (DISORIENTING)' : 'UNDER-BARREL LIGHT: STEADY', 1300);
+
+                    const execTarget = this.findExecutableEnemy();
+                    if (execTarget) {
+                        this.performSilentExecution(execTarget);
+                        return;
+                    }
+
+                    const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
+                    for (let i = 0; i < civilians.length; i++) {
+                        const c = civilians[i];
+                        if (!c.dead && (!fl || c.floor === fl) && Math2.dist(this.x, this.y, c.x, c.y) < 52) {
+                            c.interact();
+                            return;
+                        }
+                    }
+
+                    if (mission && mission.campaign === 'mall' && currentMallFloor === 'G') {
+                        if (Math2.dist(this.x, this.y, 1720, 1520) < 62) {
+                            const secDoor = buildings.find((b) => b.id === 'sec_barred_door');
+                            if (secDoor) {
+                                if (this.hasCrowbar || WEAPONS.some((w) => w.id === 'knife' && w.unlocked)) {
+                                    buildings.splice(buildings.indexOf(secDoor), 1);
+                                    sfx.playMelee();
+                                    camera.shake = 5;
+                                    showBanner('PRIED OPEN SECURITY CONTROL ROOM DOOR!', 2200);
+                                } else {
+                                    sfx.playClick();
+                                    showMonologue(
+                                        'C // INTERNAL THOUGHT',
+                                        'Reinforced security door barred from the inside—and the bulletproof glass window is intact. I need a crowbar from a looter or my 7-inch blade to pry the latch.',
+                                        5600
+                                    );
+                                }
+                                return;
+                            }
+                        }
+
+                        if (Math2.dist(this.x, this.y, 2080, 1580) < 64) {
+                            cctvRevealedFloors[currentMallFloor] = true;
+                            sfx.playOpticsWhine();
+                            showBanner('CCTV CONSOLE ACCESSED — ALL FLOOR HOSTILES & STASHES MAPPED ON RADAR!', 2600);
+                            return;
+                        }
+                    }
+
+                    if (mission && mission.campaign === 'mall') {
+                        for (let i = 0; i < vehicles.length; i++) {
+                            const v = vehicles[i];
+                            if (v.floor === currentMallFloor && v.isPlayerStagedCar && !v.goBagLooted) {
+                                if (Math2.dist(this.x, this.y, v.x, v.y) < 68) {
+                                    this.unlockGoBagFromBoot(v);
+                                    return;
+                                }
+                            }
+                        }
+
+                        for (let i = 0; i < stairwells.length; i++) {
+                            const st = stairwells[i];
+                            if (st.fromFloor === currentMallFloor && Math2.dist(this.x, this.y, st.x, st.y) < 56) {
+                                if (st.blocked) {
+                                    sfx.playClick();
+                                    showMonologue(
+                                        'C // INTERNAL THOUGHT',
+                                        st.blockedReason || 'Collapsed steel security shutter blocking the central escalator—I have to take a different route up!',
+                                        5600
+                                    );
+                                    return;
+                                }
+                                transitionMallFloor(st);
+                                return;
+                            }
+                        }
+                    }
+
+                    this.toggleVehicle();
+                }
+
+                switchWeapon(idx) {
+                    if (idx < 0 || idx >= WEAPONS.length) return;
+                    if (!WEAPONS[idx].unlocked) return;
+                    this.weaponIdx = idx;
+                    this.reloading = false;
                     updateHUD();
                 }
 
-                takeDamage(amount) {
-                    if (this.hp <= 0) return;
-                    let rem = amount;
-                    if (this.armor > 0) {
-                        const absorbed = Math.min(this.armor, rem * 0.45);
-                        this.armor -= absorbed;
-                        rem -= absorbed;
-                    }
-                    this.hp = Math.max(0, this.hp - rem);
-                    this.portraitFlashTimer = 0.28;
-                    camera.shake = Math.max(camera.shake, (mission && mission.campaign === 'training') ? 3.5 : 8.5);
-                    updateHUD();
+                reload() {
+                    const wep = WEAPONS[this.weaponIdx];
+                    if (this.reloading || wep.type === 'melee') return;
+                    const availableReserve = (wep.id === 'glock26')
+                        ? (wep.ammoLoad === 'jhp' ? wep.jhpReserve : wep.fmjReserve)
+                        : wep.reserve;
 
-                    if (this.hp <= 0) {
-                        triggerGameOver(false);
-                    }
-                }
+                    if (wep.mag >= wep.magMax || availableReserve <= 0) return;
 
-                reloadWeapon() {
-                    const wep = WEAPONS[this.wepIdx];
-                    if (wep.id === 'glock26') {
-                        wep.reserve = wep.ammoLoad === 'jhp' ? wep.jhpReserve : wep.fmjReserve;
-                    }
-                    if (this.isReloading || wep.type === 'melee' || wep.mag === wep.magMax || wep.reserve <= 0) return;
-
-                    // Eject current magazine immediately: any unspent rounds left in it are forfeited!
                     const forfeitedRounds = wep.mag;
                     wep.mag = 0;
-                    this.isReloading = true;
-                    this.reloadStart = performance.now();
-                    sfx.playReload();
 
-                    const tossAngle = this.angle - Math.PI / 2 + Math2.rand(-0.4, 0.4);
-                    const dropX = this.x + Math.cos(tossAngle) * 10;
-                    const dropY = this.y + Math.sin(tossAngle) * 10;
-                    droppedMags.push(new DroppedMag(dropX, dropY, tossAngle, wep.id, forfeitedRounds > 0));
-
-                    if (forfeitedRounds > 0 && wep.type !== 'flame') {
-                        const unitName = wep.isAirsoft ? 'BBS' : 'UNSPENT ROUNDS';
-                        showBanner(`MAG TOSSED — ${forfeitedRounds} ${unitName} FORFEITED`, 1600);
+                    if (wep.type !== 'flame') {
+                        const tossAngle = this.angle - Math.PI * 0.62 + Math2.rand(-0.22, 0.22);
+                        const dropX = this.x + Math.cos(tossAngle) * 12;
+                        const dropY = this.y + Math.sin(tossAngle) * 12;
+                        const isPink = (wep.id === 'glock26' || wep.id === 'airsoft_pistol');
+                        const isAirsoft = Boolean(wep.isAirsoft);
+                        const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
+                        droppedMags.push(new DroppedMag(dropX, dropY, tossAngle, isPink, isAirsoft, forfeitedRounds, fl));
+                        if (droppedMags.length > 120) droppedMags.shift();
                     }
 
+                    this.reloading = true;
+                    this.reloadStart = performance.now();
+                    sfx.playReload();
+                    if (forfeitedRounds > 0 && wep.type !== 'flame') {
+                        const unitWord = wep.isAirsoft ? 'BBs' : 'ROUNDS';
+                        showBanner(`MAG TOSSED — FORFEITED ${forfeitedRounds} UNFIRED ${unitWord}`, 1500);
+                    }
                     updateHUD();
                 }
 
                 toggleVehicle() {
                     if (this.vehicle) {
                         const v = this.vehicle;
-                        const exitX = v.x + Math.cos(v.angle - Math.PI / 2) * (v.h * 0.85 + 14);
-                        const exitY = v.y + Math.sin(v.angle - Math.PI / 2) * (v.h * 0.85 + 14);
-                        this.x = Math2.clamp(exitX, 30, WORLD_SIZE - 30);
-                        this.y = Math2.clamp(exitY, 30, WORLD_SIZE - 30);
+                        const exitX = v.x + Math.cos(v.angle + Math.PI / 2) * 34;
+                        const exitY = v.y + Math.sin(v.angle + Math.PI / 2) * 34;
+                        this.x = exitX;
+                        this.y = exitY;
                         v.driver = null;
                         this.vehicle = null;
-                        showBanner('EXITED VEHICLE', 1200);
+                        this.speed = 236;
                         updateHUD();
                         return;
                     }
 
+                    const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
                     let closest = null;
-                    let bestDist = 56;
+                    let bestDist = 54;
                     for (let i = 0; i < vehicles.length; i++) {
                         const v = vehicles[i];
-                        if (v.destroyed || v.driver || v.lockedBlockade) continue;
+                        if (v.destroyed || v.driver || v.lockedBlockade || v.isPlayerStagedCar) continue;
+                        if (fl && v.floor !== fl) continue;
                         const d = Math2.dist(this.x, this.y, v.x, v.y);
                         if (d < bestDist) {
                             bestDist = d;
@@ -2922,26 +3528,119 @@ import { createAudioEngine } from './audio/sfx.js';
                     }
 
                     if (closest) {
-                        closest.driver = this;
                         this.vehicle = closest;
-                        this.isReloading = false;
+                        closest.driver = 'player';
+                        this.reloading = false;
+                        this.lightMode = 'off';
+                        this.opticsMode = 'normal';
+                        this.isSneaking = false;
                         sfx.playHorn();
-                        const label = closest.kind === 'nyala' ? 'ARMORED NYALA' : (closest.kind === 'taxi' ? 'MINIBUS TAXI' : closest.kind.toUpperCase());
-                        showBanner(`DRIVING: ${label} [SPACE: HANDBRAKE • H: HORN]`, 2200);
+                        showBanner('VEHICLE ENTERED — [E] EXIT, [SPACE] HANDBRAKE');
                         updateHUD();
+                    }
+                }
+
+                takeDamage(amount) {
+                    if (this.hp <= 0) return;
+                    if (mission && mission.campaign === 'training') {
+                        this.hp = Math.max(0, this.hp - amount);
+                        camera.shake = Math.min(8, camera.shake + amount * 0.14);
+                        updateHUD();
+                        if (this.hp <= 0) {
+                            triggerEndScreen(false, 'TAGGED OUT (6mm BB HIT)', 'A grown-up MilSim player tagged you out! Respawn and push with Younger G & Younger Blaze.');
+                        }
+                        return;
+                    }
+
+                    if (this.armor > 0) {
+                        const absorbed = Math.min(this.armor, amount * 0.45);
+                        this.armor -= absorbed;
+                        amount -= absorbed;
+                    }
+                    this.hp = Math.max(0, this.hp - amount);
+                    camera.shake = Math.min(16, camera.shake + amount * 0.36);
+                    updateHUD();
+
+                    if (this.hp <= 0) {
+                        triggerEndScreen(false, 'FLATLINED', 'You took fatal gunfire and collapsed in the streets.');
                     }
                 }
 
                 update(dt) {
                     if (this.hp <= 0) return;
 
-                    if (this.portraitFlashTimer > 0) {
-                        this.portraitFlashTimer -= dt;
-                        const frame = document.getElementById('portraitFrame');
-                        if (frame) frame.style.borderColor = this.portraitFlashTimer > 0 ? '#ef4444' : '#475569';
+                    if (this.hasGoBag && !this.vehicle) {
+                        if (this.opticsMode !== 'normal') {
+                            const drainRate = this.opticsMode === 'thermal' ? 2.6 : 1.9;
+                            this.opticCharge = Math.max(0, this.opticCharge - drainRate * dt);
+                            if (this.opticCharge <= 15 && !this.lowBatteryWarned) {
+                                this.lowBatteryWarned = true;
+                                showBanner('MONOCULAR CELL LOW (15%) — SWITCH OFF [V] TO RECHARGE!', 1800);
+                            }
+                            if (this.opticCharge <= 0) {
+                                this.opticsMode = 'normal';
+                                sfx.playClick();
+                                showBanner('MONOCULAR BATTERY DEPLETED — POWER BANK TRICKLE CHARGING', 2000);
+                            }
+                        } else if (this.opticCharge < 100 && this.powerBankMah > 0) {
+                            const chargeGain = 3.2 * dt;
+                            const actualGain = Math.min(100 - this.opticCharge, chargeGain);
+                            const mahUsed = actualGain * 24;
+                            if (this.powerBankMah >= mahUsed) {
+                                this.opticCharge += actualGain;
+                                this.powerBankMah = Math.max(0, this.powerBankMah - mahUsed);
+                                if (this.opticCharge > 25) this.lowBatteryWarned = false;
+                            }
+                        }
                     }
 
-                    if (this.vehicle) return;
+                    if (this.lightMode === 'strobe' && !this.vehicle) {
+                        this.strobePhase += dt * 16.5;
+                        const pulseOn = Math.sin(this.strobePhase * Math.PI * 2) > 0.15;
+                        if (pulseOn) {
+                            const isDarkAmbient = (mission && mission.campaign === 'mall');
+                            const fl = isDarkAmbient ? currentMallFloor : null;
+                            const strobeRange = isDarkAmbient ? 360 : 210;
+                            for (let i = 0; i < enemies.length; i++) {
+                                const e = enemies[i];
+                                if (e.hp <= 0 || (fl && e.floor !== fl)) continue;
+                                const d = Math2.dist(this.x, this.y, e.x, e.y);
+                                if (d < strobeRange && hasLoS(this.x, this.y, e.x, e.y)) {
+                                    const angToEnemy = Math2.angle(this.x, this.y, e.x, e.y);
+                                    const angEnemyToPlayer = Math2.angle(e.x, e.y, this.x, this.y);
+                                    if (Math2.angleDiff(this.angle, angToEnemy) < 0.34 && Math2.angleDiff(e.angle, angEnemyToPlayer) < 1.25) {
+                                        e.applyStrobeDaze(this.x, this.y, isDarkAmbient);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (this.reloading) {
+                        const wep = WEAPONS[this.weaponIdx];
+                        if (performance.now() - this.reloadStart >= wep.reloadTime) {
+                            const loadCount = Math.min(wep.magMax, wep.reserve);
+                            wep.mag = loadCount;
+                            if (wep.id === 'glock26') {
+                                if (wep.ammoLoad === 'jhp') {
+                                    wep.jhpReserve -= loadCount;
+                                    wep.reserve = wep.jhpReserve;
+                                } else {
+                                    wep.fmjReserve -= loadCount;
+                                    wep.reserve = wep.fmjReserve;
+                                }
+                            } else {
+                                wep.reserve -= loadCount;
+                            }
+                            this.reloading = false;
+                            updateHUD();
+                        }
+                    }
+
+                    if (this.vehicle) {
+                        this.updateContextualPrompt();
+                        return;
+                    }
 
                     let mx = 0;
                     let my = 0;
@@ -2950,12 +3649,43 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (keys['a'] || keys['arrowleft']) mx -= 1;
                     if (keys['d'] || keys['arrowright']) mx += 1;
 
-                    if (Math.abs(touchInput.moveX) > 0.12 || Math.abs(touchInput.moveY) > 0.12) {
-                        mx += touchInput.moveX;
-                        my += touchInput.moveY;
+                    if (isMobileDevice && (Math.abs(touchInput.moveX) > 0.08 || Math.abs(touchInput.moveY) > 0.08)) {
+                        mx = touchInput.moveX;
+                        my = touchInput.moveY;
                     }
 
-                    const isMoving = Math.hypot(mx, my) > 0.08;
+                    const isMoving = Math.hypot(mx, my) > 0.05;
+                    const sprinting = isMoving && (keys['shift'] || touchInput.sprint) && this.stamina > 2;
+                    if (sprinting && this.isSneaking) {
+                        this.isSneaking = false;
+                        updateHUD();
+                    }
+
+                    if (sprinting) {
+                        this.stamina = Math.max(0, this.stamina - 34 * dt);
+                    } else {
+                        this.stamina = Math.min(100, this.stamina + 22 * dt);
+                    }
+
+                    if (isMoving) {
+                        const len = Math.max(1, Math.hypot(mx, my));
+                        const stanceMult = this.isSneaking ? 0.54 : (sprinting ? 1.48 : 1.0);
+                        const moveSpeed = this.speed * stanceMult;
+                        this.x += (mx / len) * moveSpeed * dt;
+                        this.y += (my / len) * moveSpeed * dt;
+                        this.walkPhase += dt * (this.isSneaking ? 7.5 : (sprinting ? 17 : 12.5));
+                    }
+
+                    this.x = Math2.clamp(this.x, 30, WORLD_SIZE - 30);
+                    this.y = Math2.clamp(this.y, 30, WORLD_SIZE - 30);
+
+                    for (let i = 0; i < buildings.length; i++) {
+                        circleRectResolve(this, buildings[i]);
+                    }
+                    for (let i = 0; i < woodlandTrees.length; i++) {
+                        const tr = woodlandTrees[i];
+                        circleRectResolve(this, { x: tr.x - tr.trunkR, y: tr.y - tr.trunkR, w: tr.trunkR * 2, h: tr.trunkR * 2 });
+                    }
 
                     if (isMobileDevice) {
                         if (touchInput.aimActive) {
@@ -2967,431 +3697,367 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.angle = Math2.angle(this.x, this.y, mouse.worldX, mouse.worldY);
                     }
 
-                    const sprinting = isMoving && (keys['shift'] || touchInput.sprint) && this.stamina > 2;
+                    const wep = WEAPONS[this.weaponIdx];
+                    const wantsFire = isMobileDevice
+                        ? (wep.type === 'auto' || wep.type === 'flame' ? touchInput.firing : touchInput.justFired)
+                        : (wep.type === 'auto' || wep.type === 'flame' ? mouse.down : mouse.justClicked);
 
-                    if (sprinting) {
-                        this.stamina = Math.max(0, this.stamina - 34 * dt);
-                    } else {
-                        this.stamina = Math.min(100, this.stamina + 22 * dt);
+                    if (wantsFire && !this.reloading) {
+                        this.tryFire(wep);
                     }
 
-                    if (isMoving) {
-                        const len = Math.max(1, Math.hypot(mx, my));
-                        const moveSpeed = this.speed * (sprinting ? 1.52 : 1.0);
-                        this.x += (mx / len) * moveSpeed * dt;
-                        this.y += (my / len) * moveSpeed * dt;
+                    this.updateContextualPrompt();
+                }
+
+                updateContextualPrompt() {
+                    const banner = document.getElementById('promptBanner');
+                    if (!banner) return;
+
+                    const execTarget = this.findExecutableEnemy();
+                    if (execTarget) {
+                        banner.innerText = isMobileDevice ? 'TAP [USE] FOR SILENT ONE-HIT EXECUTION' : 'PRESS [E] FOR SILENT ONE-HIT EXECUTION';
+                        banner.classList.add('exec-ready');
+                        banner.classList.add('visible');
+                        return;
                     }
 
-                    this.x = Math2.clamp(this.x, 25, WORLD_SIZE - 25);
-                    this.y = Math2.clamp(this.y, 25, WORLD_SIZE - 25);
-
-                    for (let i = 0; i < buildings.length; i++) {
-                        circleRectResolve(this, buildings[i]);
-                    }
-                    for (let i = 0; i < woodlandTrees.length; i++) {
-                        const tr = woodlandTrees[i];
-                        circleRectResolve(this, { x: tr.x - tr.trunkR, y: tr.y - tr.trunkR, w: tr.trunkR * 2, h: tr.trunkR * 2 });
-                    }
-
-                    if (this.lightMode === 'strobe') {
-                        const isDarkAmbient = (mission && mission.campaign === 'mall' && this.x <= 3610);
-                        const strobeRange = isDarkAmbient ? 430 : 240;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp <= 0) continue;
-                            const d = Math2.dist(this.x, this.y, e.x, e.y);
-                            if (d <= strobeRange) {
-                                const angToEnemy = Math2.angle(this.x, this.y, e.x, e.y);
-                                if (Math2.angleDiff(this.angle, angToEnemy) <= 0.35 && hasLoS(this.x, this.y, e.x, e.y)) {
-                                    e.applyStrobeDaze(this.x, this.y, isDarkAmbient);
-                                }
-                            }
+                    const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
+                    for (let i = 0; i < civilians.length; i++) {
+                        const c = civilians[i];
+                        if (!c.dead && (!fl || c.floor === fl) && Math2.dist(this.x, this.y, c.x, c.y) < 52) {
+                            const who = c.label ? c.label : (c.isHostage && c.rescued ? 'RESCUED STAFF' : 'SHOPPER');
+                            banner.innerText = isMobileDevice ? `TAP [USE] TO TALK TO ${who}` : `PRESS [E] TO TALK TO ${who}`;
+                            banner.classList.remove('exec-ready');
+                            banner.classList.add('visible');
+                            return;
                         }
                     }
 
-                    const wep = WEAPONS[this.wepIdx];
-                    if (this.isReloading) {
-                        const elapsed = performance.now() - this.reloadStart;
-                        if (elapsed >= wep.reloadTime) {
-                            if (wep.id === 'glock26') {
-                                const pool = wep.ammoLoad === 'jhp' ? wep.jhpReserve : wep.fmjReserve;
-                                const loadAmount = Math.min(wep.magMax, pool);
-                                wep.mag = loadAmount;
-                                if (wep.ammoLoad === 'jhp') {
-                                    wep.jhpReserve -= loadAmount;
-                                    wep.reserve = wep.jhpReserve;
-                                } else {
-                                    wep.fmjReserve -= loadAmount;
-                                    wep.reserve = wep.fmjReserve;
-                                }
-                            } else {
-                                const loadAmount = Math.min(wep.magMax, wep.reserve);
-                                wep.mag = loadAmount;
-                                wep.reserve -= loadAmount;
+                    if (mission && mission.campaign === 'mall') {
+                        if (currentMallFloor === 'G') {
+                            const secDoor = buildings.find((b) => b.id === 'sec_barred_door');
+                            if (secDoor && Math2.dist(this.x, this.y, 1720, 1520) < 62) {
+                                banner.innerText = isMobileDevice ? 'TAP [USE] TO PRY SECURITY DOOR' : 'PRESS [E] TO PRY SECURITY DOOR';
+                                banner.classList.remove('exec-ready');
+                                banner.classList.add('visible');
+                                return;
                             }
-                            this.isReloading = false;
-                            updateHUD();
+                            if (Math2.dist(this.x, this.y, 2080, 1580) < 64) {
+                                banner.innerText = isMobileDevice ? 'TAP [USE] CCTV MONITOR CONSOLE' : 'PRESS [E] TO ACCESS CCTV CONSOLE';
+                                banner.classList.remove('exec-ready');
+                                banner.classList.add('visible');
+                                return;
+                            }
                         }
-                    }
 
-                    const isFiringHeld = mouse.down || touchInput.firing;
-                    const isFiringTap = mouse.justClicked || touchInput.justFired;
+                        for (let i = 0; i < vehicles.length; i++) {
+                            const v = vehicles[i];
+                            if (v.floor === currentMallFloor && v.isPlayerStagedCar && !v.goBagLooted && Math2.dist(this.x, this.y, v.x, v.y) < 68) {
+                                banner.innerText = isMobileDevice ? 'TAP [USE] TO OPEN CAR BOOT (GO-BAG & MOLLE VEST)' : 'PRESS [E] TO OPEN CAR BOOT (GO-BAG & MOLLE VEST)';
+                                banner.classList.remove('exec-ready');
+                                banner.classList.add('visible');
+                                return;
+                            }
+                        }
 
-                    if (!this.isReloading) {
-                        if ((wep.type === 'auto' || wep.type === 'flame') && isFiringHeld) {
-                            this.fireWeapon();
-                        } else if ((wep.type === 'semi' || wep.type === 'bolt' || wep.type === 'melee') && (isFiringTap || touchInput.firing)) {
-                            this.fireWeapon();
+                        for (let i = 0; i < stairwells.length; i++) {
+                            const st = stairwells[i];
+                            if (st.fromFloor === currentMallFloor && Math2.dist(this.x, this.y, st.x, st.y) < 56) {
+                                banner.innerText = st.blocked
+                                    ? `BLOCKED: ${st.label}`
+                                    : (isMobileDevice ? `TAP [USE]: ${st.label}` : `PRESS [E]: ${st.label}`);
+                                banner.classList.toggle('exec-ready', Boolean(st.blocked));
+                                banner.classList.add('visible');
+                                return;
+                            }
                         }
                     }
 
                     let nearVeh = false;
                     for (let i = 0; i < vehicles.length; i++) {
                         const v = vehicles[i];
-                        if (!v.destroyed && !v.driver && !v.lockedBlockade && Math2.dist(this.x, this.y, v.x, v.y) < 54) {
+                        if (!v.destroyed && !v.driver && !v.lockedBlockade && !v.isPlayerStagedCar && (!fl || v.floor === fl) && Math2.dist(this.x, this.y, v.x, v.y) < 54) {
                             nearVeh = true;
                             break;
                         }
                     }
-                    const banner = document.getElementById('promptBanner');
-                    const enterPrompt = isMobileDevice ? 'TAP [CAR] TO ENTER VEHICLE' : 'PRESS [E] TO ENTER VEHICLE';
-                    if (nearVeh && !banner.classList.contains('visible')) {
-                        banner.innerText = enterPrompt;
+                    if (nearVeh) {
+                        banner.innerText = isMobileDevice ? 'TAP [USE] TO ENTER VEHICLE' : 'PRESS [E] TO ENTER VEHICLE';
+                        banner.classList.remove('exec-ready');
                         banner.classList.add('visible');
-                    } else if (!nearVeh && (banner.innerText === 'PRESS [E] TO ENTER VEHICLE' || banner.innerText === 'TAP [CAR] TO ENTER VEHICLE')) {
+                    } else if (banner.innerText.startsWith('PRESS [E]') || banner.innerText.startsWith('TAP [USE]') || banner.innerText.startsWith('BLOCKED:')) {
                         banner.classList.remove('visible');
+                        banner.classList.remove('exec-ready');
                     }
                 }
 
-                fireWeapon() {
+                tryFire(wep) {
                     const now = performance.now();
-                    const wep = WEAPONS[this.wepIdx];
                     if (now - this.lastShot < wep.delay) return;
 
                     if (wep.type === 'melee') {
                         this.lastShot = now;
                         sfx.playMelee();
                         camera.shake = Math.max(camera.shake, 2.5);
+                        const reachX = this.x + Math.cos(this.angle) * (wep.range * 0.72);
+                        const reachY = this.y + Math.sin(this.angle) * (wep.range * 0.72);
+
+                        for (let i = 0; i < 6; i++) {
+                            const a = this.angle + Math2.rand(-0.7, 0.7);
+                            particles.push(new Particle(reachX, reachY, a, wep.isAirsoft ? '#fb923c' : '#e2e8f0', 2.2, Math2.rand(70, 160), 0.14));
+                        }
+
+                        const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
                         for (let i = 0; i < enemies.length; i++) {
                             const e = enemies[i];
-                            if (e.hp <= 0) continue;
-                            const d = Math2.dist(this.x, this.y, e.x, e.y);
-                            if (d <= wep.range + e.r) {
-                                const angDiff = Math2.angleDiff(Math2.angle(this.x, this.y, e.x, e.y), this.angle);
-                                if (angDiff < 0.95) {
-                                    e.takeDamage(wep.dmg, this.angle, false, false);
-                                }
+                            if (e.hp > 0 && (!fl || e.floor === fl) && Math2.dist(reachX, reachY, e.x, e.y) < wep.range + e.r) {
+                                e.takeDamage(wep.dmg, this.angle, true);
                             }
                         }
                         return;
                     }
 
-                    if (wep.id === 'glock26') {
-                        wep.reserve = wep.ammoLoad === 'jhp' ? wep.jhpReserve : wep.fmjReserve;
-                    }
-
                     if (wep.mag <= 0) {
-                        if (wep.reserve > 0) {
-                            this.reloadWeapon();
-                        } else {
-                            sfx.playClick();
-                            this.lastShot = now;
-                            showBanner('OUT OF AMMO — SWITCH TO BLADE [2] OR SCAVENGE!', 1500);
-                        }
+                        this.reload();
                         return;
                     }
 
                     this.lastShot = now;
                     wep.mag--;
+                    updateHUD();
+
+                    if (wep.type === 'flame') {
+                        sfx.playFlamethrower();
+                        camera.shake = Math.max(camera.shake, 1.8);
+                        const mx = this.x + Math.cos(this.angle) * 24;
+                        const my = this.y + Math.sin(this.angle) * 24;
+                        for (let p = 0; p < 2; p++) {
+                            const a = this.angle + Math2.rand(-wep.spread, wep.spread);
+                            flameJets.push(new FlameJet(mx, my, a, wep.bulletSpeed + Math2.rand(-80, 90), wep.dmg));
+                        }
+                        if (wep.mag === 0 && wep.reserve > 0) this.reload();
+                        return;
+                    }
 
                     const isJHP = (wep.id === 'glock26' && wep.ammoLoad === 'jhp');
                     const effectiveRecoil = isJHP ? 5.5 : wep.recoil;
                     const effectiveDmg = isJHP ? 68 : wep.dmg;
-                    const effectiveSpeed = isJHP ? 3850 : wep.bulletSpeed;
+                    const effectiveSpeed = isJHP ? 13800 : wep.bulletSpeed;
                     const alertRadius = wep.isAirsoft ? 320 : (isJHP ? 880 : 560);
 
+                    sfx.playGunshot(isJHP ? 'glock26_jhp' : wep.id);
+                    if (wep.type === 'bolt') {
+                        setTimeout(() => sfx.playBoltCycle(), 240);
+                    }
                     camera.shake = Math.max(camera.shake, effectiveRecoil);
 
-                    if (wep.type === 'flame') {
-                        sfx.playFlamethrower();
-                        const nozzleX = this.x + Math.cos(this.angle) * 28;
-                        const nozzleY = this.y + Math.sin(this.angle) * 28;
-                        for (let j = 0; j < 2; j++) {
-                            const spreadAngle = this.angle + Math2.rand(-wep.spread, wep.spread);
-                            flameJets.push(new FlameJet(nozzleX, nozzleY, spreadAngle, wep.bulletSpeed * Math2.rand(0.88, 1.12), wep.dmg, 'player', this));
-                        }
-                        if (wep.mag === 0 && wep.reserve > 0) {
-                            this.reloadWeapon();
-                        }
-                        updateHUD();
-                        return;
-                    }
+                    const muzzleX = this.x + Math.cos(this.angle) * 22;
+                    const muzzleY = this.y + Math.sin(this.angle) * 22;
 
-                    sfx.playGunshot(isJHP ? 'glock26_jhp' : wep.id);
-                    broadcastGunshot(this.x, this.y, alertRadius, false);
-
-                    const barrelDist = (wep.id === 'glock' || wep.id === 'glock26' || wep.id === 'airsoft_pistol') ? 20 : (wep.id === 'ruger' ? 36 : 28);
-                    const muzzleX = this.x + Math.cos(this.angle) * barrelDist;
-                    const muzzleY = this.y + Math.sin(this.angle) * barrelDist;
+                    const scoped = (wep.id === 'ruger' && (mouse.rightDown || touchInput.scopeActive));
+                    const effectiveSpread = scoped ? 0.0005 : wep.spread;
 
                     const pellets = wep.pellets || 1;
                     for (let p = 0; p < pellets; p++) {
-                        const spreadAngle = this.angle + Math2.rand(-wep.spread, wep.spread);
-                        bullets.push(new Bullet(muzzleX, muzzleY, spreadAngle, effectiveSpeed, effectiveDmg, 'player', this, !!wep.pierce, !!wep.isAirsoft, isJHP));
+                        const a = this.angle + Math2.rand(-effectiveSpread, effectiveSpread);
+                        bullets.push(new Bullet(muzzleX, muzzleY, a, effectiveSpeed, effectiveDmg, 'player', this, Boolean(wep.pierce), Boolean(wep.isAirsoft), isJHP));
                     }
 
                     if (!wep.isAirsoft) {
-                        if (wep.type === 'bolt') {
-                            const shotAng = this.angle;
-                            setTimeout(() => {
-                                if (this.hp > 0 && gameState === 'playing') {
-                                    sfx.playBoltCycle();
-                                    const ex = this.x + Math.cos(shotAng) * 12;
-                                    const ey = this.y + Math.sin(shotAng) * 12;
-                                    shells.push(new Shell(ex, ey, shotAng + Math.PI / 2 + Math2.rand(-0.25, 0.25)));
-                                }
-                            }, 460);
-                        } else {
-                            const ejectX = this.x + Math.cos(this.angle) * 10;
-                            const ejectY = this.y + Math.sin(this.angle) * 10;
-                            shells.push(new Shell(ejectX, ejectY, this.angle + Math.PI / 2 + Math2.rand(-0.35, 0.35)));
+                        const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
+                        shells.push(new Shell(this.x + Math.cos(this.angle + 1.3) * 10, this.y + Math.sin(this.angle + 1.3) * 10, this.angle + Math.PI / 2 + Math2.rand(-0.3, 0.3), fl));
+                        if (shells.length > 160) shells.shift();
+
+                        const flashCount = isJHP ? 12 : (wep.id === 'ruger' ? 9 : 5);
+                        const flashSize = isJHP ? 4.4 : (wep.id === 'ruger' ? 4.0 : 2.6);
+                        const flashColor = isJHP ? '#fb923c' : '#fef08a';
+                        for (let s = 0; s < flashCount; s++) {
+                            particles.push(new Particle(muzzleX, muzzleY, this.angle + Math2.rand(-0.48, 0.48), flashColor, flashSize, Math2.rand(140, 320), isJHP ? 0.14 : 0.09));
                         }
                     }
 
+                    broadcastGunshot(this.x, this.y, alertRadius, false);
+
                     if (wep.mag === 0 && wep.reserve > 0) {
-                        this.reloadWeapon();
+                        this.reload();
                     }
-                    updateHUD();
                 }
 
                 draw(ctx) {
-                    if (this.hp <= 0 || this.vehicle) return;
+                    if (this.vehicle) return;
+                    const wep = WEAPONS[this.weaponIdx];
 
-                    const wep = WEAPONS[this.wepIdx];
-                    const isYoungYael = this.gender === 'young_yael';
-                    const isMall = this.gender === 'mall';
-                    const isFemale = this.gender === 'female';
-                    const isSniper = this.gender === 'sniper';
-                    const skinTone = (isMall || isYoungYael) ? '#d6986a' : (isFemale ? '#fbd3b0' : '#d4a373');
-                    const hasFlamer = WEAPONS.some((w) => w.id === 'flamethrower' && w.unlocked);
+                    if (this.opticsMode !== 'normal' && this.hasGoBag) {
+                        const laserDist = 720;
+                        const targetX = this.x + Math.cos(this.angle) * laserDist;
+                        const targetY = this.y + Math.sin(this.angle) * laserDist;
+                        const hitT = raycastBuildingsT(this.x, this.y, targetX, targetY);
+                        const endX = this.x + (targetX - this.x) * hitT;
+                        const endY = this.y + (targetY - this.y) * hitT;
+
+                        ctx.save();
+                        const laserColor = this.opticsMode === 'thermal' ? 'rgba(255, 255, 255, 0.72)' : 'rgba(74, 222, 128, 0.72)';
+                        ctx.strokeStyle = laserColor;
+                        ctx.lineWidth = 1.6;
+                        ctx.setLineDash([6, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(this.x + Math.cos(this.angle) * 16, this.y + Math.sin(this.angle) * 16);
+                        ctx.lineTo(endX, endY);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+
+                        ctx.fillStyle = this.opticsMode === 'thermal' ? '#ffffff' : '#86efac';
+                        ctx.beginPath();
+                        ctx.arc(endX, endY, 3.2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
 
                     ctx.save();
                     ctx.translate(this.x, this.y);
                     ctx.rotate(this.angle);
 
+                    const crouchScale = this.isSneaking ? 0.88 : 1.0;
+                    ctx.scale(crouchScale, crouchScale);
+
+                    const isMall = (this.gender === 'mall');
+                    const isYoungC = (this.gender === 'training');
+                    const isFemale = (this.gender === 'female');
+                    const isSniper = (this.gender === 'sniper');
+
+                    const stride = Math.sin(this.walkPhase) * (this.isSneaking ? 2.4 : 4.5);
+                    ctx.fillStyle = '#090d16';
+                    ctx.fillRect(-3 + stride, -6.2, 5.5, 3.0);
+                    ctx.fillRect(-3 - stride, 3.2, 5.5, 3.0);
+
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
                     ctx.beginPath();
-                    ctx.ellipse(2, 3, (isMall || isYoungYael) ? 10.5 : 12, (isMall || isYoungYael) ? 12 : (isFemale ? 13.5 : 15), 0, 0, Math.PI * 2);
+                    ctx.ellipse(2, 3, (isMall || isYoungC) ? 10.5 : 12, (isMall || isYoungC) ? 12 : (isFemale ? 13.5 : 15), 0, 0, Math.PI * 2);
                     ctx.fill();
 
-                    if (hasFlamer) {
-                        ctx.fillStyle = '#c2410c';
-                        ctx.fillRect(-13, -7, 7, 14);
-                        ctx.strokeStyle = '#facc15';
-                        ctx.lineWidth = 1.2;
-                        ctx.strokeRect(-12, -5, 5, 10);
-                    }
-
-                    ctx.fillStyle = isYoungYael ? '#3f6212' : (isMall ? '#1e293b' : (isSniper ? '#365314' : (isFemale ? '#18181b' : '#1e293b')));
-                    ctx.beginPath();
-                    ctx.ellipse(-2, 0, (isMall || isYoungYael) ? 8.5 : 9.5, (isMall || isYoungYael) ? 11.2 : (isFemale ? 12.5 : 14), 0, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.fillStyle = skinTone;
-                    if (wep.type === 'melee') {
-                        const swing = Math.max(0, 1 - (performance.now() - this.lastShot) / 220);
-                        ctx.rotate(-swing * 1.1);
-                        ctx.beginPath(); ctx.arc(8, -7, 3.0, 0, Math.PI * 2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(10, 7, 3.0, 0, Math.PI * 2); ctx.fill();
-                        ctx.fillStyle = wep.isAirsoft ? '#f97316' : '#cbd5e1';
-                        ctx.fillRect(9, 5.5, 22, 3.2);
-                    } else if (wep.type === 'flame') {
-                        ctx.beginPath(); ctx.arc(13, -4, 3.1, 0, Math.PI * 2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(8, 5, 3.1, 0, Math.PI * 2); ctx.fill();
-
-                        ctx.strokeStyle = '#334155';
-                        ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        ctx.moveTo(-9, 6);
-                        ctx.quadraticCurveTo(0, 11, 8, 6);
-                        ctx.stroke();
-
-                        ctx.fillStyle = '#3f3f46';
-                        ctx.fillRect(4, 2, 20, 5);
-                        ctx.fillStyle = '#eab308';
-                        ctx.fillRect(22, 1.5, 5, 6);
-
-                        ctx.fillStyle = '#fb923c';
-                        ctx.beginPath();
-                        ctx.arc(29, 4.5, 3 + Math.sin(performance.now() * 0.04) * 1.2, 0, Math.PI * 2);
-                        ctx.fill();
-                    } else if (wep.id === 'glock26' || wep.id === 'airsoft_pistol') {
-                        ctx.beginPath(); ctx.arc(11, -2.5, 2.8, 0, Math.PI * 2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(9, 5.5, 2.8, 0, Math.PI * 2); ctx.fill();
-
-                        ctx.fillStyle = '#ec4899';
-                        ctx.fillRect(5, 2.2, 11, 4.6);
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillRect(5, 2.8, 12, 3.4);
-                        if (wep.id === 'airsoft_pistol') {
-                            ctx.fillStyle = '#f97316';
-                            ctx.fillRect(16.5, 3.0, 2.2, 3.0);
-                        } else {
-                            ctx.fillStyle = '#ef4444';
-                            ctx.fillRect(7.5, 4.0, 2.2, 1.2);
-                            ctx.fillStyle = '#94a3b8';
-                            ctx.fillRect(14, 2.6, 4.5, 2.4);
-                        }
-                        if (this.flashlightOn) {
-                            const strobeOn = this.lightMode !== 'strobe' || (Math.sin(performance.now() * 0.105) > 0);
-                            if (strobeOn) {
-                                ctx.fillStyle = this.lightMode === 'strobe' ? '#e0f2fe' : '#fef9c3';
-                                ctx.beginPath();
-                                ctx.arc(19.2, 3.8, this.lightMode === 'strobe' ? 3.2 : 2.1, 0, Math.PI * 2);
-                                ctx.fill();
-                            }
-                        }
+                    if (isYoungC) {
+                        ctx.fillStyle = '#3f6212';
+                    } else if (isMall) {
+                        ctx.fillStyle = this.hasMolleVest ? '#365314' : '#4b5539';
+                    } else if (isFemale) {
+                        ctx.fillStyle = '#334155';
+                    } else if (isSniper) {
+                        ctx.fillStyle = '#3f6212';
                     } else {
-                        ctx.beginPath(); ctx.arc(13, -3, 3.2, 0, Math.PI * 2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(8, 5, 3.2, 0, Math.PI * 2); ctx.fill();
-
-                        ctx.fillStyle = wep.color;
-                        const barrelLen = wep.id === 'glock' ? 13 : (wep.id === 'ruger' ? 30 : 22);
-                        ctx.fillRect(5, 3, barrelLen, 4);
-
-                        if (wep.isAirsoft) {
-                            ctx.fillStyle = '#f97316';
-                            ctx.fillRect(5 + barrelLen - 1, 3.1, 2.5, 3.8);
-                        }
-
-                        if (wep.id === 'ruger') {
-                            ctx.fillStyle = '#090d16';
-                            ctx.fillRect(9, 2.3, 13, 5.4);
-                            ctx.strokeStyle = (mouse.rightDown || touchInput.scopeActive) ? 'rgba(239, 68, 68, 0.38)' : 'rgba(239, 68, 68, 0.14)';
-                            ctx.lineWidth = 1;
-                            ctx.beginPath();
-                            ctx.moveTo(35, 5);
-                            ctx.lineTo(680, 5);
-                            ctx.stroke();
-                        }
+                        ctx.fillStyle = '#27272a';
                     }
-
-                    // Muzzle Flash (Larger +P fireball when firing 120gr JHP!)
-                    if (wep.type !== 'melee' && wep.type !== 'flame' && !wep.isAirsoft && performance.now() - this.lastShot < 52) {
-                        const isJHP = (wep.id === 'glock26' && wep.ammoLoad === 'jhp');
-                        const barrelLen = (wep.id === 'glock' || wep.id === 'glock26') ? 13 : (wep.id === 'ruger' ? 30 : 22);
-                        const tip = 5 + barrelLen;
-                        const flashRad = isJHP ? 66 : 36;
-                        const glow = ctx.createRadialGradient(tip + 8, 5, 1, tip + 8, 5, flashRad);
-                        glow.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-                        glow.addColorStop(0.42, isJHP ? 'rgba(251, 146, 60, 0.65)' : 'rgba(250, 204, 21, 0.45)');
-                        glow.addColorStop(1, 'rgba(250, 204, 21, 0)');
-                        ctx.fillStyle = glow;
-                        ctx.beginPath();
-                        ctx.arc(tip + 8, 5, flashRad, 0, Math.PI * 2);
-                        ctx.fill();
-
-                        const flameReach = isJHP ? 34 : 22;
-                        ctx.fillStyle = isJHP ? '#fed7aa' : '#fef9c3';
-                        ctx.beginPath();
-                        ctx.moveTo(tip, 3);
-                        ctx.lineTo(tip + flameReach * 0.65, isJHP ? -4 : -2);
-                        ctx.lineTo(tip + flameReach, 5);
-                        ctx.lineTo(tip + flameReach * 0.65, isJHP ? 14 : 12);
-                        ctx.lineTo(tip, 7);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-
-                    // Head
-                    ctx.fillStyle = skinTone;
                     ctx.beginPath();
-                    ctx.arc(0, 0, (isMall || isYoungYael) ? 6.0 : 6.8, 0, Math.PI * 2);
+                    ctx.ellipse(-2, 0, (isMall || isYoungC) ? 8.5 : 10, (isMall || isYoungC) ? 11.5 : (isFemale ? 13 : 14.5), 0, 0, Math.PI * 2);
                     ctx.fill();
 
-                    if (isYoungYael) {
-                        // Black hair + sporty ponytail + protective clear airsoft goggles
-                        ctx.fillStyle = '#090d16';
+                    if (isMall && !this.hasMolleVest) {
+                        ctx.strokeStyle = '#1f291c';
+                        ctx.lineWidth = 1.2;
                         ctx.beginPath();
-                        ctx.arc(-1.2, 0, 6.5, Math.PI * 0.38, Math.PI * 1.62);
-                        ctx.fill();
-                        const sway = Math.sin(performance.now() * 0.012) * 1.8;
+                        ctx.moveTo(-6, -9); ctx.lineTo(4, 9);
+                        ctx.moveTo(-6, 9); ctx.lineTo(4, -9);
+                        ctx.stroke();
+                    }
+
+                    if (isFemale && wep.id === 'flamethrower') {
+                        ctx.fillStyle = '#ea580c';
                         ctx.beginPath();
-                        ctx.arc(-9.5, sway, 3.6, 0, Math.PI * 2);
+                        ctx.roundRect(-13, -7, 8, 6, 2);
+                        ctx.roundRect(-13, 1, 8, 6, 2);
                         ctx.fill();
+                    }
 
-                        // Clear airsoft goggles
-                        ctx.fillStyle = 'rgba(186, 230, 253, 0.55)';
-                        ctx.fillRect(4.2, -4.8, 2.4, 9.6);
+                    if (isMall && this.hasMolleVest) {
+                        ctx.fillStyle = '#1a2e05';
+                        ctx.fillRect(-5, -8, 9, 16);
+                    } else if (!isMall && !isYoungC) {
+                        ctx.fillStyle = isFemale ? '#1e293b' : '#4d7c0f';
+                        ctx.fillRect(-5, -9, 10, 18);
+                    }
 
-                        if (sfx.musicEnabled) {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.fillRect(-1.2, 5.2, 2.2, 2.0);
+                    if (wep.id === 'glock26' || wep.id === 'airsoft_pistol') {
+                        ctx.fillStyle = '#ec4899';
+                        ctx.fillRect(5, 2.2, 12, 4.2);
+                        ctx.fillStyle = '#1e293b';
+                        ctx.fillRect(6, 2.7, 11, 2.8);
+                        ctx.fillStyle = '#ef4444';
+                        ctx.fillRect(7, 3.6, 2, 1.2);
+                        if (wep.id === 'glock26') {
+                            ctx.fillStyle = '#090d16';
+                            ctx.fillRect(12, 2.5, 4.5, 3.4);
+                        } else {
+                            ctx.fillStyle = '#f97316';
+                            ctx.fillRect(17, 2.7, 2.2, 2.8);
                         }
+                    } else if (wep.type === 'melee') {
+                        ctx.fillStyle = wep.isAirsoft ? '#f97316' : '#cbd5e1';
+                        ctx.fillRect(5, 4, 17, 2.8);
+                    } else if (wep.id === 'ruger') {
+                        ctx.fillStyle = '#78350f';
+                        ctx.fillRect(2, 2.8, 17, 4.4);
+                        ctx.fillStyle = '#1e293b';
+                        ctx.fillRect(18, 3.5, 16, 2.8);
+                        ctx.fillStyle = '#090d16';
+                        ctx.fillRect(8, 2.2, 11, 5.2);
+                    } else if (wep.id === 'flamethrower') {
+                        ctx.fillStyle = '#334155';
+                        ctx.fillRect(4, 2, 19, 5);
+                        ctx.fillStyle = '#f97316';
+                        ctx.fillRect(22, 3, 4, 3);
+                    } else {
+                        ctx.fillStyle = wep.color;
+                        ctx.fillRect(5, 3, wep.type === 'auto' || wep.id === 'shotgun' ? 21 : 13, 3.8);
+                    }
+
+                    ctx.fillStyle = (isMall || isYoungC) ? '#d49b6a' : (isFemale ? '#f1c2a0' : '#e0ac69');
+                    ctx.beginPath();
+                    ctx.arc(0, 0, (isMall || isYoungC) ? 5.8 : 6.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (isYoungC) {
+                        ctx.fillStyle = '#111827';
+                        ctx.beginPath();
+                        ctx.arc(-1, 0, 6.2, Math.PI * 0.42, Math.PI * 1.58);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(-8.5, 0, 2.8, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+                        ctx.fillRect(4.2, -4.5, 2.2, 9);
                     } else if (isMall) {
                         ctx.fillStyle = '#090d16';
                         ctx.beginPath();
-                        ctx.arc(-1.2, 0, 6.5, Math.PI * 0.38, Math.PI * 1.62);
+                        ctx.arc(-1, 0, 6.3, Math.PI * 0.42, Math.PI * 1.58);
                         ctx.fill();
-                        if (sfx.musicEnabled) {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.fillRect(-1.2, 5.2, 2.2, 2.0);
-                        }
-                    } else if (isSniper) {
-                        ctx.fillStyle = '#4d7c0f';
                         ctx.beginPath();
-                        ctx.arc(-0.5, 0, 9.2, 0, Math.PI * 2);
+                        ctx.ellipse(-6.5, 0, 3.4, 4.4, 0, 0, Math.PI * 2);
                         ctx.fill();
-                        ctx.fillStyle = '#365314';
-                        ctx.beginPath();
-                        ctx.arc(-0.5, 0, 6.2, 0, Math.PI * 2);
-                        ctx.fill();
-                        if (sfx.musicEnabled) {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.fillRect(-1.5, -7.8, 2.5, 2.2);
-                            ctx.fillRect(-1.5, 5.6, 2.5, 2.2);
-                        }
                     } else if (isFemale) {
-                        ctx.fillStyle = '#ea580c';
+                        ctx.fillStyle = '#dc2626';
                         ctx.beginPath();
-                        ctx.arc(-1, 0, 7.3, Math.PI * 0.42, Math.PI * 1.58);
+                        ctx.arc(-1.2, 0, 7.0, Math.PI * 0.35, Math.PI * 1.65);
                         ctx.fill();
-
-                        const sway = Math.sin(performance.now() * 0.012) * 2.2;
-                        ctx.fillStyle = '#c2410c';
                         ctx.beginPath();
-                        ctx.moveTo(-6, -2);
-                        ctx.quadraticCurveTo(-15, sway - 3, -19, sway);
-                        ctx.quadraticCurveTo(-15, sway + 4, -6, 2);
-                        ctx.closePath();
+                        ctx.ellipse(-7, 0, 4.5, 5.2, 0, 0, Math.PI * 2);
                         ctx.fill();
-
-                        if (sfx.musicEnabled) {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.fillRect(-1.5, -7.8, 2.5, 2.2);
-                            ctx.fillRect(-1.5, 5.6, 2.5, 2.2);
-                        }
+                    } else if (isSniper) {
+                        ctx.fillStyle = '#3f6212';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 7.2, 0, Math.PI * 2);
+                        ctx.fill();
                     } else {
-                        ctx.fillStyle = '#cbd5e1';
+                        ctx.fillStyle = '#e2e8f0';
                         ctx.beginPath();
-                        ctx.arc(-1, 0, 7.2, Math.PI * 0.52, Math.PI * 1.48);
+                        ctx.arc(-1, 0, 6.6, Math.PI * 0.48, Math.PI * 1.52);
                         ctx.fill();
-
-                        if (sfx.musicEnabled) {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.fillRect(-1.5, -7.8, 2.5, 2.2);
-                            ctx.fillRect(-1.5, 5.6, 2.5, 2.2);
-                        }
                     }
 
-                    // Render Tactical NVG / FLIR Goggles mounted over eyes when active
-                    if (this.opticsMode !== 'standard') {
-                        const goggleColor = this.opticsMode === 'nvg' ? '#4ade80' : '#fb923c';
-                        ctx.fillStyle = '#090d16';
-                        ctx.fillRect(4.5, -5.2, 3.8, 10.4);
-                        ctx.fillStyle = goggleColor;
-                        ctx.fillRect(6.5, -4.2, 2.5, 3.2);
-                        ctx.fillRect(6.5, 1.0, 2.5, 3.2);
+                    if (sfx.musicEnabled) {
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(0.5, -5.6, 1.9, 0, Math.PI * 2);
+                        ctx.arc(0.5, 5.6, 1.9, 0, Math.PI * 2);
+                        ctx.fill();
                     }
 
                     ctx.restore();
@@ -3399,10 +4065,10 @@ import { createAudioEngine } from './audio/sfx.js';
             }
 
             // ============================================================================
-            // WORLD GENERATION (WOODLAND AIRSOFT, MALL, SUBURBS, CBD, SNIPER)
+            // WORLD GENERATION PER CAMPAIGN
             // ============================================================================
-            function resetWorldArrays() {
-                radarTerrainDirty = true; // New chapter generates a different static minimap.
+            function clearWorldArrays() {
+                radarTerrainDirty = true;
                 buildings = [];
                 roads = [];
                 crosswalks = [];
@@ -3411,6 +4077,2049 @@ import { createAudioEngine } from './audio/sfx.js';
                 woodlandCreek = null;
                 mallZones = [];
                 mallLights = [];
+                stairwells = [];
+                vehicles = [];
+                bullets = [];
+                flameJets = [];
+                enemies = [];
+                allies = [];
+                civilians = [];
+                particles = [];
+                decals = [];
+                shells = [];
+                droppedMags = [];
+                corpses = [];
+                pickups = [];
+            }
+
+            function generateWoodlandWorld() {
+                WORLD_SIZE = 3200;
+                clearWorldArrays();
+
+                woodlandCreek = [
+                    { x: 1450, y: 0 },
+                    { x: 1580, y: 800 },
+                    { x: 1380, y: 1600 },
+                    { x: 1640, y: 2400 },
+                    { x: 1520, y: 3200 }
+                ];
+
+                buildings.push({ x: 1360, y: 1540, w: 280, h: 110, color: '#78350f', roof: '#92400e', isLowWall: true, label: 'CREEK FOOTBRIDGE' });
+
+                const bunkers = [
+                    [680, 1450, 26, 110], [680, 1660, 26, 110],
+                    [960, 1280, 90, 24], [960, 1920, 90, 24],
+                    [1180, 1420, 26, 95], [1180, 1710, 26, 95],
+                    [1820, 1360, 26, 110], [1820, 1740, 26, 110],
+                    [2120, 1240, 110, 26], [2120, 1940, 110, 26],
+                    [2380, 1440, 28, 120], [2380, 1660, 28, 120],
+                    [2680, 1420, 32, 360], [2712, 1420, 180, 32], [2712, 1748, 180, 32]
+                ];
+                for (let i = 0; i < bunkers.length; i++) {
+                    const bk = bunkers[i];
+                    buildings.push({ x: bk[0], y: bk[1], w: bk[2], h: bk[3], color: '#57534e', roof: '#78716c', isLowWall: true });
+                }
+
+                for (let i = 0; i < 165; i++) {
+                    const tx = Math2.rand(120, WORLD_SIZE - 120);
+                    const ty = Math2.rand(120, WORLD_SIZE - 120);
+                    if (Math2.dist(tx, ty, 460, 1600) < 220) continue;
+                    if (Math2.dist(tx, ty, 2780, 1600) < 240) continue;
+                    if (Math.abs(tx - 1520) < 130) continue;
+                    if (pointInsideBuilding(tx, ty, 45)) continue;
+                    woodlandTrees.push({
+                        x: tx,
+                        y: ty,
+                        trunkR: Math2.rand(11, 16),
+                        canopyR: Math2.rand(42, 68),
+                        shade: ['#14532d', '#166534', '#15803d', '#064e3b'][Math2.randInt(0, 3)]
+                    });
+                }
+
+                const gearDrops = [
+                    [820, 1520, 'bb_bag'], [1260, 1600, 'airsoft_aeg'], [1680, 1595, 'bb_bag'],
+                    [2040, 1420, 'bb_bag'], [2280, 1780, 'bb_bag'], [2540, 1600, 'bb_bag']
+                ];
+                for (let i = 0; i < gearDrops.length; i++) {
+                    pickups.push(new Pickup(gearDrops[i][0], gearDrops[i][1], gearDrops[i][2]));
+                }
+            }
+
+            // ============================================================================
+            // 4-FLOOR SANDTON-SCALE MALL GENERATOR (L2, L1, G, B1 UNDERGROUND PARKADE)
+            // ============================================================================
+            const MALL_FLOOR_TITLES = {
+                L2: 'FLOOR: L2 — SKYBRIDGE & EAST TAXI PLAZA',
+                L1: 'FLOOR: L1 — UPPER GALLERIA & GOLDEN DRAGON',
+                G: 'FLOOR: G — GROUND CONCOURSE & SECURITY COMPLEX',
+                B1: 'FLOOR: B1 — UNDERGROUND PARKADE (STAGED CAR)'
+            };
+
+            function loadMallFloorGeometry(floorId) {
+                radarTerrainDirty = true;
+                currentMallFloor = floorId;
+                buildings = [];
+                mallZones = [];
+
+                const wallT = 36;
+                buildings.push({ x: 260, y: 260, w: 2080, h: wallT, color: '#0f172a', roof: '#1e293b', height: 22 });
+                buildings.push({ x: 260, y: 1904, w: 2080, h: wallT, color: '#0f172a', roof: '#1e293b', height: 22 });
+                buildings.push({ x: 260, y: 260, w: wallT, h: 1680, color: '#0f172a', roof: '#1e293b', height: 22 });
+
+                if (floorId === 'L2') {
+                    buildings.push({ x: 2304, y: 260, w: wallT, h: 660, color: '#0f172a', roof: '#1e293b', height: 22 });
+                    buildings.push({ x: 2304, y: 1280, w: wallT, h: 660, color: '#0f172a', roof: '#1e293b', height: 22 });
+
+                    mallZones.push({ x: 296, y: 296, w: 2008, h: 1608, floor: '#18202c', label: 'LEVEL 2 — SKYBRIDGE & FOOD COURT' });
+                    mallZones.push({ x: 1640, y: 920, w: 680, h: 360, floor: '#222d3f', label: 'EAST SKYBRIDGE CONCOURSE' });
+                    mallZones.push({ x: 2340, y: 300, w: 740, h: 1600, floor: '#1e293b', label: 'OUTER TAXI RANK & BLOCKADE' });
+
+                    buildings.push({ x: 420, y: 380, w: 560, h: 420, color: '#1e293b', roof: '#334155', height: 18, label: 'UPPER FOOD COURT' });
+                    buildings.push({ x: 420, y: 1380, w: 620, h: 440, color: '#1e293b', roof: '#334155', height: 18, label: 'CINEMA & ARCADE WING' });
+                    buildings.push({ x: 1680, y: 380, w: 540, h: 440, color: '#27272a', roof: '#3f3f46', height: 18, label: 'LUXURY BOUTIQUES (L2)' });
+                    buildings.push({ x: 1680, y: 1380, w: 540, h: 440, color: '#27272a', roof: '#3f3f46', height: 18, label: 'EXECUTIVE SUITES (L2)' });
+
+                    buildings.push({ x: 2475, y: 920, w: 28, h: 140, color: '#78350f', roof: '#92400e', isLowWall: true });
+                    buildings.push({ x: 2475, y: 1140, w: 28, h: 140, color: '#78350f', roof: '#92400e', isLowWall: true });
+
+                    mallLights.push({ floor: 'L2', x: 1960, y: 1100, r: 220, color: 'rgba(148, 163, 184, 0.30)', flicker: false });
+                    mallLights.push({ floor: 'L2', x: 2660, y: 1100, r: 460, color: 'rgba(253, 224, 71, 0.36)', flicker: false });
+                } else if (floorId === 'L1') {
+                    buildings.push({ x: 2304, y: 260, w: wallT, h: 1680, color: '#0f172a', roof: '#1e293b', height: 22 });
+
+                    mallZones.push({ x: 296, y: 296, w: 2008, h: 1608, floor: '#18202c', label: 'LEVEL 1 — UPPER GALLERIA' });
+                    mallZones.push({ x: 340, y: 1480, w: 580, h: 390, floor: '#2a1215', label: 'GOLDEN DRAGON DISCOUNT SHOP' });
+
+                    buildings.push({ x: 340, y: 1460, w: 580, h: 20, color: '#7f1d1d', roof: '#991b1b', height: 14 });
+                    buildings.push({ x: 920, y: 1460, w: 20, h: 250, color: '#7f1d1d', roof: '#991b1b', height: 14 });
+                    buildings.push({ x: 460, y: 1640, w: 260, h: 22, color: '#991b1b', roof: '#dc2626', isLowWall: true });
+
+                    buildings.push({ x: 360, y: 380, w: 620, h: 360, color: '#1e293b', roof: '#334155', height: 18, label: 'FASHION GALLERIA' });
+                    buildings.push({ x: 1680, y: 380, w: 560, h: 420, color: '#1e293b', roof: '#334155', height: 18, label: 'ELECTRONICS WING' });
+                    buildings.push({ x: 1680, y: 1360, w: 560, h: 460, color: '#27272a', roof: '#3f3f46', height: 18, label: 'DEPARTMENT STORE (L1)' });
+
+                    mallLights.push({ floor: 'L1', x: 520, y: 1690, r: 95, color: 'rgba(239, 68, 68, 0.25)', flicker: true });
+                    mallLights.push({ floor: 'L1', x: 1330, y: 1100, r: 195, color: 'rgba(148, 163, 184, 0.26)', flicker: false });
+                } else if (floorId === 'G') {
+                    buildings.push({ x: 2304, y: 260, w: wallT, h: 1680, color: '#0f172a', roof: '#1e293b', height: 22 });
+
+                    mallZones.push({ x: 296, y: 296, w: 2008, h: 1608, floor: '#1e2634', label: 'GROUND FLOOR CONCOURSE (G)' });
+                    mallZones.push({ x: 1060, y: 780, w: 540, h: 540, floor: '#253042', label: 'CENTRAL SUNKEN ATRIUM (G)' });
+                    mallZones.push({ x: 340, y: 340, w: 620, h: 460, floor: '#1c2923', label: 'SAFARI OUTDOOR & BUTCHERY SECTION' });
+                    mallZones.push({ x: 1720, y: 1360, w: 520, h: 460, floor: '#131c31', label: 'MALL SECURITY CONTROL ROOM' });
+
+                    buildings.push({ x: 1120, y: 840, w: 36, h: 36, color: '#334155', roof: '#475569', height: 18 });
+                    buildings.push({ x: 1500, y: 840, w: 36, h: 36, color: '#334155', roof: '#475569', height: 18 });
+                    buildings.push({ x: 1120, y: 1220, w: 36, h: 36, color: '#334155', roof: '#475569', height: 18 });
+                    buildings.push({ x: 1500, y: 1220, w: 36, h: 36, color: '#334155', roof: '#475569', height: 18 });
+
+                    buildings.push({ x: 360, y: 1340, w: 580, h: 480, color: '#1e293b', roof: '#334155', height: 16, label: 'SUPERMARKET & PHARMACY' });
+                    buildings.push({ x: 1720, y: 1340, w: 520, h: 24, color: '#1e3a8a', roof: '#2563eb', height: 18 });
+                    buildings.push({ x: 1720, y: 1800, w: 520, h: 24, color: '#1e3a8a', roof: '#2563eb', height: 18 });
+                    buildings.push({ x: 2216, y: 1340, w: 24, h: 484, color: '#1e3a8a', roof: '#2563eb', height: 18 });
+                    buildings.push({ x: 1720, y: 1364, w: 24, h: 116, color: '#1e3a8a', roof: '#2563eb', height: 18 });
+                    buildings.push({ x: 1720, y: 1560, w: 24, h: 240, color: '#1e3a8a', roof: '#2563eb', height: 18 });
+                    buildings.push({ id: 'sec_barred_door', x: 1722, y: 1480, w: 20, h: 80, color: '#7f1d1d', roof: '#dc2626', isLowWall: true });
+                    buildings.push({ x: 2090, y: 1480, w: 65, h: 190, color: '#0f172a', roof: '#38bdf8', isLowWall: true });
+
+                    buildings.push({ x: 1720, y: 380, w: 520, h: 380, color: '#27272a', roof: '#3f3f46', height: 16, label: 'BANKING HALL (G)' });
+                    buildings.push({ x: 520, y: 620, w: 220, h: 22, color: '#78350f', roof: '#92400e', isLowWall: true });
+
+                    mallLights.push({ floor: 'G', x: 1330, y: 1050, r: 280, color: 'rgba(148, 163, 184, 0.34)', flicker: false });
+                    mallLights.push({ floor: 'G', x: 640, y: 540, r: 125, color: 'rgba(250, 204, 21, 0.22)', flicker: true });
+                    mallLights.push({ floor: 'G', x: 1980, y: 1580, r: 150, color: 'rgba(56, 189, 248, 0.28)', flicker: true });
+                } else if (floorId === 'B1') {
+                    buildings.push({ x: 2304, y: 260, w: wallT, h: 1680, color: '#0f172a', roof: '#1e293b', height: 22 });
+
+                    mallZones.push({ x: 296, y: 296, w: 2008, h: 1608, floor: '#11151e', label: 'B1 UNDERGROUND PARKADE // BAY 14' });
+                    mallZones.push({ x: 1680, y: 1360, w: 560, h: 480, floor: '#18202c', label: 'STAFF BAY 14 (C\'S STAGED CAR)' });
+
+                    const pillars = [
+                        [680, 620], [1080, 620], [1480, 620], [1880, 620],
+                        [680, 1080], [1080, 1080], [1480, 1080], [1880, 1080],
+                        [680, 1540], [1080, 1540], [1480, 1540]
+                    ];
+                    for (let i = 0; i < pillars.length; i++) {
+                        buildings.push({ x: pillars[i][0], y: pillars[i][1], w: 42, h: 42, color: '#334155', roof: '#475569', height: 18 });
+                    }
+
+                    buildings.push({ x: 1260, y: 1420, w: 26, h: 150, color: '#78350f', roof: '#92400e', isLowWall: true });
+
+                    mallLights.push({ floor: 'B1', x: 1960, y: 1580, r: 150, color: 'rgba(239, 68, 68, 0.28)', flicker: true });
+                    mallLights.push({ floor: 'B1', x: 880, y: 850, r: 120, color: 'rgba(250, 204, 21, 0.18)', flicker: true });
+                }
+
+                const floorEl = document.getElementById('floorIndicator');
+                if (floorEl) {
+                    floorEl.style.display = 'block';
+                    floorEl.innerText = MALL_FLOOR_TITLES[floorId] || `FLOOR: ${floorId}`;
+                }
+            }
+
+            function transitionMallFloor(st) {
+                sfx.playStairs();
+                loadMallFloorGeometry(st.toFloor);
+                player.x = st.toX;
+                player.y = st.toY;
+                camera.x = player.x - canvas.width / 2;
+                camera.y = player.y - canvas.height / 2;
+                showBanner(`ARRIVED AT ${MALL_FLOOR_TITLES[st.toFloor]}`, 2000);
+
+                if (st.toFloor === 'L1' && player.hasGoBag && mission && !mission.alternateRouteMonologueShown) {
+                    mission.alternateRouteMonologueShown = true;
+                    showMonologue(
+                        'C // INTERNAL THOUGHT',
+                        'Main central escalators are sealed off by dropped fire shutters. Good thing I took the North Service Stairwell—crossing Level 1 to the East Service Stairs up to L2 Skybridge.',
+                        6200
+                    );
+                }
+                updateHUD();
+            }
+
+            function generateMallWorld() {
+                WORLD_SIZE = 3200;
+                clearWorldArrays();
+                mallLights = [];
+
+                stairwells = [
+                    { fromFloor: 'L1', toFloor: 'G', x: 1330, y: 1340, toX: 1330, toY: 1320, label: 'CENTRAL ESCALATOR DOWN TO GROUND [G]', blocked: false },
+                    { fromFloor: 'G', toFloor: 'B1', x: 1330, y: 1760, toX: 1330, toY: 1720, label: 'SOUTH STAIRWELL DOWN TO B1 PARKADE', blocked: false },
+                    { fromFloor: 'G', toFloor: 'L1', x: 1330, y: 1340, toX: 1330, toY: 1340, label: 'CENTRAL ESCALATOR TO L1 (SHUTTER COLLAPSED)', blocked: true, blockedReason: 'Collapsed steel fire shutter blocking the central escalator! Take the North Service Stairwell [x: 520, y: 380] instead.' },
+                    { fromFloor: 'B1', toFloor: 'G', x: 1330, y: 1760, toX: 1330, toY: 1720, label: 'SOUTH STAIRWELL UP TO GROUND [G]', blocked: false },
+                    { fromFloor: 'G', toFloor: 'L1', x: 520, y: 380, toX: 520, toY: 420, label: 'NORTH SERVICE STAIRWELL UP TO LEVEL 1 [L1]', blocked: false },
+                    { fromFloor: 'L1', toFloor: 'L2', x: 2140, y: 1100, toX: 1840, toY: 1100, label: 'EAST SERVICE STAIRS UP TO L2 SKYBRIDGE', blocked: false },
+                    { fromFloor: 'L2', toFloor: 'L1', x: 1840, y: 1100, toX: 2140, toY: 1100, label: 'EAST SERVICE STAIRS DOWN TO LEVEL 1 [L1]', blocked: false }
+                ];
+
+                loadMallFloorGeometry('L1');
+
+                civilians.push(new Civilian(450, 1740, 'L1', 'MR. CHEN [E]'));
+                civilians.push(new Civilian(520, 1790, 'L1'));
+                civilians.push(new Civilian(660, 1760, 'L1'));
+                civilians.push(new Civilian(820, 1680, 'L1'));
+                civilians.push(new Civilian(1620, 620, 'L1', null, true));
+                civilians.push(new Civilian(1650, 665, 'L1', null, true));
+                civilians.push(new Civilian(1010, 1520, 'G', null, true));
+                civilians.push(new Civilian(1010, 1565, 'G', null, true));
+                civilians.push(new Civilian(1180, 1460, 'G'));
+                civilians.push(new Civilian(1480, 1480, 'G'));
+
+                vehicles.push(new Vehicle(1980, 1580, 'sedan', Math.PI, true, 'B1', true));
+                vehicles.push(new Vehicle(860, 1340, 'sedan', Math.PI / 2, true, 'B1', false));
+                vehicles.push(new Vehicle(1020, 860, 'sedan', 0, true, 'B1', false));
+
+                vehicles.push(new Vehicle(2790, 960, 'taxi', Math.PI / 2, true, 'L2'));
+                vehicles.push(new Vehicle(2790, 1110, 'taxi', Math.PI / 2, true, 'L2'));
+                vehicles.push(new Vehicle(2790, 1260, 'taxi', Math.PI / 2, true, 'L2'));
+
+                const mallLoot = [
+                    [440, 1580, 'water', 'L1'], [790, 1540, 'food', 'L1'], [1140, 1260, 'cash', 'L1'],
+                    [1520, 920, 'cash', 'L1'], [1940, 1100, 'food', 'L1'], [1040, 560, 'water', 'L1'],
+                    [580, 470, 'hunting_knife', 'G'], [440, 440, 'food', 'G'], [780, 460, 'water', 'G'],
+                    [1960, 1450, 'jhp_stash', 'G'], [1960, 1710, 'shotgun', 'G'], [1960, 1580, 'cash', 'G'],
+                    [1220, 1050, 'cash', 'G'], [1440, 1050, 'water', 'G'],
+                    [1760, 1480, 'jhp_stash', 'B1'], [920, 1520, 'cash', 'B1'], [760, 880, 'water', 'B1'],
+                    [1330, 1100, 'cash', 'L2'], [1330, 1540, 'food', 'L2'], [1920, 960, 'ammo', 'L2'],
+                    [2020, 1240, 'cash', 'L2'], [2620, 1040, 'cash', 'L2']
+                ];
+                for (let i = 0; i < mallLoot.length; i++) {
+                    pickups.push(new Pickup(mallLoot[i][0], mallLoot[i][1], mallLoot[i][2], mallLoot[i][3]));
+                }
+            }
+
+            function generateSuburbsWorld() {
+                WORLD_SIZE = 4400;
+                clearWorldArrays();
+                const roadCenters = [700, 1700, 2700, 3700];
+                const roadWidth = 220;
+
+                for (let i = 0; i < roadCenters.length; i++) {
+                    const c = roadCenters[i];
+                    roads.push({ x: 0, y: c - roadWidth / 2, w: WORLD_SIZE, h: roadWidth, dir: 'h' });
+                    roads.push({ x: c - roadWidth / 2, y: 0, w: roadWidth, h: WORLD_SIZE, dir: 'v' });
+                }
+
+                for (let ix = 0; ix < roadCenters.length; ix++) {
+                    for (let iy = 0; iy < roadCenters.length; iy++) {
+                        const cx = roadCenters[ix];
+                        const cy = roadCenters[iy];
+                        crosswalks.push({ x: cx - 80, y: cy - roadWidth / 2 - 22, w: 160, h: 18, dir: 'h' });
+                        crosswalks.push({ x: cx - 80, y: cy + roadWidth / 2 + 4, w: 160, h: 18, dir: 'h' });
+                        crosswalks.push({ x: cx - roadWidth / 2 - 22, y: cy - 80, w: 18, h: 160, dir: 'v' });
+                        crosswalks.push({ x: cx + roadWidth / 2 + 4, y: cy - 80, w: 18, h: 160, dir: 'v' });
+                    }
+                }
+
+                const blockBounds = [
+                    [840, 1560],
+                    [1840, 2560],
+                    [2840, 3560]
+                ];
+
+                const roofColors = ['#334155', '#475569', '#3f3f46', '#1e293b', '#52525b'];
+                const wallColors = ['#1e293b', '#27272a', '#0f172a', '#18181b'];
+
+                for (let bx = 0; bx < blockBounds.length; bx++) {
+                    for (let by = 0; by < blockBounds.length; by++) {
+                        const [minX, maxX] = blockBounds[bx];
+                        const [minY, maxY] = blockBounds[by];
+
+                        if (bx === 0 && by === 0) {
+                            buildings.push({ x: minX + 120, y: minY + 120, w: 280, h: 240, color: '#1e293b', roof: '#475569', height: 22, label: 'COMPOUND' });
+                            buildings.push({ x: minX + 60, y: minY + 60, w: 460, h: 20, color: '#334155', roof: '#64748b', isLowWall: true });
+                            buildings.push({ x: minX + 60, y: minY + 60, w: 20, h: 420, color: '#334155', roof: '#64748b', isLowWall: true });
+                            continue;
+                        }
+
+                        if (bx === 2 && by === 2) {
+                            buildings.push({ x: minX + 180, y: minY + 180, w: 360, h: 320, color: '#1e3a8a', roof: '#1d4ed8', height: 34, label: 'SUBSTATION #4' });
+                            buildings.push({ x: minX + 110, y: minY + 110, w: 180, h: 22, color: '#475569', roof: '#94a3b8', isLowWall: true });
+                            buildings.push({ x: minX + 430, y: minY + 540, w: 190, h: 22, color: '#475569', roof: '#94a3b8', isLowWall: true });
+                            continue;
+                        }
+
+                        const cols = 2;
+                        const rows = 2;
+                        const cellW = (maxX - minX) / cols;
+                        const cellH = (maxY - minY) / rows;
+                        for (let cx = 0; cx < cols; cx++) {
+                            for (let cy = 0; cy < rows; cy++) {
+                                const w = Math2.randInt(190, 265);
+                                const h = Math2.randInt(180, 255);
+                                const x = minX + cx * cellW + (cellW - w) / 2;
+                                const y = minY + cy * cellH + (cellH - h) / 2;
+                                buildings.push({
+                                    x, y, w, h,
+                                    color: wallColors[Math2.randInt(0, wallColors.length - 1)],
+                                    roof: roofColors[Math2.randInt(0, roofColors.length - 1)],
+                                    height: Math2.randInt(18, 36)
+                                });
+                            }
+                        }
+                    }
+                }
+
+                for (let i = 0; i < 48; i++) {
+                    const bx = Math2.rand(420, WORLD_SIZE - 420);
+                    const by = Math2.rand(420, WORLD_SIZE - 420);
+                    if (Math2.dist(bx, by, 1340, 1340) < 340) continue;
+                    if (pointInsideBuilding(bx, by, 50)) continue;
+                    const horiz = Math.random() < 0.5;
+                    buildings.push({
+                        x: bx, y: by,
+                        w: horiz ? Math2.randInt(75, 135) : 22,
+                        h: horiz ? 22 : Math2.randInt(75, 135),
+                        color: '#78350f', roof: '#92400e', isLowWall: true
+                    });
+                }
+
+                const vehicleSpawns = [
+                    [1560, 1730, 'sedan', 0],
+                    [2660, 1180, 'taxi', Math.PI / 2],
+                    [1730, 2540, 'police', Math.PI / 2],
+                    [2540, 2730, 'sedan', Math.PI],
+                    [3660, 2260, 'armored', Math.PI / 2],
+                    [1140, 3660, 'taxi', 0],
+                    [3180, 730, 'sedan', Math.PI]
+                ];
+
+                for (let i = 0; i < vehicleSpawns.length; i++) {
+                    const vs = vehicleSpawns[i];
+                    const v = new Vehicle(vs[0], vs[1], vs[2], vs[3]);
+                    if (i === 1 || i === 5) v.driver = 'civilian';
+                    vehicles.push(v);
+                }
+
+                const lootSpawns = [
+                    [1340, 1420, 'ammo'], [1380, 1420, 'armor'],
+                    [1700, 1700, 'health'], [2700, 1700, 'shotgun'],
+                    [1700, 2700, 'ammo'], [2700, 2700, 'armor'],
+                    [3100, 2700, 'ar15'], [3150, 2700, 'health'],
+                    [2200, 3700, 'ammo'], [3700, 2200, 'health']
+                ];
+                for (let i = 0; i < lootSpawns.length; i++) {
+                    pickups.push(new Pickup(lootSpawns[i][0], lootSpawns[i][1], lootSpawns[i][2]));
+                }
+            }
+
+            function generateCbdWorld() {
+                WORLD_SIZE = 4400;
+                clearWorldArrays();
+                const avenues = [640, 1520, 2400, 3280, 3960];
+                const roadWidth = 210;
+
+                for (let i = 0; i < avenues.length; i++) {
+                    const c = avenues[i];
+                    roads.push({ x: 0, y: c - roadWidth / 2, w: WORLD_SIZE, h: roadWidth, dir: 'h' });
+                    roads.push({ x: c - roadWidth / 2, y: 0, w: roadWidth, h: WORLD_SIZE, dir: 'v' });
+                }
+
+                for (let ix = 0; ix < avenues.length; ix++) {
+                    for (let iy = 0; iy < avenues.length; iy++) {
+                        const cx = avenues[ix];
+                        const cy = avenues[iy];
+                        crosswalks.push({ x: cx - 75, y: cy - roadWidth / 2 - 20, w: 150, h: 16, dir: 'h' });
+                        crosswalks.push({ x: cx - 75, y: cy + roadWidth / 2 + 4, w: 150, h: 16, dir: 'h' });
+                    }
+                }
+
+                const cbdBlocks = [
+                    [780, 1380],
+                    [1660, 2260],
+                    [2540, 3140],
+                    [3420, 3820]
+                ];
+
+                const towerRoofs = ['#1e293b', '#0f172a', '#334155', '#172554', '#27272a'];
+                for (let bx = 0; bx < cbdBlocks.length; bx++) {
+                    for (let by = 0; by < cbdBlocks.length; by++) {
+                        const [minX, maxX] = cbdBlocks[bx];
+                        const [minY, maxY] = cbdBlocks[by];
+
+                        if (bx === 3 && by === 3) {
+                            buildings.push({ x: minX + 40, y: minY + 40, w: 320, h: 320, color: '#0f172a', roof: '#0284c7', height: 48, label: 'CARLTON PLAZA' });
+                            continue;
+                        }
+
+                        const pad = 26;
+                        buildings.push({
+                            x: minX + pad,
+                            y: minY + pad,
+                            w: (maxX - minX) - pad * 2,
+                            h: (maxY - minY) - pad * 2,
+                            color: '#090d16',
+                            roof: towerRoofs[(bx + by) % towerRoofs.length],
+                            height: Math2.randInt(44, 72)
+                        });
+                    }
+                }
+
+                const cbdBarricades = [
+                    [1520, 960, 140, 24], [1520, 1940, 140, 24],
+                    [2400, 1280, 150, 24], [2400, 2860, 150, 24],
+                    [1960, 2400, 24, 140], [2920, 2400, 24, 140],
+                    [3280, 3120, 160, 26]
+                ];
+                for (let i = 0; i < cbdBarricades.length; i++) {
+                    const b = cbdBarricades[i];
+                    buildings.push({ x: b[0] - b[2] / 2, y: b[1] - b[3] / 2, w: b[2], h: b[3], color: '#7c2d12', roof: '#ea580c', isLowWall: true });
+                }
+
+                const cbdVehicles = [
+                    [820, 675, 'police', 0],
+                    [1555, 1120, 'taxi', Math.PI / 2],
+                    [2365, 1860, 'taxi', -Math.PI / 2],
+                    [1980, 2435, 'armored', 0],
+                    [3315, 2640, 'police', Math.PI / 2],
+                    [2880, 3315, 'taxi', Math.PI]
+                ];
+                for (let i = 0; i < cbdVehicles.length; i++) {
+                    const cv = cbdVehicles[i];
+                    const v = new Vehicle(cv[0], cv[1], cv[2], cv[3]);
+                    if (i === 2) v.driver = 'civilian';
+                    vehicles.push(v);
+                }
+
+                const cbdLoot = [
+                    [740, 640, 'fuel'], [1520, 1520, 'fuel'],
+                    [2400, 1520, 'armor'], [2400, 2400, 'fuel'],
+                    [1520, 2400, 'shotgun'], [3280, 2400, 'fuel'],
+                    [3280, 3280, 'ar15'], [2900, 3280, 'health']
+                ];
+                for (let i = 0; i < cbdLoot.length; i++) {
+                    pickups.push(new Pickup(cbdLoot[i][0], cbdLoot[i][1], cbdLoot[i][2]));
+                }
+            }
+
+            function generateSniperWorld() {
+                WORLD_SIZE = 4400;
+                clearWorldArrays();
+
+                railTracks = [
+                    { y: 1220 },
+                    { y: 1460 },
+                    { y: 1700 },
+                    { y: 1940 }
+                ];
+
+                roads.push({ x: 0, y: 2440, w: WORLD_SIZE, h: 220, dir: 'h' });
+                roads.push({ x: 0, y: 3440, w: WORLD_SIZE, h: 220, dir: 'h' });
+                roads.push({ x: 960, y: 2150, w: 200, h: 2250, dir: 'v' });
+                roads.push({ x: 3160, y: 2150, w: 200, h: 2250, dir: 'v' });
+
+                buildings.push({ x: 1850, y: 2920, w: 460, h: 240, color: '#1e293b', roof: '#475569', height: 52, label: 'SIGNAL TOWER' });
+                buildings.push({ x: 1950, y: 2885, w: 260, h: 20, color: '#3f6212', roof: '#65a30d', isLowWall: true });
+
+                const trainCars = [
+                    [520, 1185, 290, 56, '#7f1d1d', '#991b1b'],
+                    [920, 1185, 310, 56, '#1e3a8a', '#1d4ed8'],
+                    [1840, 1185, 340, 56, '#3f3f46', '#52525b'],
+                    [2920, 1185, 310, 56, '#78350f', '#92400e'],
+                    [680, 1425, 320, 56, '#14532d', '#15803d'],
+                    [1460, 1425, 280, 56, '#7f1d1d', '#991b1b'],
+                    [2460, 1425, 340, 56, '#1e293b', '#334155'],
+                    [3340, 1425, 310, 56, '#78350f', '#92400e'],
+                    [980, 1665, 330, 56, '#3f3f46', '#52525b'],
+                    [2140, 1665, 290, 56, '#1e3a8a', '#1d4ed8'],
+                    [3080, 1665, 320, 56, '#7f1d1d', '#991b1b'],
+                    [580, 1905, 310, 56, '#78350f', '#92400e'],
+                    [1720, 1905, 340, 56, '#14532d', '#15803d'],
+                    [2780, 1905, 300, 56, '#3f3f46', '#52525b']
+                ];
+                for (let i = 0; i < trainCars.length; i++) {
+                    const tc = trainCars[i];
+                    buildings.push({ x: tc[0], y: tc[1], w: tc[2], h: tc[3], color: tc[4], roof: tc[5], height: 26, label: i % 4 === 0 ? 'FREIGHT' : '' });
+                }
+
+                buildings.push({ x: 460, y: 460, w: 620, h: 360, color: '#0f172a', roof: '#1e293b', height: 38, label: 'NORTH DEPOT' });
+                buildings.push({ x: 3180, y: 440, w: 660, h: 380, color: '#0f172a', roof: '#1e293b', height: 38, label: 'ARMORY SHED' });
+                buildings.push({ x: 1360, y: 2780, w: 340, h: 280, color: '#18181b', roof: '#27272a', height: 28 });
+                buildings.push({ x: 2480, y: 2780, w: 340, h: 280, color: '#18181b', roof: '#27272a', height: 28 });
+
+                const sniperVehicles = [
+                    [1120, 2510, 'armored', 0],
+                    [2980, 2510, 'sedan', Math.PI],
+                    [1020, 3220, 'police', -Math.PI / 2],
+                    [3220, 3180, 'taxi', -Math.PI / 2]
+                ];
+                for (let i = 0; i < sniperVehicles.length; i++) {
+                    const sv = sniperVehicles[i];
+                    vehicles.push(new Vehicle(sv[0], sv[1], sv[2], sv[3]));
+                }
+
+                const sniperLoot = [
+                    [1980, 2850, 'ammo'], [2180, 2850, 'armor'],
+                    [1650, 2120, 'ammo'], [2520, 2120, 'health'],
+                    [2080, 1560, 'ar15'], [1220, 1320, 'ammo'],
+                    [2980, 1320, 'health'], [2080, 920, 'ammo']
+                ];
+                for (let i = 0; i < sniperLoot.length; i++) {
+                    pickups.push(new Pickup(sniperLoot[i][0], sniperLoot[i][1], sniperLoot[i][2]));
+                }
+            }
+
+            // ============================================================================
+            // MISSION DIRECTOR (5 PLAYABLE CAMPAIGNS + CHECKPOINT MESSENGER CUTSCENES)
+            // ============================================================================
+            function broadcastGunshot(gx, gy, radius = 620, isSpotterShout = false) {
+                const isMall = (mission && mission.campaign === 'mall');
+                for (let i = 0; i < enemies.length; i++) {
+                    const e = enemies[i];
+                    if (e.hp <= 0) continue;
+                    if (isMall && e.floor !== currentMallFloor) continue;
+                    if (Math2.dist(gx, gy, e.x, e.y) <= radius) {
+                        if (isSpotterShout) e.onHearSpotterShout(gx, gy);
+                        else e.onHearGunshot(gx, gy);
+                    }
+                }
+                for (let i = 0; i < civilians.length; i++) {
+                    const c = civilians[i];
+                    if (!c.dead && (!isMall || c.floor === currentMallFloor) && Math2.dist(gx, gy, c.x, c.y) <= radius) {
+                        c.onHearGunshot(gx, gy);
+                    }
+                }
+            }
+
+            function spawnEnemySquad(cx, cy, count, faction, spread = 240, includeBoss = false) {
+                for (let i = 0; i < count; i++) {
+                    let sx = cx;
+                    let sy = cy;
+                    for (let attempt = 0; attempt < 25; attempt++) {
+                        const tx = Math2.clamp(cx + Math2.rand(-spread, spread), 120, WORLD_SIZE - 120);
+                        const ty = Math2.clamp(cy + Math2.rand(-spread, spread), 120, WORLD_SIZE - 120);
+                        if (!pointInsideBuilding(tx, ty, 24)) {
+                            sx = tx;
+                            sy = ty;
+                            break;
+                        }
+                    }
+                    const isBoss = includeBoss && i === 0;
+                    enemies.push(new Enemy(sx, sy, faction, isBoss));
+                }
+            }
+
+            function initTrainingMissions() {
+                mission = {
+                    campaign: 'training',
+                    stage: 1,
+                    targetX: 2780,
+                    targetY: 1600
+                };
+
+                allies.push(new Ally(415, 1545, 'YOUNGER G', '#451a03', '#1e3a8a', -1.1));
+                allies.push(new Ally(415, 1655, 'YOUNGER BLAZE', '#dc2626', '#7f1d1d', 1.1));
+
+                spawnEnemySquad(1180, 1580, 3, 'airsoft_adult', 190, false);
+                spawnEnemySquad(1920, 1560, 4, 'airsoft_adult', 220, false);
+                spawnEnemySquad(2620, 1600, 4, 'airsoft_adult', 200, true);
+                enemies.push(new Enemy(2780, 1600, 'airsoft_adult', true));
+
+                updateMissionUI();
+
+                phoneCutscene.start({
+                    clock: '09:15 AM',
+                    opsec: 'PINE RIDGE AIRSOFT ARENA // YOUTH TEAM CHANNEL',
+                    isTraining: true,
+                    contactName: 'YOUNGER G & YOUNGER BLAZE',
+                    contactSub: 'SQUAD GROUP CHAT &bull; SUNDAY SKIRMISH',
+                    contactAvatar: 'male',
+                    messages: [
+                        { side: 'system', text: 'FLASHBACK // WOODLAND AIRSOFT TRAINING MATCH' },
+                        { side: 'incoming', sender: 'YOUNGER G', time: '09:14', text: 'C, those grown-up MilSim guys took the far pine ridge and sandbag bunker. Remember: 6mm BBs only—call your hits!' },
+                        { side: 'incoming', sender: 'YOUNGER BLAZE', time: '09:15', text: 'I grabbed an AEG carbine—let us push across the creek footbridge together and capture their HQ flag!' },
+                        { side: 'outgoing', sender: 'YOUNGER C', time: '09:15', text: 'Copy! Pink G26 GBB is gassed up. Stick to the pine trunks and let us flank them.' }
+                    ]
+                });
+            }
+
+            function initMallMissions() {
+                mission = {
+                    campaign: 'mall',
+                    stage: 1,
+                    targetFloor: 'L1',
+                    targetX: 1330,
+                    targetY: 1340,
+                    knifeFound: false,
+                    alternateRouteMonologueShown: false
+                };
+                cctvRevealedFloors = {};
+
+                const floorHostiles = [
+                    [1040, 1460, 'unarmed_looter', false, 'L1', 'haul_crate'],
+                    [1110, 1540, 'melee_looter', false, 'L1', 'pry_shutter'],
+                    [1220, 1420, 'looter', false, 'L1', null],
+                    [1390, 1380, 'unarmed_looter', false, 'L1', 'rummage'],
+                    [1540, 1140, 'unarmed_looter', false, 'L1', 'haul_crate'],
+                    [1580, 960, 'melee_looter', false, 'L1', 'pry_shutter'],
+                    [1020, 820, 'looter', false, 'L1', null],
+                    [780, 840, 'unarmed_looter', false, 'L1', 'rummage'],
+                    [1640, 580, 'hostage_taker', false, 'L1', 'guard_hostage'],
+                    [1675, 710, 'hostage_taker', false, 'L1', 'guard_hostage'],
+                    [1160, 1260, 'unarmed_looter', false, 'G', 'haul_crate'],
+                    [1460, 1260, 'looter', false, 'G', null],
+                    [1240, 1620, 'melee_looter', false, 'G', 'pry_shutter'],
+                    [1440, 1660, 'unarmed_looter', false, 'G', 'rummage'],
+                    [860, 960, 'looter', false, 'G', null],
+                    [620, 960, 'unarmed_looter', false, 'G', 'haul_crate'],
+                    [660, 520, 'melee_looter', false, 'G', 'rummage'],
+                    [980, 1490, 'hostage_taker', false, 'G', 'guard_hostage'],
+                    [1035, 1610, 'hostage_taker', false, 'G', 'guard_hostage'],
+                    [1660, 1440, 'melee_looter', false, 'G', 'pry_shutter'],
+                    [1380, 1520, 'looter', false, 'B1', null],
+                    [1680, 1580, 'melee_looter', false, 'B1', 'pry_shutter'],
+                    [1840, 1420, 'unarmed_looter', false, 'B1', 'haul_crate'],
+                    [1120, 1220, 'looter', false, 'B1', null],
+                    [920, 1380, 'unarmed_looter', false, 'B1', 'rummage'],
+                    [780, 960, 'looter', false, 'L2', null],
+                    [1120, 1340, 'unarmed_looter', false, 'L2', 'haul_crate'],
+                    [1340, 1330, 'melee_looter', false, 'L2', 'pry_shutter'],
+                    [1540, 1280, 'looter', false, 'L2', null],
+                    [1960, 1020, 'looter', false, 'L2', null],
+                    [2040, 1180, 'looter', false, 'L2', null],
+                    [2430, 980, 'blockade_goon', false, 'L2', null],
+                    [2430, 1220, 'blockade_goon', false, 'L2', null],
+                    [2560, 1040, 'blockade_goon', true, 'L2', null],
+                    [2560, 1160, 'blockade_goon', false, 'L2', null],
+                    [2680, 990, 'blockade_goon', false, 'L2', null],
+                    [2680, 1210, 'blockade_goon', false, 'L2', null]
+                ];
+                for (let i = 0; i < floorHostiles.length; i++) {
+                    const fh = floorHostiles[i];
+                    enemies.push(new Enemy(fh[0], fh[1], fh[2], fh[3], fh[4], fh[5]));
+                }
+
+                updateMissionUI();
+
+                phoneCutscene.start({
+                    clock: '07:00 AM',
+                    opsec: 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)',
+                    contactName: 'DAVID // EXFIL OPS',
+                    contactSub: 'BURNER SIM &bull; SANDTON MALL CELL RELAY',
+                    contactAvatar: 'male',
+                    messages: [
+                        { side: 'system', text: '2 HOURS POST-IMPACT // POWER GRID OFFLINE' },
+                        { side: 'incoming', sender: 'DAVID', time: '07:00', text: 'C, tell me your phone still has signal. There was warning last night, so the shops locked down early—nobody expected the outer gates to collapse this fast or the substation to trip.' },
+                        { side: 'outgoing', sender: 'C', time: '07:00', text: 'Copy. I drove in at dawn to help Mr. Chen pack his stock at Golden Dragon on Level 1. Lights are dead. I only have my rolled-up flannel, denims, my pink Glock 26 (100gr FMJ), and 3 mags on me.' },
+                        { side: 'incoming', sender: 'DAVID', time: '07:01', text: 'Toggle Sneak [C] to move silently past looter sight cones, or talk to Mr. Chen [E] before taking the central escalator down to Ground [G] and B1 for your Go-Bag!' }
+                    ]
+                });
+            }
+
+            function initSuburbsMissions() {
+                mission = {
+                    campaign: 'suburbs',
+                    stage: 1,
+                    targetX: 1700,
+                    targetY: 1700
+                };
+                spawnEnemySquad(1700, 1700, 5, 'looter', 220, false);
+                spawnEnemySquad(1820, 1420, 2, 'dog', 140, false);
+                updateMissionUI();
+
+                phoneCutscene.start({
+                    clock: '04:15 PM',
+                    opsec: 'OPSEC WARNING: CELLULAR TOWER DEGRADED (NO DMR RADIO)',
+                    contactName: 'C // EXFIL LINK',
+                    contactSub: 'BURNER SIM &bull; SUBURBAN GRID SECTOR',
+                    contactAvatar: 'mall_geared',
+                    messages: [
+                        { side: 'system', text: '+48 HOURS POST-MELTDOWN // SUBSTATION #4 OFFLINE' },
+                        { side: 'incoming', sender: 'C', time: '04:14', text: 'G, I am out of the mall and linked up with Blaze. Substation #4 is still dark—your local micro-grid will not stabilize until someone resets the main breaker.' },
+                        { side: 'outgoing', sender: 'G', time: '04:15', text: 'Stepping out of the compound now with the Vektor LM4 and panga. Keep off open frequencies—Syndicate scouts are scanning cellular traffic.' }
+                    ]
+                });
+            }
+
+            function initCbdMissions() {
+                mission = {
+                    campaign: 'cbd',
+                    stage: 1,
+                    targetX: 1520,
+                    targetY: 960
+                };
+                spawnEnemySquad(1520, 960, 5, 'looter', 210, false);
+                spawnEnemySquad(1240, 640, 3, 'syndicate', 180, false);
+                updateMissionUI();
+
+                phoneCutscene.start({
+                    clock: '01:40 PM',
+                    opsec: 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)',
+                    contactName: 'G // COMPOUND RELAY',
+                    contactSub: 'BURNER SIM &bull; INNER-CITY CBD',
+                    contactAvatar: 'male',
+                    messages: [
+                        { side: 'system', text: 'DAY 1 AFTERNOON // JOBURG CBD CORRIDOR' },
+                        { side: 'incoming', sender: 'G', time: '01:39', text: 'Blaze, Syndicate crews threw up burning barricades across Commissioner and Eloff to bottle in the evacuation convoy.' },
+                        { side: 'outgoing', sender: 'BLAZE', time: '01:40', text: 'Portable flamethrower is pressurized and ready. Clearing the barricades from the north block down to Carlton Plaza.' }
+                    ]
+                });
+            }
+
+            function initSniperMissions() {
+                mission = {
+                    campaign: 'sniper',
+                    stage: 1,
+                    targetX: 2080,
+                    targetY: 1460
+                };
+                spawnEnemySquad(1520, 1340, 4, 'looter', 240, false);
+                spawnEnemySquad(2420, 1580, 4, 'syndicate', 260, false);
+                spawnEnemySquad(2060, 1820, 2, 'dog', 180, false);
+                updateMissionUI();
+
+                phoneCutscene.start({
+                    clock: '05:50 PM',
+                    opsec: 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)',
+                    contactName: 'G // OVERWATCH SPOTTER',
+                    contactSub: 'BURNER SIM &bull; FREIGHT RAIL YARD',
+                    contactAvatar: 'male',
+                    messages: [
+                        { side: 'system', text: 'DAY 1 DUSK // SIGNAL TOWER OVERWATCH' },
+                        { side: 'incoming', sender: 'G', time: '05:49', text: 'Uncle, Syndicate weapons brokers are moving heavy crates along the central freight tracks before nightfall.' },
+                        { side: 'outgoing', sender: 'THE UNCLE', time: '05:50', text: 'Ruger M77 is zeroed on the yard from the signal tower deck. Right-click to glass the tracks—I will drop their broker before that shipment leaves.' }
+                    ]
+                });
+            }
+
+            function updateMissionUI() {
+                if (!mission) return;
+                const phaseEl = document.getElementById('missionPhase');
+                const titleEl = document.getElementById('missionTitle');
+                const descEl = document.getElementById('missionDesc');
+
+                if (mission.campaign === 'training') {
+                    phaseEl.innerText = 'PROLOGUE // WOODLAND AIRSOFT';
+                    if (mission.stage === 1) {
+                        titleEl.innerText = 'Push Across the Pine Creek';
+                        descEl.innerText = 'Coordinate with Younger G and Younger Blaze, use pine trees & bunkers as cover, and tag out the grown-up MilSim squad.';
+                    } else {
+                        titleEl.innerText = 'Capture the Adults\' HQ Flag';
+                        descEl.innerText = 'Clear the sandbag bunker on the East Ridge and touch the Adults\' Base Flag [x: 2780, y: 1600] to win!';
+                    }
+                    return;
+                }
+
+                if (mission.campaign === 'mall') {
+                    phaseEl.innerText = `SANDTON MALL // STEP ${mission.stage} OF 4`;
+                    if (mission.stage === 1) {
+                        titleEl.innerText = 'Descend from L1 to Ground Floor [G]';
+                        descEl.innerText = 'Talk to Mr. Chen [E] or slip out of Golden Dragon using Sneak [C]. Reach the Central Escalator [x: 1330, y: 1340] down to Ground [G].';
+                    } else if (mission.stage === 2) {
+                        titleEl.innerText = 'Reach B1 Parkade & Open Car Boot';
+                        descEl.innerText = 'Grab the 7" Fixed Blade in Ground Floor Safari Outdoor & Butchery, then take the South Stairs down to B1 to unlock your Go-Bag & MOLLE Vest.';
+                    } else if (mission.stage === 3) {
+                        titleEl.innerText = 'Flank Up via North Service Stairs';
+                        descEl.innerText = 'Central escalators are shuttered! Ascend Ground [G] -> North Service Stairs -> L1 -> East Service Stairs up to L2 Skybridge.';
+                    } else {
+                        titleEl.innerText = 'Break the Taxi Rank Blockade';
+                        descEl.innerText = 'Use Thermal/NVG [V], IR Laser, and Strobe [T] to eliminate the AK-47 goons outside L2 East Plaza and reach the idling taxis!';
+                    }
+                    return;
+                }
+
+                phaseEl.innerText = `CHAPTER ${mission.stage} / 5`;
+
+                if (mission.campaign === 'sniper') {
+                    if (mission.stage === 1) {
+                        titleEl.innerText = 'Overwatch: Clear the Rail Yard';
+                        descEl.innerText = 'Use your Ruger M77 scope (Right-Click / Scope) from the signal tower to eliminate raiders among the freight cars.';
+                    } else if (mission.stage === 2) {
+                        titleEl.innerText = 'Intercept the Armory Convoy';
+                        descEl.innerText = 'Syndicate gunrunners are moving along the south highway. Pick them off from long range or push down.';
+                    } else if (mission.stage === 3) {
+                        titleEl.innerText = 'Secure the North Freight Depot';
+                        descEl.innerText = 'Advance across the tracks to the North Depot and neutralize the tactical security detachment.';
+                    } else if (mission.stage === 4) {
+                        titleEl.innerText = 'Eliminate the Arms Broker';
+                        descEl.innerText = 'A heavily armored Syndicate Arms Broker is directing shipments at the East Armory Shed. Take the shot.';
+                    } else {
+                        titleEl.innerText = 'Hold the Overwatch Tower';
+                        descEl.innerText = 'Return to the Signal Tower ridge and eliminate the remaining counter-sniper strike team.';
+                    }
+                    return;
+                }
+
+                if (mission.campaign === 'cbd') {
+                    if (mission.stage === 1) {
+                        titleEl.innerText = 'Torch the North Barricade';
+                        descEl.innerText = 'Push down Eloff Street with your Flamethrower and clear the looters blocking the intersection.';
+                    } else if (mission.stage === 2) {
+                        titleEl.innerText = 'Sweep Commissioner Street';
+                        descEl.innerText = 'Syndicate enforcers have locked down the central avenue. Burn through their roadblocks.';
+                    } else if (mission.stage === 3) {
+                        titleEl.innerText = 'Breach the Metro Depot';
+                        descEl.innerText = 'Rogue security units are hoarding fuel and ammo in the southwest block. Wipe them out.';
+                    } else if (mission.stage === 4) {
+                        titleEl.innerText = 'Incinerate the Syndicate Captain';
+                        descEl.innerText = 'The Syndicate Warlord is fortified outside Carlton Plaza. Neutralize him and his guard.';
+                    } else {
+                        titleEl.innerText = 'Extract at Carlton Plaza';
+                        descEl.innerText = 'Clear the plaza perimeter and reach the extraction beacon to secure the CBD corridor.';
+                    }
+                    return;
+                }
+
+                if (mission.stage === 1) {
+                    titleEl.innerText = 'Clear the Main Intersection';
+                    descEl.innerText = 'Step outside the compound and neutralize the looters and attack dogs blocking the central crossroads.';
+                } else if (mission.stage === 2) {
+                    titleEl.innerText = 'Eliminate the Syndicate Ambush';
+                    descEl.innerText = 'Armed Syndicate raiders have set up barricades to the east. Wipe out their squad.';
+                } else if (mission.stage === 3) {
+                    titleEl.innerText = 'Breach the Rogue Checkpoint';
+                    descEl.innerText = 'Rogue private security forces are holding the southern avenue. Eliminate them.';
+                } else if (mission.stage === 4) {
+                    titleEl.innerText = 'Assassinate the Warlord';
+                    descEl.innerText = 'A heavily armored Warlord is leading an assault near Substation #4. Take him down.';
+                } else {
+                    titleEl.innerText = 'Secure Substation #4';
+                    descEl.innerText = 'Eliminate the final defenders and step into the Substation #4 extraction zone to restore power.';
+                }
+            }
+
+            function updateMissionDirector() {
+                if (!mission || !player) return;
+                const activeHostiles = enemies.filter((e) => e.hp > 0 && !e.isUnarmed && e.panicState !== 'fleeing').length;
+                const progEl = document.getElementById('missionProgress');
+
+                if (mission.campaign === 'training') {
+                    const adultsLeft = enemies.filter((e) => e.hp > 0).length;
+                    const distFlag = Math.floor(Math2.dist(player.x, player.y, mission.targetX, mission.targetY));
+                    if (mission.stage === 1) {
+                        progEl.innerText = `ADULT MILSIM PLAYERS REMAINING: ${adultsLeft}`;
+                        if (adultsLeft <= 3) {
+                            mission.stage = 2;
+                            updateMissionUI();
+                            showBanner('STAGE 2: CAPTURE THE ADULTS\' HQ FLAG ON THE EAST RIDGE!', 2600);
+                        }
+                    } else {
+                        progEl.innerText = adultsLeft > 0
+                            ? `ADULTS LEFT: ${adultsLeft} | FLAG DIST: ${distFlag}m`
+                            : `BUNKER CLEAR! TOUCH HQ FLAG (${distFlag}m)`;
+                        if (adultsLeft === 0 && distFlag < 110) {
+                            triggerEndScreen(true, 'YOUTH SQUAD VICTORY!', `Younger C, Younger G, and Younger Blaze captured the Adults' HQ Flag and tagged out ${kills} grown-up MilSim players!`);
+                        }
+                    }
+                    return;
+                }
+
+                if (mission.campaign === 'mall') {
+                    const goonsAlive = enemies.filter((e) => e.hp > 0 && e.faction === 'blockade_goon').length;
+                    const stagedCar = vehicles.find((v) => v.isPlayerStagedCar);
+
+                    if (mission.stage === 1) {
+                        const dEsc = Math.floor(Math2.dist(player.x, player.y, 1330, 1340));
+                        progEl.innerText = currentMallFloor === 'L1'
+                            ? `L1 ESCALATOR DOWN: ${dEsc}m (PRESS [E])`
+                            : `FLOOR ${currentMallFloor} REACHED!`;
+                        if (currentMallFloor === 'G' || currentMallFloor === 'B1') {
+                            mission.stage = 2;
+                            updateMissionUI();
+                            showBanner('OBJECTIVE: FIND 7" BLADE ON [G] & OPEN CAR BOOT IN [B1]!', 2600);
+                        }
+                    } else if (mission.stage === 2) {
+                        const dCar = stagedCar ? Math.floor(Math2.dist(player.x, player.y, stagedCar.x, stagedCar.y)) : 0;
+                        progEl.innerText = currentMallFloor === 'B1'
+                            ? `CAR BOOT (GO-BAG + MOLLE): ${dCar}m (PRESS [E])`
+                            : `TAKE SOUTH STAIRS [1330, 1760] DOWN TO B1`;
+                        if (player.hasGoBag) {
+                            mission.stage = 3;
+                            mission.targetFloor = 'L2';
+                            mission.targetX = 2760;
+                            mission.targetY = 1110;
+                            updateMissionUI();
+                        }
+                    } else if (mission.stage === 3) {
+                        progEl.innerText = `CURRENT FLOOR: ${currentMallFloor} -> ASCEND TO L2 SKYBRIDGE`;
+                        if (currentMallFloor === 'L2') {
+                            mission.stage = 4;
+                            updateMissionUI();
+                            showBanner('L2 SKYBRIDGE REACHED — CLEAR THE TAXI RANK BLOCKADE!', 2600);
+                        }
+                    } else {
+                        const distTaxi = Math.floor(Math2.dist(player.x, player.y, 2760, 1110));
+                        progEl.innerText = goonsAlive > 0
+                            ? `AK-47 BLOCKADE GOONS: ${goonsAlive} | TAXIS: ${distTaxi}m`
+                            : `BLOCKADE BROKEN! REACH TAXIS (${distTaxi}m)`;
+                        if (currentMallFloor === 'L2' && goonsAlive === 0 && distTaxi < 135) {
+                            triggerEndScreen(true, 'BLOCKADE BROKEN — EXFIL SECURED', `C fought from L1 Golden Dragon down to B1 for her Go-Bag & MOLLE rig, bypassed the shuttered escalators, neutralized ${kills} hostiles, and secured R${cashCollected.toLocaleString()} at the taxi rank.`);
+                        }
+                    }
+                    return;
+                }
+
+                if (mission.campaign === 'sniper') {
+                    if (mission.stage === 1) {
+                        progEl.innerText = `RAIL YARD RAIDERS: ${activeHostiles}`;
+                        if (activeHostiles === 0) {
+                            mission.stage = 2;
+                            spawnEnemySquad(2100, 2520, 6, 'syndicate', 340, false);
+                            updateMissionUI();
+                            showBanner('STAGE 2: INTERCEPT THE HIGHWAY CONVOY!', 2600);
+                        }
+                    } else if (mission.stage === 2) {
+                        progEl.innerText = `CONVOY RAIDERS: ${activeHostiles}`;
+                        if (activeHostiles === 0) {
+                            mission.stage = 3;
+                            spawnEnemySquad(780, 960, 6, 'security', 260, false);
+                            updateMissionUI();
+                            showBanner('STAGE 3: CLEAR THE NORTH FREIGHT DEPOT!', 2600);
+                        }
+                    } else if (mission.stage === 3) {
+                        progEl.innerText = `DEPOT GUARDS: ${activeHostiles}`;
+                        if (activeHostiles === 0) {
+                            mission.stage = 4;
+                            spawnEnemySquad(3480, 940, 6, 'syndicate', 240, true);
+                            updateMissionUI();
+                            showBanner('STAGE 4: ELIMINATE THE ARMS BROKER AT EAST SHED!', 2600);
+                        }
+                    } else if (mission.stage === 4) {
+                        progEl.innerText = `BROKER & ESCORTS: ${activeHostiles}`;
+                        if (activeHostiles === 0) {
+                            mission.stage = 5;
+                            mission.targetX = 2080;
+                            mission.targetY = 2840;
+                            spawnEnemySquad(2080, 2680, 6, 'security', 320, false);
+                            updateMissionUI();
+                            showBanner('FINAL STAGE: DEFEND THE SIGNAL TOWER!', 2600);
+                        }
+                    } else if (mission.stage === 5) {
+                        const dist = Math.floor(Math2.dist(player.x, player.y, mission.targetX, mission.targetY));
+                        progEl.innerText = activeHostiles > 0
+                            ? `STRIKE TEAM LEFT: ${activeHostiles}`
+                            : `AREA CLEAR! RETURN TO TOWER (${dist}m)`;
+                        if (activeHostiles === 0 && dist < 170) {
+                            triggerEndScreen(true, 'OVERWATCH COMPLETE', `The Uncle locked down the rail corridor, eliminating ${kills} hostiles with precision fire.`);
+                        }
+                    }
+                    return;
+                }
+
+                if (mission.campaign === 'cbd') {
+                    if (mission.stage === 1) {
+                        progEl.innerText = `BARRICADE HOSTILES: ${activeHostiles}`;
+                        if (activeHostiles === 0) {
+                            mission.stage = 2;
+                            spawnEnemySquad(2400, 1520, 7, 'syndicate', 280, false);
+                            updateMissionUI();
+                            showBanner('STAGE 2: SWEEP COMMISSIONER STREET!', 2600);
+                        }
+                    } else if (mission.stage === 2) {
+                        progEl.innerText = `SYNDICATE ENFORCERS: ${activeHostiles}`;
+                        if (activeHostiles === 0) {
+                            mission.stage = 3;
+                            spawnEnemySquad(1520, 2860, 7, 'security', 260, false);
+                            updateMissionUI();
+                            showBanner('STAGE 3: BREACH THE METRO DEPOT!', 2600);
+                        }
+                    } else if (mission.stage === 3) {
+                        progEl.innerText = `ROGUE SECURITY LEFT: ${activeHostiles}`;
+                        if (activeHostiles === 0) {
+                            mission.stage = 4;
+                            spawnEnemySquad(3280, 3120, 6, 'syndicate', 230, true);
+                            updateMissionUI();
+                            showBanner('STAGE 4: INCINERATE THE SYNDICATE WARLORD!', 2600);
+                        }
+                    } else if (mission.stage === 4) {
+                        progEl.innerText = `WARLORD & GUARD: ${activeHostiles}`;
+                        if (activeHostiles === 0) {
+                            mission.stage = 5;
+                            mission.targetX = 3600;
+                            mission.targetY = 3600;
+                            spawnEnemySquad(3540, 3540, 6, 'security', 260, false);
+                            updateMissionUI();
+                            showBanner('FINAL STAGE: EXTRACT AT CARLTON PLAZA!', 2600);
+                        }
+                    } else if (mission.stage === 5) {
+                        const dist = Math.floor(Math2.dist(player.x, player.y, mission.targetX, mission.targetY));
+                        progEl.innerText = activeHostiles > 0
+                            ? `PLAZA DEFENDERS: ${activeHostiles}`
+                            : `PLAZA CLEAR! MOVE TO BEACON (${dist}m)`;
+                        if (activeHostiles === 0 && dist < 170) {
+                            triggerEndScreen(true, 'CBD CORRIDOR CLEARED', `Blaze torched every Syndicate roadblock in downtown Joburg, neutralizing ${kills} hostiles.`);
+                        }
+                    }
+                    return;
+                }
+
+                if (mission.stage === 1) {
+                    progEl.innerText = `TARGETS REMAINING: ${activeHostiles}`;
+                    if (activeHostiles === 0) {
+                        mission.stage = 2;
+                        spawnEnemySquad(2700, 1700, 7, 'syndicate', 280, false);
+                        updateMissionUI();
+                        showBanner('STAGE 2: SYNDICATE AMBUSH AT EAST AVENUE!', 2600);
+                    }
+                } else if (mission.stage === 2) {
+                    progEl.innerText = `SYNDICATE RAIDERS: ${activeHostiles}`;
+                    if (activeHostiles === 0) {
+                        mission.stage = 3;
+                        spawnEnemySquad(1700, 2700, 7, 'security', 260, false);
+                        updateMissionUI();
+                        showBanner('STAGE 3: ROGUE SECURITY AT SOUTH CHECKPOINT!', 2600);
+                    }
+                } else if (mission.stage === 3) {
+                    progEl.innerText = `ROGUE SECURITY LEFT: ${activeHostiles}`;
+                    if (activeHostiles === 0) {
+                        mission.stage = 4;
+                        spawnEnemySquad(2700, 2700, 6, 'syndicate', 220, true);
+                        updateMissionUI();
+                        showBanner('STAGE 4: HEAVILY ARMORED WARLORD DETECTED!', 2600);
+                    }
+                } else if (mission.stage === 4) {
+                    progEl.innerText = `WARLORD & ESCORTS: ${activeHostiles}`;
+                    if (activeHostiles === 0) {
+                        mission.stage = 5;
+                        mission.targetX = 3200;
+                        mission.targetY = 3200;
+                        spawnEnemySquad(3200, 3200, 6, 'security', 260, false);
+                        updateMissionUI();
+                        showBanner('FINAL STAGE: SECURE SUBSTATION #4!', 2600);
+                    }
+                } else if (mission.stage === 5) {
+                    const dist = Math.floor(Math2.dist(player.x, player.y, mission.targetX, mission.targetY));
+                    progEl.innerText = activeHostiles > 0
+                        ? `DEFENDERS REMAINING: ${activeHostiles}`
+                        : `SECTOR CLEAR! REACH SUBSTATION (${dist}m)`;
+                    if (activeHostiles === 0 && dist < 165) {
+                        triggerEndScreen(true, 'POWER RESTORED', `Substation #4 is back online. G neutralized ${kills} hostiles and secured the neighborhood.`);
+                    }
+                }
+            }
+
+            // ============================================================================
+            // VISUAL HELPERS & HUD UPDATES
+            // ============================================================================
+            function createBlood(x, y, angle, count = 5) {
+                const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
+                if (decals.length < 520) {
+                    decals.push(new Decal(x + Math2.rand(-6, 6), y + Math2.rand(-6, 6), 'blood', Math2.rand(0, Math.PI * 2), Math2.rand(6, 13), fl));
+                }
+                for (let i = 0; i < count; i++) {
+                    particles.push(new Particle(x, y, angle + Math2.rand(-0.9, 0.9), '#dc2626', Math2.rand(2, 4), Math2.rand(40, 150), Math2.rand(0.2, 0.4)));
+                }
+            }
+
+            function createBBHit(x, y, angle) {
+                if (decals.length < 520) {
+                    decals.push(new Decal(x + Math2.rand(-4, 4), y + Math2.rand(-4, 4), 'bb', 0, 1));
+                }
+                for (let i = 0; i < 4; i++) {
+                    particles.push(new Particle(x, y, angle + Math.PI + Math2.rand(-1.1, 1.1), '#ffffff', 1.8, Math2.rand(60, 150), 0.16));
+                }
+            }
+
+            function isPlayerIlluminatedByEnvironment() {
+                if (!player || !mission || mission.campaign !== 'mall') return false;
+                for (let i = 0; i < mallLights.length; i++) {
+                    const ml = mallLights[i];
+                    if (ml.floor && ml.floor !== currentMallFloor) continue;
+                    if (Math2.dist(player.x, player.y, ml.x, ml.y) < ml.r * 0.65) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            const hudHTMLCache = new WeakMap();
+            const hudTextCache = new WeakMap();
+            function setHudHTML(element, markup) {
+                if (!element || hudHTMLCache.get(element) === markup) return;
+                hudHTMLCache.set(element, markup);
+                element.innerHTML = markup;
+            }
+            function setHudText(element, text) {
+                if (!element || hudTextCache.get(element) === String(text)) return;
+                hudTextCache.set(element, String(text));
+                element.textContent = text;
+            }
+            const slotBarElement = document.getElementById('slotBar');
+            slotBarElement.addEventListener('click', (event) => {
+                const slot = event.target.closest('.wep-slot[data-index]');
+                if (!slot || !slotBarElement.contains(slot)) return;
+                if (gameState === 'playing' && player && !player.vehicle) {
+                    const index = Number(slot.dataset.index);
+                    if (WEAPONS[index]?.unlocked) player.switchWeapon(index);
+                }
+            });
+
+            function renderAmmoVisuals(wep) {
+                const roundsLabel = document.getElementById('magRoundsLabel');
+                const roundsGrid = document.getElementById('magRoundsGrid');
+                const magLabel = document.getElementById('magCountLabel');
+                const magIcons = document.getElementById('magCountIcons');
+                if (!roundsLabel || !roundsGrid || !magLabel || !magIcons) return;
+
+                if (!wep || wep.type === 'melee') {
+                    setHudText(roundsLabel, 'MELEE BLADE // READY');
+                    setHudHTML(roundsGrid, '');
+                    setHudText(magLabel, 'NO MAGAZINE');
+                    setHudHTML(magIcons, '');
+                    return;
+                }
+
+                const unitLabel = wep.isAirsoft ? 'BBs' : (wep.type === 'flame' ? 'FUEL' : 'ROUNDS');
+                setHudText(roundsLabel, `${unitLabel} IN MAG (${wep.mag} / ${wep.magMax})`);
+
+                const maxPips = wep.type === 'flame' ? 25 : wep.magMax;
+                const filledPips = wep.type === 'flame'
+                    ? Math.ceil((wep.mag / wep.magMax) * maxPips)
+                    : wep.mag;
+                const isCompact = maxPips > 20;
+
+                let pipsHtml = '';
+                for (let i = 0; i < maxPips; i++) {
+                    const isLoaded = i < filledPips;
+                    let cls = 'round-pip';
+                    if (isCompact) cls += ' compact';
+                    if (isLoaded) {
+                        cls += ' loaded';
+                        if (wep.isAirsoft) cls += ' bb-pellet';
+                        else if (wep.type === 'flame') cls += ' flame-cell';
+                        else if (wep.id === 'glock26' && wep.ammoLoad === 'jhp') cls += ' jhp-tip';
+                        else if (wep.pierce) cls += ' ap-tip';
+                    }
+                    pipsHtml += `<div class="${cls}"></div>`;
+                }
+                setHudHTML(roundsGrid, pipsHtml);
+
+                const spareMags = wep.magMax > 0 ? Math.ceil(wep.reserve / wep.magMax) : 0;
+                const magNoun = wep.type === 'flame' ? 'SPARE TANKS' : 'SPARE MAGS';
+                setHudText(magLabel, `${magNoun} (${spareMags})`);
+
+                if (spareMags <= 0) {
+                    setHudHTML(magIcons, `<span class="mag-empty-text">EMPTY</span>`);
+                } else {
+                    const isPink = (wep.id === 'glock26' || wep.id === 'airsoft_pistol');
+                    const isBB = Boolean(wep.isAirsoft);
+                    const isFuel = (wep.type === 'flame');
+                    const showCount = Math.min(spareMags, 8);
+                    let magsHtml = '';
+                    for (let m = 0; m < showCount; m++) {
+                        const isLastPartial = (m === spareMags - 1) && (wep.reserve % wep.magMax !== 0);
+                        let mCls = 'mag-icon';
+                        if (isPink) mCls += ' pink-mag';
+                        if (isBB) mCls += ' bb-mag';
+                        if (isFuel) mCls += ' fuel-can';
+                        if (isLastPartial) mCls += ' partial';
+                        magsHtml += `<div class="${mCls}"></div>`;
+                    }
+                    if (spareMags > 8) {
+                        magsHtml += `<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#cbd5e1;margin-left:2px;">+${spareMags - 8}</span>`;
+                    }
+                    setHudHTML(magIcons, magsHtml);
+                }
+            }
+
+            function updateHUD() {
+                if (!player) return;
+                const isTraining = (mission && mission.campaign === 'training');
+                const isMall = (mission && mission.campaign === 'mall');
+                document.getElementById('hpLabelText').innerText = isTraining ? 'HIT POINTS' : 'HEALTH';
+                document.getElementById('armorLabelText').innerText = isTraining ? 'VEST PAD' : 'ARMOR';
+
+                document.getElementById('hpVal').innerText = Math.ceil(player.hp);
+                document.getElementById('hpBar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+
+                document.getElementById('armorVal').innerText = Math.ceil(player.armor);
+                document.getElementById('armorBar').style.width = `${player.armor}%`;
+
+                document.getElementById('stamVal').innerText = Math.ceil(player.stamina);
+                document.getElementById('stamBar').style.width = `${player.stamina}%`;
+
+                const floorEl = document.getElementById('floorIndicator');
+                if (floorEl) {
+                    floorEl.style.display = isMall ? 'block' : 'none';
+                    if (isMall) floorEl.innerText = MALL_FLOOR_TITLES[currentMallFloor] || `FLOOR: ${currentMallFloor}`;
+                }
+
+                const stanceEl = document.getElementById('stanceStatus');
+                if (stanceEl) {
+                    if (player.vehicle) {
+                        stanceEl.innerText = 'STANCE: DRIVING VEHICLE';
+                        stanceEl.classList.remove('sneaking');
+                    } else if (player.isSneaking) {
+                        stanceEl.innerText = 'STANCE [C]: SNEAK / CROUCH (SILENT)';
+                        stanceEl.classList.add('sneaking');
+                    } else {
+                        stanceEl.innerText = 'STANCE [C]: RUN (NORMAL)';
+                        stanceEl.classList.remove('sneaking');
+                    }
+                }
+
+                const stealthEl = document.getElementById('stealthStatus');
+                if (stealthEl) {
+                    if (!isMall) {
+                        stealthEl.innerText = isTraining ? 'MODE: 6mm AIRSOFT SKIRMISH' : 'VISIBILITY: DAYLIGHT / URBAN';
+                        stealthEl.style.color = isTraining ? '#4ade80' : '#94a3b8';
+                    } else if (player.lightMode === 'strobe') {
+                        stealthEl.innerText = 'LIGHT [T]: TACTICAL STROBE (EXPOSED)';
+                        stealthEl.style.color = '#e0f2fe';
+                    } else if (player.lightMode === 'beam') {
+                        stealthEl.innerText = 'LIGHT [F]: BEAM ON (HIGH VISIBILITY)';
+                        stealthEl.style.color = '#fde047';
+                    } else if (isPlayerIlluminatedByEnvironment()) {
+                        stealthEl.innerText = 'SIGNATURE: EMERGENCY LANTERN';
+                        stealthEl.style.color = '#fb923c';
+                    } else if (player.isSneaking) {
+                        stealthEl.innerText = 'SIGNATURE: DEEP SHADOW CROUCH';
+                        stealthEl.style.color = '#4ade80';
+                    } else {
+                        stealthEl.innerText = 'SIGNATURE: SHADOW CONCEALED';
+                        stealthEl.style.color = '#38bdf8';
+                    }
+                }
+
+                const opticsEl = document.getElementById('opticsStatus');
+                if (opticsEl) {
+                    if (!player.hasGoBag) {
+                        opticsEl.innerText = 'OPTICS [V]: LOCKED IN B1 CAR BOOT';
+                        opticsEl.style.color = '#f87171';
+                    } else {
+                        const cellPct = Math.round(player.opticCharge);
+                        const mahLeft = Math.round(player.powerBankMah);
+                        if (player.opticsMode === 'nvg') {
+                            opticsEl.innerText = `OPTICS [V]: NVG + IR (${cellPct}% | ${mahLeft}mAh)`;
+                            opticsEl.style.color = '#4ade80';
+                        } else if (player.opticsMode === 'thermal') {
+                            opticsEl.innerText = `OPTICS [V]: THERMAL (${cellPct}% | ${mahLeft}mAh)`;
+                            opticsEl.style.color = '#fb923c';
+                        } else {
+                            opticsEl.innerText = `OPTICS [V]: OFF (${cellPct}% | ${mahLeft}mAh)`;
+                            opticsEl.style.color = '#94a3b8';
+                        }
+                    }
+                }
+
+                const loadToggleEl = document.getElementById('ammoTypeToggle');
+                const activeWep = WEAPONS[player.weaponIdx];
+                if (loadToggleEl) {
+                    if (!player.vehicle && activeWep && activeWep.id === 'glock26') {
+                        loadToggleEl.style.display = 'inline-block';
+                        if (activeWep.ammoLoad === 'jhp') {
+                            loadToggleEl.innerText = `LOAD: 120GR (+P) JHP [${activeWep.jhpReserve}] [B]`;
+                            loadToggleEl.classList.add('jhp-active');
+                        } else {
+                            loadToggleEl.innerText = `LOAD: 100GR FMJ [${activeWep.fmjReserve}] [B]`;
+                            loadToggleEl.classList.remove('jhp-active');
+                        }
+                    } else {
+                        loadToggleEl.style.display = 'none';
+                    }
+                }
+
+                if (isMobileDevice) {
+                    const btnVeh = document.getElementById('btnVehicle');
+                    const btnSpr = document.getElementById('btnSprint');
+                    const btnSnk = document.getElementById('btnSneak');
+                    const btnUtil = document.getElementById('btnUtil');
+                    const btnStr = document.getElementById('btnStrobe');
+                    const btnOpt = document.getElementById('btnOptics');
+                    if (btnVeh) btnVeh.innerText = player.vehicle ? 'EXIT' : 'USE [E]';
+                    if (btnSpr) btnSpr.innerText = player.vehicle ? 'BRAKE' : 'SPRINT';
+                    if (btnSnk) {
+                        btnSnk.style.display = player.vehicle ? 'none' : 'flex';
+                        btnSnk.innerText = player.isSneaking ? 'SNEAKING' : 'SNEAK';
+                        btnSnk.classList.toggle('active', player.isSneaking);
+                    }
+                    if (btnUtil) {
+                        btnUtil.style.display = player.vehicle ? 'none' : 'flex';
+                        btnUtil.innerText = player.lightMode === 'beam' ? 'BEAM ON' : 'LIGHT [F]';
+                        btnUtil.classList.toggle('active', player.lightMode === 'beam');
+                    }
+                    if (btnStr) {
+                        btnStr.style.display = player.vehicle ? 'none' : 'flex';
+                        btnStr.innerText = player.lightMode === 'strobe' ? 'STROBE!' : 'STROBE';
+                        btnStr.classList.toggle('strobe-active', player.lightMode === 'strobe');
+                    }
+                    if (btnOpt) {
+                        btnOpt.style.display = player.vehicle ? 'none' : 'flex';
+                        btnOpt.classList.remove('optics-nvg', 'optics-thermal');
+                        if (!player.hasGoBag) {
+                            btnOpt.innerText = 'NO OPTIC';
+                        } else if (player.opticsMode === 'nvg') {
+                            btnOpt.innerText = `NVG ${Math.round(player.opticCharge)}%`;
+                            btnOpt.classList.add('optics-nvg');
+                        } else if (player.opticsMode === 'thermal') {
+                            btnOpt.innerText = `FLIR ${Math.round(player.opticCharge)}%`;
+                            btnOpt.classList.add('optics-thermal');
+                        } else {
+                            btnOpt.innerText = `OPT ${Math.round(player.opticCharge)}%`;
+                        }
+                    }
+                }
+
+                const wep = WEAPONS[player.weaponIdx];
+                if (player.vehicle) {
+                    document.getElementById('wepName').innerText = `${player.vehicle.type.toUpperCase()} (ARMORED RAM)`;
+                    setHudHTML(document.getElementById('ammoDisplay'), `${Math.ceil(player.vehicle.hp)} <span>CHASSIS HP</span>`);
+                    document.getElementById('reloadIndicator').innerText = isMobileDevice ? 'TAP [EXIT] TO LEAVE VEHICLE' : 'PRESS [E] TO EXIT VEHICLE';
+                    renderAmmoVisuals(null);
+                    return;
+                }
+
+                document.getElementById('wepName').innerText = wep.name;
+                if (wep.type === 'melee') {
+                    setHudHTML(document.getElementById('ammoDisplay'), `INF <span>MELEE</span>`);
+                } else {
+                    setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve}</span>`);
+                }
+
+                if (player.reloading) {
+                    const pct = Math.min(100, Math.floor(((performance.now() - player.reloadStart) / wep.reloadTime) * 100));
+                    document.getElementById('reloadIndicator').innerText = `SWAPPING MAG... ${pct}%`;
+                } else {
+                    document.getElementById('reloadIndicator').innerText = '';
+                }
+
+                renderAmmoVisuals(wep);
+
+                let slotsMarkup = '';
+                for (let i = 0; i < WEAPONS.length; i++) {
+                    const w = WEAPONS[i];
+                    const shortLabel = w.id === 'airsoft_pistol' ? 'G26'
+                        : w.id === 'rubber_knife' ? 'KNIFE'
+                        : w.id === 'airsoft_aeg' ? 'M4 AEG'
+                        : w.id === 'glock26' ? 'G26'
+                        : w.id === 'knife' ? '7" BLADE'
+                        : w.id === 'ak47' ? 'AK47'
+                        : w.id.toUpperCase();
+                    const klass = 'wep-slot' + (w.unlocked ? ' unlocked' : '') + (i === player.weaponIdx ? ' active' : '');
+                    slotsMarkup += `<div class="${klass}" data-index="${i}">${i + 1}:${shortLabel}</div>`;
+                }
+                setHudHTML(slotBarElement, slotsMarkup);
+            }
+
+            // ============================================================================
+            // WORLD, LIGHTING & RADAR RENDERERS
+            // ============================================================================
+            function drawWoodlandEnvironment(ctx) {
+                ctx.fillStyle = '#112618';
+                ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+
+                ctx.fillStyle = '#15301e';
+                for (let gx = 80; gx < WORLD_SIZE; gx += 180) {
+                    for (let gy = 80; gy < WORLD_SIZE; gy += 180) {
+                        if ((gx + gy) % 360 === 0) {
+                            ctx.beginPath();
+                            ctx.arc(gx, gy, 46, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+
+                if (woodlandCreek && woodlandCreek.length > 1) {
+                    ctx.save();
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.strokeStyle = '#3f2e21';
+                    ctx.lineWidth = 96;
+                    ctx.beginPath();
+                    ctx.moveTo(woodlandCreek[0].x, woodlandCreek[0].y);
+                    for (let i = 1; i < woodlandCreek.length; i++) {
+                        ctx.lineTo(woodlandCreek[i].x, woodlandCreek[i].y);
+                    }
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#0369a1';
+                    ctx.lineWidth = 64;
+                    ctx.stroke();
+
+                    ctx.strokeStyle = 'rgba(125, 211, 252, 0.35)';
+                    ctx.lineWidth = 10;
+                    ctx.setLineDash([28, 24]);
+                    ctx.lineDashOffset = -performance.now() * 0.03;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                ctx.strokeStyle = '#4ade80';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(460, 1600, 3, 28);
+                ctx.fillStyle = '#22c55e';
+                ctx.fillRect(463, 1600, 18, 12);
+
+                ctx.strokeStyle = '#f87171';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(2780, 1600, 3, 28);
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(2783, 1600, 18, 12);
+            }
+
+            function drawWoodlandCanopies(ctx) {
+                for (let i = 0; i < woodlandTrees.length; i++) {
+                    const tr = woodlandTrees[i];
+                    if (tr.x + tr.canopyR < camera.x || tr.x - tr.canopyR > camera.x + canvas.width ||
+                        tr.y + tr.canopyR < camera.y || tr.y - tr.canopyR > camera.y + canvas.height) {
+                        continue;
+                    }
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.34)';
+                    ctx.beginPath();
+                    ctx.arc(tr.x + 8, tr.y + 10, tr.canopyR * 0.92, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#451a03';
+                    ctx.beginPath();
+                    ctx.arc(tr.x, tr.y, tr.trunkR, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = tr.shade;
+                    ctx.beginPath();
+                    ctx.arc(tr.x, tr.y, tr.canopyR, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = 'rgba(74, 222, 128, 0.14)';
+                    ctx.beginPath();
+                    ctx.arc(tr.x - tr.canopyR * 0.22, tr.y - tr.canopyR * 0.22, tr.canopyR * 0.58, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function drawWorld(ctx) {
+                const isMall = (mission && mission.campaign === 'mall');
+                const isTraining = (mission && mission.campaign === 'training');
+
+                if (isTraining) {
+                    drawWoodlandEnvironment(ctx);
+                } else {
+                    ctx.fillStyle = isMall ? '#0b0f17' : '#181c24';
+                    ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+                }
+
+                if (!isMall && !isTraining) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+                    ctx.lineWidth = 1;
+                    const gridStep = 100;
+                    const startX = Math.floor(camera.x / gridStep) * gridStep;
+                    const startY = Math.floor(camera.y / gridStep) * gridStep;
+                    for (let x = startX; x < camera.x + canvas.width + gridStep; x += gridStep) {
+                        ctx.beginPath(); ctx.moveTo(x, camera.y); ctx.lineTo(x, camera.y + canvas.height); ctx.stroke();
+                    }
+                    for (let y = startY; y < camera.y + canvas.height + gridStep; y += gridStep) {
+                        ctx.beginPath(); ctx.moveTo(camera.x, y); ctx.lineTo(camera.x + canvas.width, y); ctx.stroke();
+                    }
+                }
+
+                // Indoor Mall Zones (Using Pre-Cached Tile Pattern)
+                SpriteAtlas.init();
+                for (let i = 0; i < mallZones.length; i++) {
+                    const mz = mallZones[i];
+                    if (i === 0 && SpriteAtlas.tilePatterns.mall) {
+                        ctx.fillStyle = currentMallFloor === 'B1' ? SpriteAtlas.tilePatterns.parkade : SpriteAtlas.tilePatterns.mall;
+                    } else {
+                        ctx.fillStyle = mz.floor;
+                    }
+                    ctx.fillRect(mz.x, mz.y, mz.w, mz.h);
+                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(mz.x, mz.y, mz.w, mz.h);
+                    if (mz.label) {
+                        ctx.fillStyle = 'rgba(148, 163, 184, 0.18)';
+                        ctx.font = '900 17px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(mz.label, mz.x + mz.w / 2, mz.y + 38);
+                    }
+                }
+
+                if (isMall) {
+                    for (let i = 0; i < stairwells.length; i++) {
+                        const st = stairwells[i];
+                        if (st.fromFloor !== currentMallFloor) continue;
+                        ctx.save();
+                        ctx.fillStyle = st.blocked ? 'rgba(239, 68, 68, 0.16)' : 'rgba(56, 189, 248, 0.16)';
+                        ctx.strokeStyle = st.blocked ? '#ef4444' : '#38bdf8';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.roundRect(st.x - 42, st.y - 32, 84, 64, 8);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        ctx.strokeStyle = st.blocked ? 'rgba(248, 113, 113, 0.55)' : 'rgba(125, 211, 252, 0.55)';
+                        for (let s = -22; s <= 22; s += 11) {
+                            ctx.beginPath();
+                            ctx.moveTo(st.x - 30, st.y + s);
+                            ctx.lineTo(st.x + 30, st.y + s);
+                            ctx.stroke();
+                        }
+
+                        ctx.fillStyle = st.blocked ? '#fca5a5' : '#bae6fd';
+                        ctx.font = '900 9px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(st.blocked ? 'SHUTTER BLOCKED' : `STAIRS -> ${st.toFloor}`, st.x, st.y - 38);
+                        ctx.restore();
+                    }
+
+                    if (currentMallFloor === 'G') {
+                        ctx.fillStyle = '#38bdf8';
+                        ctx.font = '900 9.5px ui-monospace, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('CCTV CONSOLE [E]', 2080, 1465);
+                    }
+                }
+
+                for (let i = 0; i < railTracks.length; i++) {
+                    const ry = railTracks[i].y;
+                    ctx.fillStyle = '#292524';
+                    ctx.fillRect(0, ry - 26, WORLD_SIZE, 52);
+
+                    ctx.fillStyle = '#44403c';
+                    for (let tx = 20; tx < WORLD_SIZE; tx += 36) {
+                        ctx.fillRect(tx, ry - 20, 14, 40);
+                    }
+
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillRect(0, ry - 13, WORLD_SIZE, 4);
+                    ctx.fillRect(0, ry + 9, WORLD_SIZE, 4);
+                }
+
+                ctx.fillStyle = '#262b36';
+                for (let i = 0; i < roads.length; i++) {
+                    const r = roads[i];
+                    ctx.fillRect(r.x, r.y, r.w, r.h);
+                }
+
+                ctx.strokeStyle = '#eab308';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([28, 28]);
+                for (let i = 0; i < roads.length; i++) {
+                    const r = roads[i];
+                    ctx.beginPath();
+                    if (r.dir === 'h') {
+                        ctx.moveTo(r.x, r.y + r.h / 2);
+                        ctx.lineTo(r.x + r.w, r.y + r.h / 2);
+                    } else {
+                        ctx.moveTo(r.x + r.w / 2, r.y);
+                        ctx.lineTo(r.x + r.w / 2, r.y + r.h);
+                    }
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = 'rgba(248, 250, 252, 0.25)';
+                for (let i = 0; i < crosswalks.length; i++) {
+                    const cw = crosswalks[i];
+                    if (cw.dir === 'h') {
+                        for (let sx = cw.x + 8; sx < cw.x + cw.w - 8; sx += 22) {
+                            ctx.fillRect(sx, cw.y, 11, cw.h);
+                        }
+                    } else {
+                        for (let sy = cw.y + 8; sy < cw.y + cw.h - 8; sy += 22) {
+                            ctx.fillRect(cw.x, sy, cw.w, 11);
+                        }
+                    }
+                }
+
+                if (mission && mission.targetX !== undefined && (!isMall || !mission.targetFloor || mission.targetFloor === currentMallFloor)) {
+                    const pulse = 1 + Math.sin(performance.now() * 0.006) * 0.12;
+                    ctx.save();
+                    ctx.strokeStyle = isTraining ? 'rgba(74, 222, 128, 0.72)' : 'rgba(56, 189, 248, 0.55)';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(mission.targetX, mission.targetY, 54 * pulse, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = isTraining ? 'rgba(74, 222, 128, 0.14)' : 'rgba(56, 189, 248, 0.12)';
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                for (let i = 0; i < decals.length; i++) {
+                    decals[i].draw(ctx);
+                }
+
+                for (let i = 0; i < corpses.length; i++) {
+                    corpses[i].draw(ctx);
+                }
+
+                if (isMall) {
+                    for (let i = 0; i < enemies.length; i++) {
+                        enemies[i].drawVisionCone(ctx);
+                    }
+                }
+
+                for (let i = 0; i < shells.length; i++) {
+                    shells[i].draw(ctx);
+                }
+                for (let i = 0; i < droppedMags.length; i++) {
+                    droppedMags[i].draw(ctx);
+                }
+                for (let i = 0; i < pickups.length; i++) {
+                    pickups[i].draw(ctx);
+                }
+                for (let i = 0; i < vehicles.length; i++) {
+                    vehicles[i].draw(ctx);
+                }
+                for (let i = 0; i < civilians.length; i++) {
+                    civilians[i].draw(ctx);
+                }
+                for (let i = 0; i < allies.length; i++) {
+                    allies[i].draw(ctx);
+                }
+                for (let i = 0; i < enemies.length; i++) {
+                    enemies[i].draw(ctx);
+                }
+
+                if (player && player.hp > 0) {
+                    player.draw(ctx);
+                }
+
+                for (let i = 0; i < flameJets.length; i++) {
+                    flameJets[i].draw(ctx);
+                }
+                for (let i = 0; i < bullets.length; i++) {
+                    bullets[i].draw(ctx);
+                }
+                for (let i = 0; i < particles.length; i++) {
+                    particles[i].draw(ctx);
+                }
+
+                for (let i = 0; i < buildings.length; i++) {
+                    const b = buildings[i];
+                    if (b.x + b.w < camera.x - 100 || b.x > camera.x + canvas.width + 100 ||
+                        b.y + b.h < camera.y - 100 || b.y > camera.y + canvas.height + 100) {
+                        continue;
+                    }
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.52)';
+                    ctx.fillRect(b.x + 12, b.y + 14, b.w, b.h);
+
+                    ctx.fillStyle = b.color;
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+
+                    if (!b.isLowWall) {
+                        const cx = camera.x + canvas.width / 2;
+                        const cy = camera.y + canvas.height / 2;
+                        const offX = Math2.clamp((b.x + b.w / 2 - cx) * 0.035, -16, 16);
+                        const offY = Math2.clamp((b.y + b.h / 2 - cy) * 0.035, -16, 16);
+
+                        ctx.fillStyle = b.roof;
+                        ctx.fillRect(b.x + offX, b.y + offY, b.w, b.h);
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeRect(b.x + offX, b.y + offY, b.w, b.h);
+
+                        if (b.label) {
+                            ctx.fillStyle = 'rgba(248, 250, 252, 0.72)';
+                            ctx.font = '800 13px ui-monospace, monospace';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(b.label, b.x + b.w / 2 + offX, b.y + b.h / 2 + offY + 4);
+                        }
+                    } else {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                        ctx.strokeRect(b.x, b.y, b.w, b.h);
+                        if (b.label) {
+                            ctx.fillStyle = '#fef3c7';
+                            ctx.font = '900 10px ui-monospace, monospace';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 4);
+                        }
+                    }
+                }
+
+                if (isTraining) {
+                    drawWoodlandCanopies(ctx);
+                }
+
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 6;
+                ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+            }
+
+            function renderOpticsAndLightingOverlay() {
+                if (!player) return;
+                const isMall = (mission && mission.campaign === 'mall');
+                const optics = player.hasGoBag ? player.opticsMode : 'normal';
+
+                if (optics === 'nvg') {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.26)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    ctx.fillStyle = 'rgba(0, 25, 10, 0.22)';
+                    for (let y = 0; y < canvas.height; y += 4) {
+                        ctx.fillRect(0, y, canvas.width, 1.5);
+                    }
+
+                    const cx = canvas.width / 2;
+                    const cy = canvas.height / 2;
+                    const vig = ctx.createRadialGradient(cx, cy, canvas.height * 0.28, cx, cy, canvas.height * 0.65);
+                    vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                    vig.addColorStop(1, 'rgba(0, 12, 5, 0.72)');
+                    ctx.fillStyle = vig;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+                    return;
+                }
+
+                if (optics === 'thermal') {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(9, 13, 24, 0.76)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    const drawHeatSignature = (wx, wy, radius, intensity = 1.0) => {
+                        const sx = wx - camera.x;
+                        const sy = wy - camera.y;
+                        if (sx < -80 || sx > canvas.width + 80 || sy < -80 || sy > canvas.height + 80) return;
+                        const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, radius);
+                        g.addColorStop(0, `rgba(255, 255, 255, ${0.96 * intensity})`);
+                        g.addColorStop(0.5, `rgba(253, 186, 116, ${0.58 * intensity})`);
+                        g.addColorStop(1, 'rgba(249, 115, 22, 0)');
+                        ctx.fillStyle = g;
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+                        ctx.fill();
+                    };
+
+                    if (player.hp > 0) drawHeatSignature(player.x, player.y, 26, 0.9);
+                    for (let i = 0; i < enemies.length; i++) {
+                        const e = enemies[i];
+                        if (e.hp > 0 && (!isMall || e.floor === currentMallFloor)) {
+                            drawHeatSignature(e.x, e.y, e.isBoss ? 32 : 25, 1.0);
+                        }
+                    }
+                    for (let i = 0; i < corpses.length; i++) {
+                        const cp = corpses[i];
+                        if (!isMall || cp.floor === currentMallFloor) {
+                            drawHeatSignature(cp.x, cp.y, 20, 0.35);
+                        }
+                    }
+                    for (let i = 0; i < allies.length; i++) {
+                        const al = allies[i];
+                        if (!al.isOut) drawHeatSignature(al.x, al.y, 24, 0.9);
+                    }
+                    for (let i = 0; i < civilians.length; i++) {
+                        const c = civilians[i];
+                        if (!c.dead && (!isMall || c.floor === currentMallFloor)) {
+                            drawHeatSignature(c.x, c.y, 23, 0.92);
+                        }
+                    }
+                    for (let i = 0; i < vehicles.length; i++) {
+                        const v = vehicles[i];
+                        if (!v.destroyed && (!isMall || v.floor === currentMallFloor) && (v.driver || v.type === 'taxi')) {
+                            drawHeatSignature(v.x, v.y, 44, 0.65);
+                        }
+                    }
+
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+                    ctx.lineWidth = 1;
+                    const cx = canvas.width / 2;
+                    const cy = canvas.height / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 24, cy); ctx.lineTo(cx + 24, cy);
+                    ctx.moveTo(cx, cy - 24); ctx.lineTo(cx, cy + 24);
+                    ctx.stroke();
+
+                    if (player.opticCharge < 20) {
+                        ctx.fillStyle = 'rgba(239, 68, 68, 0.16)';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                    ctx.restore();
+                    return;
+                }
+
+                if (!isMall) return;
+
+                lightCtx.globalCompositeOperation = 'source-over';
+                lightCtx.fillStyle = 'rgba(3, 6, 14, 0.91)';
+                lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
+
+                lightCtx.globalCompositeOperation = 'destination-out';
+
+                const px = player.x - camera.x;
+                const py = player.y - camera.y;
+                const selfGrad = lightCtx.createRadialGradient(px, py, 10, px, py, 76);
+                selfGrad.addColorStop(0, 'rgba(0,0,0,0.88)');
+                selfGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                lightCtx.fillStyle = selfGrad;
+                lightCtx.beginPath();
+                lightCtx.arc(px, py, 76, 0, Math.PI * 2);
+                lightCtx.fill();
+
+                if (!player.vehicle) {
+                    if (player.lightMode === 'beam') {
+                        const beamLen = 460;
+                        const halfAngle = 0.34;
+                        lightCtx.save();
+                        lightCtx.translate(px, py);
+                        lightCtx.rotate(player.angle);
+                        const beamGrad = lightCtx.createRadialGradient(12, 0, 8, 12, 0, beamLen);
+                        beamGrad.addColorStop(0, 'rgba(0,0,0,1)');
+                        beamGrad.addColorStop(0.75, 'rgba(0,0,0,0.85)');
+                        beamGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                        lightCtx.fillStyle = beamGrad;
+                        lightCtx.beginPath();
+                        lightCtx.moveTo(10, 0);
+                        lightCtx.arc(10, 0, beamLen, -halfAngle, halfAngle);
+                        lightCtx.closePath();
+                        lightCtx.fill();
+                        lightCtx.restore();
+                    } else if (player.lightMode === 'strobe') {
+                        const pulseOn = Math.sin(player.strobePhase * Math.PI * 2) > 0.15;
+                        if (pulseOn) {
+                            const beamLen = 380;
+                            const halfAngle = 0.36;
+                            lightCtx.save();
+                            lightCtx.translate(px, py);
+                            lightCtx.rotate(player.angle);
+                            const beamGrad = lightCtx.createRadialGradient(12, 0, 8, 12, 0, beamLen);
+                            beamGrad.addColorStop(0, 'rgba(0,0,0,1)');
+                            beamGrad.addColorStop(0.85, 'rgba(0,0,0,0.92)');
+                            beamGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                            lightCtx.fillStyle = beamGrad;
+                            lightCtx.beginPath();
+                            lightCtx.moveTo(10, 0);
+                            lightCtx.arc(10, 0, beamLen, -halfAngle, halfAngle);
+                            lightCtx.closePath();
+                            lightCtx.fill();
+                            lightCtx.restore();
+                        }
+                    }
+                }
+
+                for (let i = 0; i < mallLights.length; i++) {
+                    const ml = mallLights[i];
+                    if (ml.floor && ml.floor !== currentMallFloor) continue;
+                    const flickerMod = ml.flicker ? (0.85 + Math.sin(performance.now() * 0.02 + i) * 0.15) : 1.0;
+                    const r = ml.r * flickerMod;
+                    const lx = ml.x - camera.x;
+                    const ly = ml.y - camera.y;
+                    const g = lightCtx.createRadialGradient(lx, ly, 8, lx, ly, r);
+                    g.addColorStop(0, 'rgba(0,0,0,0.92)');
+                    g.addColorStop(1, 'rgba(0,0,0,0)');
+                    lightCtx.fillStyle = g;
+                    lightCtx.beginPath();
+                    lightCtx.arc(lx, ly, r, 0, Math.PI * 2);
+                    lightCtx.fill();
+                }
+
+                ctx.drawImage(lightCanvas, 0, 0);
+
+                if (player.lightMode === 'strobe' && !player.vehicle) {
+                    const pulseOn = Math.sin(player.strobePhase * Math.PI * 2) > 0.15;
+                    if (pulseOn) {
+                        ctx.save();
+                        ctx.translate(px, py);
+                        ctx.rotate(player.angle);
+                        const tint = ctx.createRadialGradient(12, 0, 4, 12, 0, 340);
+                        tint.addColorStop(0, 'rgba(224, 242, 254, 0.34)');
+                        tint.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                        ctx.fillStyle = tint;
+                        ctx.beginPath();
+                        ctx.moveTo(10, 0);
+                        ctx.arc(10, 0, 340, -0.34, 0.34);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                }
+            }
+
+            function drawSniperScopeOverlay(ctx) {
+                if (!player || player.vehicle) return;
+                const wep = WEAPONS[player.weaponIdx];
+                const scoped = (wep && wep.id === 'ruger' && (mouse.rightDown || touchInput.scopeActive));
+                if (!scoped) return;
+
+                const cx = isMobileDevice ? canvas.width / 2 : mouse.x;
+                const cy = isMobileDevice ? canvas.height / 2 : mouse.y;
+                const radius = Math.min(canvas.width, canvas.height) * 0.34;
+
+                ctx.save();
+                ctx.fillStyle = 'rgba(4, 7, 15, 0.72)';
+                ctx.beginPath();
+                ctx.rect(0, 0, canvas.width, canvas.height);
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
+                ctx.fill();
+
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.moveTo(cx - radius, cy);
+                ctx.lineTo(cx + radius, cy);
+                ctx.moveTo(cx, cy - radius);
+                ctx.lineTo(cx, cy + radius);
+                ctx.stroke();
+
+                ctx.fillStyle = '#ef4444';
+                for (let d = -3; d <= 3; d++) {
+                    if (d === 0) continue;
+                    ctx.beginPath();
+                    ctx.arc(cx + d * (radius * 0.22), cy, 2.2, 0, Math.PI * 2);
+                    ctx.arc(cx, cy + d * (radius * 0.22), 2.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = '800 11px ui-monospace, monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('RUGER M77 // 8X OPTIC ZEROED', cx, cy + radius - 14);
+                ctx.restore();
+            }
+
+            function renderRadarTerrain() {
+                const size = radarCanvas.width;
+                const scale = size / WORLD_SIZE;
+                const isTraining = (mission && mission.campaign === 'training');
+                radarTerrainCtx.fillStyle = isTraining ? '#071a0e' : '#090d16';
+                radarTerrainCtx.fillRect(0, 0, size, size);
+
+                radarTerrainCtx.fillStyle = '#334155';
+                for (let i = 0; i < roads.length; i++) {
+                    const r = roads[i];
+                    radarTerrainCtx.fillRect(r.x * scale, r.y * scale, Math.max(1.5, r.w * scale), Math.max(1.5, r.h * scale));
+                }
+
+                radarTerrainCtx.fillStyle = '#64748b';
+                for (let i = 0; i < railTracks.length; i++) {
+                    radarTerrainCtx.fillRect(0, railTracks[i].y * scale, size, 1.5);
+                }
+
+                radarTerrainCtx.fillStyle = isTraining ? '#14532d' : '#1e293b';
+                for (let i = 0; i < buildings.length; i++) {
+                    const b = buildings[i];
+                    if (b.isLowWall) continue;
+                    radarTerrainCtx.fillRect(b.x * scale, b.y * scale, Math.max(1.5, b.w * scale), Math.max(1.5, b.h * scale));
+                }
+
+                radarTerrainDirty = false;
+            }
+
+            function drawRadar() {
+                const size = radarCanvas.width;
+                const scale = size / WORLD_SIZE;
+                const isMall = (mission && mission.campaign === 'mall');
+                const isTraining = (mission && mission.campaign === 'training');
+
+                if (radarTerrainDirty) renderRadarTerrain();
+                radarCtx.drawImage(radarTerrainCanvas, 0, 0);
+
+                if (mission && mission.targetX !== undefined && (!isMall || !mission.targetFloor || mission.targetFloor === currentMallFloor)) {
+                    radarCtx.fillStyle = isTraining ? '#4ade80' : '#38bdf8';
+                    radarCtx.beginPath();
+                    radarCtx.arc(mission.targetX * scale, mission.targetY * scale, 4.5, 0, Math.PI * 2);
+                    radarCtx.fill();
+                }
+
+                for (let i = 0; i < allies.length; i++) {
+                    const al = allies[i];
+                    if (al.isOut) continue;
+                    radarCtx.fillStyle = '#4ade80';
+                    radarCtx.beginPath();
+                    radarCtx.arc(al.x * scale, al.y * scale, 3, 0, Math.PI * 2);
+                    radarCtx.fill();
+                }
+
+                for (let i = 0; i < enemies.length; i++) {
+                    const e = enemies[i];
+                    if (e.hp <= 0 || (isMall && e.floor !== currentMallFloor)) continue;
+                    const cctvOn = isMall && cctvRevealedFloors[currentMallFloor];
+                    if (isMall && !cctvOn && Math2.dist(player.x, player.y, e.x, e.y) > 850) continue;
+                    if (e.isUnarmed || e.panicState === 'fleeing' || e.panicState === 'wounded_retreat' || e.panicState === 'in_cover') {
+                        radarCtx.fillStyle = '#fb923c';
+                    } else {
+                        radarCtx.fillStyle = e.isBoss ? '#f59e0b' : (e.faction === 'security' ? '#60a5fa' : '#ef4444');
+                    }
+                    const sz = e.isBoss ? 5 : 2.5;
+                    radarCtx.fillRect(e.x * scale - sz / 2, e.y * scale - sz / 2, sz, sz);
+                }
+
+                for (let i = 0; i < vehicles.length; i++) {
+                    const v = vehicles[i];
+                    if (v.destroyed || (isMall && v.floor !== currentMallFloor)) continue;
+                    radarCtx.fillStyle = v.isPlayerStagedCar ? '#facc15' : (v.type === 'taxi' ? '#38bdf8' : '#f8fafc');
+                    radarCtx.fillRect(v.x * scale - 2, v.y * scale - 2, 4, 4);
+                }
+
+                if (player) {
+                    radarCtx.fillStyle = '#4ade80';
+                    radarCtx.beginPath();
+                    radarCtx.arc(player.x * scale, player.y * scale, 3.5, 0, Math.PI * 2);
+                    radarCtx.fill();
+                }
+            }
+
+            // ============================================================================
+
+
+            // Preserve the mobile control lifecycle from the complete predecessor.
+            function syncMobileControlsVisibility() {
+                const controls = document.getElementById('mobileControls');
+                if (controls) controls.classList.toggle('hidden', !isMobileDevice || gameState !== 'playing');
+            }
+            function initMobileControls() { initMobileTouchControls(); }
+
+            // Recovered rendering coordinator: source snapshot stopped before its game loop.
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const shakeX = camera.shake ? (Math.random() - 0.5) * camera.shake : 0;
+                const shakeY = camera.shake ? (Math.random() - 0.5) * camera.shake : 0;
+                ctx.save();
+                ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
+                drawWorld(ctx);
+                ctx.restore();
+                renderOpticsAndLightingOverlay();
+                drawSniperScopeOverlay(ctx);
+                drawRadar();
+            }
+
+
+            function generateCBDWorld() {
+                WORLD_SIZE = 4400;
+                buildings = [];
+                roads = [];
+                crosswalks = [];
+                railTracks = [];
+                woodlandTrees = [];
+                woodlandCreek = null;
+                mallZones = [];
+                mallLights = [];
+                stairwells = [];
                 vehicles = [];
                 pickups = [];
                 decals = [];
@@ -3422,241 +6131,6 @@ import { createAudioEngine } from './audio/sfx.js';
                 enemies = [];
                 allies = [];
                 civilians = [];
-            }
-
-            function generateWoodlandWorld() {
-                resetWorldArrays();
-
-                // Winding Woodland Creek running NW to SE across the middle of the forest
-                woodlandCreek = [
-                    { x: 0, y: 1250 },
-                    { x: 1100, y: 1680 },
-                    { x: 2200, y: 2200 },
-                    { x: 3250, y: 2780 },
-                    { x: WORLD_SIZE, y: 3150 }
-                ];
-
-                // Youth Squad Staging Camp (South-West)
-                buildings.push({ x: 640, y: 3360, w: 220, h: 130, color: '#3f2e21', roof: '#5c4033', height: 14, label: 'YOUTH SQUAD STAGING' });
-                buildings.push({ x: 620, y: 3320, w: 110, h: 14, color: '#78350f', roof: '#92400e', isLowWall: true });
-                buildings.push({ x: 770, y: 3320, w: 110, h: 14, color: '#78350f', roof: '#92400e', isLowWall: true });
-                pickups.push(new Pickup(710, 3290, 'bb_bag'));
-                pickups.push(new Pickup(810, 3290, 'armor'));
-
-                // Timber Footbridge & Mid-Forest Pallet Bunker Outpost (Center)
-                buildings.push({ x: 2080, y: 2090, w: 240, h: 180, color: '#451a03', roof: '#78350f', height: 12, label: 'TIMBER CREEK BRIDGE' });
-                buildings.push({ x: 1940, y: 2340, w: 110, h: 18, color: '#78350f', roof: '#b45309', isLowWall: true });
-                buildings.push({ x: 2330, y: 1980, w: 110, h: 18, color: '#78350f', roof: '#b45309', isLowWall: true });
-                pickups.push(new Pickup(2200, 2050, 'airsoft_aeg'));
-                pickups.push(new Pickup(2140, 2050, 'bb_bag'));
-                pickups.push(new Pickup(2260, 2050, 'health'));
-
-                // Sandbag Ridge Strongpoint (North-Center)
-                buildings.push({ x: 2740, y: 1420, w: 140, h: 20, color: '#713f12', roof: '#a16207', isLowWall: true });
-                buildings.push({ x: 2960, y: 1520, w: 140, h: 20, color: '#713f12', roof: '#a16207', isLowWall: true });
-                pickups.push(new Pickup(2880, 1470, 'bb_bag'));
-                pickups.push(new Pickup(2940, 1470, 'armor'));
-
-                // Grown-Up MilSim Adults' Base Camp & Capture Flag (North-East)
-                buildings.push({ x: 3420, y: 740, w: 320, h: 210, color: '#1e293b', roof: '#334155', height: 18, label: 'ADULT MILSIM HQ CAMP' });
-                buildings.push({ x: 3340, y: 990, w: 160, h: 18, color: '#3f6212', roof: '#4d7c0f', isLowWall: true });
-                buildings.push({ x: 3580, y: 990, w: 160, h: 18, color: '#3f6212', roof: '#4d7c0f', isLowWall: true });
-                pickups.push(new Pickup(3540, 1040, 'health'));
-
-                // Scattered Wooden Pallet Bunkers across the Forest
-                const bunkers = [
-                    [1180, 2940, 110, 18], [1420, 2760, 18, 110],
-                    [1650, 2580, 120, 18], [1540, 1980, 110, 18],
-                    [2540, 1780, 18, 120], [3120, 1220, 120, 18]
-                ];
-                for (let i = 0; i < bunkers.length; i++) {
-                    const bk = bunkers[i];
-                    buildings.push({ x: bk[0], y: bk[1], w: bk[2], h: bk[3], color: '#78350f', roof: '#92400e', isLowWall: true });
-                }
-
-                // Dense Woodland Pine & Acacia Trees (Provide real cover + bullet stops!)
-                for (let i = 0; i < 165; i++) {
-                    const tx = Math2.rand(180, WORLD_SIZE - 180);
-                    const ty = Math2.rand(180, WORLD_SIZE - 180);
-                    // Keep staging camps, bridge, and main sightlines clear
-                    if (Math2.dist(tx, ty, 780, 3260) < 280) continue;
-                    if (Math2.dist(tx, ty, 2200, 2180) < 260) continue;
-                    if (Math2.dist(tx, ty, 3550, 920) < 300) continue;
-                    if (pointInsideBuilding(tx, ty, 45)) continue;
-
-                    woodlandTrees.push({
-                        x: tx,
-                        y: ty,
-                        trunkR: Math2.rand(10, 16),
-                        canopyR: Math2.rand(36, 58),
-                        shade: i % 3 === 0 ? '#14532d' : (i % 3 === 1 ? '#166534' : '#15803d')
-                    });
-                }
-
-                // Extra woodland supply drops
-                for (let i = 0; i < 12; i++) {
-                    let px = 0;
-                    let py = 0;
-                    do {
-                        px = Math2.rand(350, WORLD_SIZE - 350);
-                        py = Math2.rand(350, WORLD_SIZE - 350);
-                    } while (pointInsideBuilding(px, py, 30));
-                    pickups.push(new Pickup(px, py, i % 2 === 0 ? 'bb_bag' : 'health'));
-                }
-            }
-
-            function generateMallWorld() {
-                resetWorldArrays();
-
-                roads.push({ x: 3740, y: 0, w: 380, h: WORLD_SIZE, dir: 'v' });
-                roads.push({ x: 3650, y: 1920, w: 750, h: 260, dir: 'h' });
-
-                mallZones.push({ x: 450, y: 450, w: 3200, h: 3100, floor: '#1e2430', tile: true });
-                mallZones.push({ x: 520, y: 2480, w: 780, h: 960, floor: '#261b1c', label: 'GOLDEN DRAGON DISCOUNT SHOP' });
-                mallZones.push({ x: 1580, y: 1580, w: 940, h: 840, floor: '#232b38', label: 'CENTRAL ATRIUM FOOD COURT' });
-                mallZones.push({ x: 1580, y: 540, w: 1120, h: 760, floor: '#1b222e', label: 'NORTH CONCOURSE & SUPERSTORE' });
-                mallZones.push({ x: 2740, y: 1760, w: 910, h: 580, floor: '#252d3b', label: 'EAST ENTRANCE CONCOURSE' });
-
-                buildings.push({ x: 450, y: 450, w: 1590, h: 42, color: '#1e293b', roof: '#334155', height: 20 });
-                buildings.push({ x: 2240, y: 450, w: 1410, h: 42, color: '#1e293b', roof: '#334155', height: 20 });
-                buildings.push({ x: 450, y: 3508, w: 3200, h: 42, color: '#1e293b', roof: '#334155', height: 20 });
-                buildings.push({ x: 450, y: 450, w: 42, h: 3100, color: '#1e293b', roof: '#334155', height: 20 });
-                buildings.push({ x: 3608, y: 450, w: 42, h: 1430, color: '#1e293b', roof: '#334155', height: 20 });
-                buildings.push({ x: 3608, y: 2220, w: 42, h: 1330, color: '#1e293b', roof: '#334155', height: 20 });
-
-                buildings.push({ x: 1290, y: 2680, w: 28, h: 770, color: '#3f1d24', roof: '#581c2c', height: 14 });
-                buildings.push({ x: 520, y: 2480, w: 540, h: 28, color: '#3f1d24', roof: '#581c2c', height: 14 });
-                buildings.push({ x: 640, y: 2940, w: 160, h: 24, color: '#78350f', roof: '#b45309', isLowWall: true });
-                buildings.push({ x: 920, y: 2940, w: 160, h: 24, color: '#78350f', roof: '#b45309', isLowWall: true });
-                buildings.push({ x: 640, y: 2740, w: 160, h: 24, color: '#78350f', roof: '#b45309', isLowWall: true });
-                buildings.push({ x: 920, y: 2740, w: 160, h: 24, color: '#78350f', roof: '#b45309', isLowWall: true });
-                buildings.push({ x: 1120, y: 3180, w: 110, h: 32, color: '#991b1b', roof: '#dc2626', isLowWall: true });
-
-                mallLights.push({ x: 780, y: 3060, r: 115, color: 'rgba(239, 68, 68, 0.28)', flicker: true });
-                mallLights.push({ x: 1080, y: 2620, r: 110, color: 'rgba(250, 204, 21, 0.22)', flicker: true });
-                mallLights.push({ x: 2050, y: 2000, r: 290, color: 'rgba(148, 163, 184, 0.34)', flicker: false });
-                mallLights.push({ x: 2140, y: 780, r: 210, color: 'rgba(148, 163, 184, 0.26)', flicker: false });
-                mallLights.push({ x: 3420, y: 2050, r: 260, color: 'rgba(253, 224, 71, 0.28)', flicker: true });
-
-                buildings.push({ x: 520, y: 1420, w: 780, h: 420, color: '#1e293b', roof: '#334155', height: 16, label: 'ANCHOR FASHION STORE' });
-                buildings.push({ x: 1580, y: 2720, w: 860, h: 460, color: '#1e293b', roof: '#334155', height: 16, label: 'HOMEWARE & APPLIANCES' });
-                buildings.push({ x: 2740, y: 2560, w: 640, h: 560, color: '#172554', roof: '#1e3a8a', height: 18, label: 'SECURITY CONTROL OFFICE' });
-                buildings.push({ x: 2740, y: 740, w: 640, h: 720, color: '#1f2937', roof: '#374151', height: 18, label: 'HYPERMARKET STORAGE' });
-                buildings.push({ x: 720, y: 680, w: 580, h: 480, color: '#27272a', roof: '#3f3f46', height: 16, label: 'CELLULAR & TECH ARCADE' });
-
-                buildings.push({ x: 1820, y: 1820, w: 42, h: 42, color: '#334155', roof: '#475569', height: 16 });
-                buildings.push({ x: 2240, y: 1820, w: 42, h: 42, color: '#334155', roof: '#475569', height: 16 });
-                buildings.push({ x: 1820, y: 2180, w: 42, h: 42, color: '#334155', roof: '#475569', height: 16 });
-                buildings.push({ x: 2240, y: 2180, w: 42, h: 42, color: '#334155', roof: '#475569', height: 16 });
-
-                civilians.push(new Civilian(620, 3260));
-                civilians.push(new Civilian(670, 3310));
-                civilians.push(new Civilian(860, 3290));
-                civilians.push(new Civilian(1010, 3240));
-                civilians.push(new Civilian(1680, 2120));
-                civilians.push(new Civilian(2180, 1660));
-
-                vehicles.push(new Vehicle(3820, 1840, Math.PI / 2, 'taxi'));
-                vehicles.push(new Vehicle(3820, 2260, -Math.PI / 2, 'taxi'));
-                vehicles.push(new Vehicle(3940, 2050, Math.PI, 'taxi'));
-                vehicles.push(new Vehicle(4190, 1890, Math.PI, 'saps', true));
-                vehicles.push(new Vehicle(4190, 2210, Math.PI, 'nyala', true));
-
-                const mallCollectibles = [
-                    [1150, 3130, 'cash'], [600, 2840, 'water'], [980, 2650, 'food'],
-                    [1440, 3100, 'cash'], [1440, 2600, 'food'], [1440, 2100, 'water'],
-                    [1440, 1320, 'cash'], [980, 1280, 'food'], [640, 1980, 'water'],
-                    [1920, 1950, 'food'], [2050, 2020, 'water'], [2160, 1920, 'food'],
-                    [2020, 1740, 'cash'], [2020, 2280, 'cash'],
-                    [1460, 880, 'cash'], [1950, 1040, 'jhp_stash'], [2380, 920, 'water'],
-                    [2540, 1180, 'food'], [2540, 1520, 'cash'],
-                    [2650, 2820, 'shotgun'], [2650, 2900, 'jhp_stash'], [2650, 2740, 'armor'],
-                    [2140, 620, 'ammo'], [3120, 1920, 'cash'], [3240, 2160, 'food']
-                ];
-                for (let i = 0; i < mallCollectibles.length; i++) {
-                    const mc = mallCollectibles[i];
-                    pickups.push(new Pickup(mc[0], mc[1], mc[2]));
-                }
-            }
-
-            function generateSuburbsWorld() {
-                resetWorldArrays();
-
-                const roadCoords = [420, 1220, 2100, 2980, 3820];
-                for (let i = 0; i < roadCoords.length; i++) {
-                    const c = roadCoords[i];
-                    roads.push({ x: 0, y: c - 65, w: WORLD_SIZE, h: 130, dir: 'h' });
-                    roads.push({ x: c - 65, y: 0, w: 130, h: WORLD_SIZE, dir: 'v' });
-                }
-
-                buildings.push({ x: 1850, y: 1820, w: 220, h: 140, color: '#334155', roof: '#475569', height: 14, label: "G'S COMPOUND" });
-                buildings.push({ x: 1820, y: 1800, w: 16, h: 250, color: '#475569', roof: '#64748b', isLowWall: true });
-                buildings.push({ x: 2074, y: 1800, w: 16, h: 250, color: '#475569', roof: '#64748b', isLowWall: true });
-                buildings.push({ x: 1820, y: 2034, w: 100, h: 16, color: '#475569', roof: '#64748b', isLowWall: true });
-                buildings.push({ x: 2000, y: 2034, w: 90, h: 16, color: '#475569', roof: '#64748b', isLowWall: true });
-
-                pickups.push(new Pickup(1875, 2005, 'ammo'));
-                pickups.push(new Pickup(2035, 2005, 'health'));
-                vehicles.push(new Vehicle(2025, 1935, Math.PI / 2, 'bakkie'));
-
-                buildings.push({ x: 2740, y: 1340, w: 460, h: 250, color: '#1e293b', roof: '#334155', height: 22, roofProp: 'skylight', label: 'STRIPPED SHOPPING CENTRE' });
-                pickups.push(new Pickup(2970, 1640, 'shotgun'));
-                pickups.push(new Pickup(2920, 1640, 'armor'));
-                pickups.push(new Pickup(3020, 1640, 'ammo'));
-
-                buildings.push({ x: 2800, y: 3120, w: 380, h: 240, color: '#1e3a8a', roof: '#1d4ed8', height: 20, roofProp: 'helipad', label: 'PRIVATE SECURITY FOB' });
-                pickups.push(new Pickup(2990, 3410, 'ar15'));
-                pickups.push(new Pickup(2930, 3410, 'health'));
-                pickups.push(new Pickup(3050, 3410, 'ammo'));
-                vehicles.push(new Vehicle(3240, 3250, Math.PI, 'nyala'));
-
-                buildings.push({ x: 640, y: 640, w: 360, h: 260, color: '#7f1d1d', roof: '#991b1b', height: 24, roofProp: 'hvac', label: 'SUBSTATION #4' });
-                pickups.push(new Pickup(820, 950, 'armor'));
-                pickups.push(new Pickup(760, 950, 'health'));
-
-                const blockCoords = [
-                    [560, 1360, 340, 240], [1360, 560, 320, 260], [2240, 560, 360, 250], [3120, 560, 420, 260],
-                    [560, 2240, 320, 280], [1360, 2240, 310, 260], [2240, 2240, 350, 280], [3120, 2240, 400, 270],
-                    [560, 3120, 350, 260], [1360, 3120, 330, 250], [2240, 3120, 340, 260], [3960, 1360, 280, 320],
-                    [3960, 2240, 280, 320], [1360, 3960, 340, 260], [2240, 3960, 340, 260]
-                ];
-
-                const wallPalette = ['#334155', '#292524', '#1f2937', '#3f3f46'];
-                const roofPalette = ['#475569', '#44403c', '#374151', '#52525b'];
-
-                for (let i = 0; i < blockCoords.length; i++) {
-                    const bc = blockCoords[i];
-                    const idx = i % wallPalette.length;
-                    buildings.push({
-                        x: bc[0],
-                        y: bc[1],
-                        w: bc[2],
-                        h: bc[3],
-                        color: wallPalette[idx],
-                        roof: roofPalette[idx],
-                        height: 15
-                    });
-                }
-
-                vehicles.push(new Vehicle(2135, 1650, -Math.PI / 2, 'hatchback'));
-                vehicles.push(new Vehicle(1650, 2135, 0, 'bakkie'));
-                vehicles.push(new Vehicle(2980, 2065, Math.PI, 'taxi'));
-                vehicles.push(new Vehicle(1255, 2650, Math.PI / 2, 'hatchback'));
-
-                for (let i = 0; i < 18; i++) {
-                    let px = 0;
-                    let py = 0;
-                    do {
-                        px = Math2.rand(200, WORLD_SIZE - 200);
-                        py = Math2.rand(200, WORLD_SIZE - 200);
-                    } while (pointInsideBuilding(px, py, 24));
-                    const pType = i % 3 === 0 ? 'health' : (i % 3 === 1 ? 'ammo' : 'armor');
-                    pickups.push(new Pickup(px, py, pType));
-                }
-            }
-
-            function generateCBDWorld() {
-                resetWorldArrays();
 
                 const avenues = [420, 1140, 1850, 2560, 3270, 3980];
                 for (let i = 0; i < avenues.length; i++) {
@@ -3766,2176 +6240,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
             }
 
-            function generateSniperWorld() {
-                resetWorldArrays();
 
-                const horizRoads = [650, 1750, 2950, 3850];
-                const vertRoads = [650, 2150, 3650];
-                for (let i = 0; i < horizRoads.length; i++) {
-                    roads.push({ x: 0, y: horizRoads[i] - 68, w: WORLD_SIZE, h: 136, dir: 'h' });
-                }
-                for (let i = 0; i < vertRoads.length; i++) {
-                    roads.push({ x: vertRoads[i] - 68, y: 0, w: 136, h: WORLD_SIZE, dir: 'v' });
-                }
-
-                const trackYs = [2260, 2330, 2400, 2470];
-                for (let i = 0; i < trackYs.length; i++) {
-                    railTracks.push({ x: 180, y: trackYs[i], w: WORLD_SIZE - 360 });
-                }
-
-                buildings.push({ x: 780, y: 2680, w: 280, h: 170, color: '#334155', roof: '#475569', height: 22, roofProp: 'hvac', label: 'SIGNAL OVERWATCH NEST' });
-                buildings.push({ x: 780, y: 2635, w: 120, h: 14, color: '#475569', roof: '#64748b', isLowWall: true });
-                buildings.push({ x: 940, y: 2635, w: 120, h: 14, color: '#475569', roof: '#64748b', isLowWall: true });
-                pickups.push(new Pickup(840, 2660, 'ammo'));
-                pickups.push(new Pickup(1010, 2660, 'armor'));
-                vehicles.push(new Vehicle(720, 2780, 0, 'bakkie'));
-
-                const railcars = [
-                    { x: 1120, y: 2248, w: 190, h: 24, color: '#7f1d1d', roof: '#991b1b' },
-                    { x: 1350, y: 2248, w: 190, h: 24, color: '#1e3a8a', roof: '#1d4ed8' },
-                    { x: 1760, y: 2318, w: 210, h: 24, color: '#3f3f46', roof: '#52525b' },
-                    { x: 2280, y: 2388, w: 200, h: 24, color: '#78350f', roof: '#92400e' },
-                    { x: 2520, y: 2388, w: 200, h: 24, color: '#14532d', roof: '#166534' },
-                    { x: 2980, y: 2458, w: 210, h: 24, color: '#1e293b', roof: '#334155' }
-                ];
-                for (let i = 0; i < railcars.length; i++) {
-                    const rc = railcars[i];
-                    buildings.push({ x: rc.x, y: rc.y, w: rc.w, h: rc.h, color: rc.color, roof: rc.roof, height: 10 });
-                }
-
-                buildings.push({ x: 2680, y: 980, w: 340, h: 210, color: '#1f2937', roof: '#374151', height: 22, roofProp: 'skylight', label: 'CONTAINER TERMINAL' });
-                const containers = [
-                    [2540, 1250, 140, 34, '#b91c1c', '#dc2626'],
-                    [2740, 1320, 150, 34, '#1d4ed8', '#2563eb'],
-                    [2950, 1250, 140, 34, '#b45309', '#d97706'],
-                    [2620, 1430, 150, 34, '#15803d', '#16a34a'],
-                    [2860, 1440, 140, 34, '#334155', '#475569']
-                ];
-                for (let i = 0; i < containers.length; i++) {
-                    const c = containers[i];
-                    buildings.push({ x: c[0], y: c[1], w: c[2], h: c[3], color: c[4], roof: c[5], height: 11 });
-                }
-                pickups.push(new Pickup(2850, 1250, 'ar15'));
-                pickups.push(new Pickup(2780, 1250, 'health'));
-                pickups.push(new Pickup(2920, 1250, 'ammo'));
-                vehicles.push(new Vehicle(2460, 1340, 0, 'bakkie'));
-
-                buildings.push({ x: 2860, y: 3180, w: 380, h: 240, color: '#172554', roof: '#1e3a8a', height: 24, roofProp: 'hvac', label: 'REFINERY FUEL DEPOT' });
-                buildings.push({ x: 2700, y: 3220, w: 110, h: 110, color: '#475569', roof: '#94a3b8', height: 18 });
-                buildings.push({ x: 2700, y: 3360, w: 110, h: 110, color: '#475569', roof: '#94a3b8', height: 18 });
-                pickups.push(new Pickup(3050, 3490, 'shotgun'));
-                pickups.push(new Pickup(2970, 3490, 'armor'));
-                pickups.push(new Pickup(3130, 3490, 'ammo'));
-                vehicles.push(new Vehicle(3320, 3340, Math.PI, 'nyala'));
-
-                buildings.push({ x: 960, y: 900, w: 380, h: 260, color: '#78350f', roof: '#92400e', height: 28, roofProp: 'helipad', label: 'MINE DUMP CITADEL' });
-                buildings.push({ x: 820, y: 1220, w: 220, h: 65, color: '#a16207', roof: '#ca8a04', height: 9 });
-                buildings.push({ x: 1260, y: 1220, w: 220, h: 65, color: '#a16207', roof: '#ca8a04', height: 9 });
-                pickups.push(new Pickup(1080, 1250, 'health'));
-                pickups.push(new Pickup(1210, 1250, 'ammo'));
-
-                const warehouses = [
-                    [320, 320, 240, 190, '#27272a', '#3f3f46'],
-                    [1650, 320, 300, 180, '#1e293b', '#334155'],
-                    [2550, 320, 320, 190, '#292524', '#44403c'],
-                    [3880, 340, 260, 210, '#1e293b', '#334155'],
-                    [1720, 1080, 260, 200, '#a16207', '#ca8a04'],
-                    [3880, 1250, 280, 240, '#27272a', '#3f3f46'],
-                    [320, 1950, 240, 210, '#1e293b', '#334155'],
-                    [3880, 2150, 280, 240, '#292524', '#44403c'],
-                    [1550, 3250, 320, 220, '#27272a', '#3f3f46'],
-                    [3880, 3250, 280, 230, '#1e293b', '#334155'],
-                    [420, 4020, 320, 190, '#292524', '#44403c'],
-                    [2350, 4020, 340, 190, '#1e293b', '#334155']
-                ];
-                for (let i = 0; i < warehouses.length; i++) {
-                    const wh = warehouses[i];
-                    buildings.push({ x: wh[0], y: wh[1], w: wh[2], h: wh[3], color: wh[4], roof: wh[5], height: 16 });
-                }
-
-                vehicles.push(new Vehicle(2185, 1950, Math.PI / 2, 'bakkie'));
-                vehicles.push(new Vehicle(1550, 2915, 0, 'hatchback'));
-                vehicles.push(new Vehicle(3615, 1950, -Math.PI / 2, 'bakkie'));
-
-                for (let i = 0; i < 20; i++) {
-                    let px = 0;
-                    let py = 0;
-                    do {
-                        px = Math2.rand(200, WORLD_SIZE - 200);
-                        py = Math2.rand(200, WORLD_SIZE - 200);
-                    } while (pointInsideBuilding(px, py, 24));
-                    const pType = i % 3 === 0 ? 'ammo' : (i % 3 === 1 ? 'health' : 'armor');
-                    pickups.push(new Pickup(px, py, pType));
-                }
-            }
-
-            // ============================================================================
-            // MISSION DIRECTORS & CHECKPOINT MESSENGER CUTSCENES FOR ALL 5 CAMPAIGNS
-            // ============================================================================
-            function initTrainingMissions() {
-                mission = {
-                    campaign: 'training',
-                    stage: 1,
-                    targetX: 2200,
-                    targetY: 2050,
-                    stage2Spawned: false,
-                    bossSpawned: false
-                };
-
-                // Spawn Younger G and Younger Blaze as your friendly squadmates!
-                allies.push(new Ally(710, 3230, 'young_g'));
-                allies.push(new Ally(810, 3230, 'young_blaze'));
-
-                // Stage 1 Grown-Up Adult Patrol near the Creek Bridge
-                const creekAdults = [
-                    [1980, 2380], [2180, 2240], [2340, 2040], [2100, 1950]
-                ];
-                for (let i = 0; i < creekAdults.length; i++) {
-                    enemies.push(new Enemy(creekAdults[i][0], creekAdults[i][1], 'airsoft_adult'));
-                }
-
-                // Mid-forest roaming grown-up adult players
-                for (let i = 0; i < 12; i++) {
-                    let ex = 0;
-                    let ey = 0;
-                    do {
-                        ex = Math2.rand(1200, 3600);
-                        ey = Math2.rand(750, 2900);
-                    } while (pointInsideBuilding(ex, ey, 35) || Math2.dist(ex, ey, 760, 3250) < 950);
-                    enemies.push(new Enemy(ex, ey, 'airsoft_adult'));
-                }
-
-                updateMissionUI();
-
-                phoneCutscene.start({
-                    clock: '09:30 AM',
-                    isTraining: true,
-                    opsec: 'WOODLAND AIRSOFT SKIRMISH // EYE-PRO MANDATORY • CALL YOUR HITS!',
-                    contactName: 'YOUNGER G & YOUNGER BLAZE',
-                    contactSub: 'YOUTH SQUAD GROUP CHAT // PINE RIDGE FIELD',
-                    contactAvatar: 'young_g',
-                    messages: [
-                        { side: 'system', text: 'SUNDAY MORNING SKIRMISH // 3 YOUTH PLAYERS VS. GROWN-UP MILSIM SQUAD' },
-                        { side: 'incoming', sender: 'YOUNGER G', time: '09:29', text: 'Those grown-ups brought full plate carriers and heavy AEGs. Good thing there are three of us—stay behind the pine trunks and flank them.' },
-                        { side: 'incoming', sender: 'YOUNGER BLAZE', time: '09:30', text: 'I have point on the right flank! Yael, watch your reload discipline—if you drop a mag early, those BBs stay in the grass.' },
-                        { side: 'outgoing', sender: 'YOUNGER YAEL', time: '09:30', text: 'Goggles sealed, pink G26 gassed up! Let us push north-east to the Timber Creek Bridge and grab the spare M4 AEG.' }
-                    ]
-                });
-            }
-
-            function initMallMissions() {
-                mission = {
-                    campaign: 'mall',
-                    stage: 1,
-                    targetX: 1450,
-                    targetY: 2560,
-                    stage2Spawned: false,
-                    stage3Spawned: false,
-                    blockadeSpawned: false
-                };
-
-                const initialLooters = [
-                    [1420, 2560, 'unarmed_looter'],
-                    [1490, 2630, 'unarmed_looter'],
-                    [1380, 2480, 'looter'],
-                    [1510, 2450, 'looter'],
-                    [1450, 2360, 'unarmed_looter']
-                ];
-                for (let i = 0; i < initialLooters.length; i++) {
-                    enemies.push(new Enemy(initialLooters[i][0], initialLooters[i][1], initialLooters[i][2]));
-                }
-
-                for (let i = 0; i < 42; i++) {
-                    let ex = 0;
-                    let ey = 0;
-                    do {
-                        ex = Math2.rand(540, 3450);
-                        ey = Math2.rand(540, 3400);
-                    } while (pointInsideBuilding(ex, ey, 22) || Math2.dist(ex, ey, 740, 3150) < 750);
-
-                    const kind = Math.random() < 0.65 ? 'unarmed_looter' : 'looter';
-                    enemies.push(new Enemy(ex, ey, kind));
-                }
-
-                const blockadeSquad = [
-                    [3760, 1940, false],
-                    [3760, 2160, false],
-                    [3880, 2000, true],
-                    [3880, 2110, false],
-                    [3990, 1950, false],
-                    [3990, 2150, false]
-                ];
-                for (let i = 0; i < blockadeSquad.length; i++) {
-                    enemies.push(new Enemy(blockadeSquad[i][0], blockadeSquad[i][1], 'blockade_goon', blockadeSquad[i][2]));
-                }
-
-                updateMissionUI();
-
-                phoneCutscene.start({
-                    clock: '07:00 AM',
-                    opsec: 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)',
-                    contactName: 'DAVID // EXFIL OPS',
-                    contactSub: 'BURNER SIM &bull; MALL CELL RELAY',
-                    contactAvatar: 'male',
-                    messages: [
-                        { side: 'system', text: '2 HOURS POST-IMPACT // POWER GRID OFFLINE' },
-                        { side: 'incoming', sender: 'DAVID', time: '07:00', text: 'Yael, tell me your battery is still holding. Nobody had encrypted DMR handsets staged when the grid went down—keep texts short, local towers are being scraped.' },
-                        { side: 'outgoing', sender: 'YAEL', time: '07:00', text: 'Copy. Inside Golden Dragon shop with four terrified shoppers. Lights are dead. I have my pink Glock 26 loaded with 100gr FMJ, two extended mags, and one tucked 10-rounder.' },
-                        { side: 'incoming', sender: 'DAVID', time: '07:01', text: 'Kill your white light [F] to sneak, or use NVG/Thermal [V] + invisible IR laser. Check the North Concourse or Security Office for 120gr +P JHP hollow-point stashes [B]—bigger flash and louder bang, but huge stopping power.' }
-                    ]
-                });
-            }
-
-            function initSuburbsMissions() {
-                mission = {
-                    campaign: 'suburbs',
-                    stage: 1,
-                    targetX: 2100,
-                    targetY: 2540,
-                    stage2Spawned: false,
-                    stage3Spawned: false,
-                    bossSpawned: false
-                };
-
-                const blockLooters = [
-                    [2040, 2480], [2160, 2530], [2090, 2610]
-                ];
-                for (let i = 0; i < blockLooters.length; i++) {
-                    enemies.push(new Enemy(blockLooters[i][0], blockLooters[i][1], 'looter'));
-                }
-
-                for (let i = 0; i < 38; i++) {
-                    let ex = 0;
-                    let ey = 0;
-                    do {
-                        ex = Math2.rand(250, WORLD_SIZE - 250);
-                        ey = Math2.rand(250, WORLD_SIZE - 250);
-                    } while (pointInsideBuilding(ex, ey) || Math2.dist(ex, ey, 1950, 1950) < 1150);
-
-                    const roll = Math.random();
-                    if (roll < 0.35) {
-                        enemies.push(new Enemy(ex, ey, 'looter'));
-                    } else if (roll < 0.72) {
-                        enemies.push(new Enemy(ex, ey, 'syndicate'));
-                        if (Math.random() < 0.45) {
-                            enemies.push(new Enemy(ex + 22, ey + 18, 'dog'));
-                        }
-                    } else {
-                        enemies.push(new Enemy(ex, ey, 'security'));
-                    }
-                }
-
-                updateMissionUI();
-
-                phoneCutscene.start({
-                    clock: '06:15 AM',
-                    opsec: 'OPSEC WARNING: CELLULAR DATA INTERCEPTABLE // NO DMR',
-                    contactName: 'SAREL // SECTOR RELAY',
-                    contactSub: 'PREPAID SIM &bull; SUBURBAN TOWER',
-                    contactAvatar: 'sniper',
-                    messages: [
-                        { side: 'system', text: '+48 HOURS POST-IMPACT // SUBURBAN SECTOR' },
-                        { side: 'incoming', sender: 'SAREL', time: '06:14', text: 'G, analog walkie channels are flooded and nobody outside military units carries encrypted DMR rigs. Use this burner thread sparingly—they triangulate long calls.' },
-                        { side: 'outgoing', sender: 'G', time: '06:15', text: 'Understood. Vektor LM4 is loaded and the bakkie is fueled. Stepping out of the compound now to clear the avenue.' },
-                        { side: 'incoming', sender: 'SAREL', time: '06:15', text: 'Watch your magazine discipline—tossing a half-full mag forfeits every round still inside it. Clear the block first, then push north-east to the shopping strip.' }
-                    ]
-                });
-            }
-
-            function initCBDMissions() {
-                mission = {
-                    campaign: 'cbd',
-                    stage: 1,
-                    targetX: 1850,
-                    targetY: 2450,
-                    stage2Spawned: false,
-                    stage3Spawned: false,
-                    bossSpawned: false
-                };
-
-                const stage1Coords = [
-                    [1800, 2430], [1900, 2470], [1840, 2380], [1920, 2410]
-                ];
-                for (let i = 0; i < stage1Coords.length; i++) {
-                    enemies.push(new Enemy(stage1Coords[i][0], stage1Coords[i][1], i < 2 ? 'looter' : 'syndicate'));
-                }
-
-                for (let i = 0; i < 44; i++) {
-                    let ex = 0;
-                    let ey = 0;
-                    do {
-                        ex = Math2.rand(250, WORLD_SIZE - 250);
-                        ey = Math2.rand(250, WORLD_SIZE - 250);
-                    } while (pointInsideBuilding(ex, ey) || Math2.dist(ex, ey, 1850, 2920) < 950);
-
-                    const roll = Math.random();
-                    if (roll < 0.3) {
-                        enemies.push(new Enemy(ex, ey, 'looter'));
-                    } else if (roll < 0.68) {
-                        enemies.push(new Enemy(ex, ey, 'syndicate'));
-                        if (Math.random() < 0.45) {
-                            enemies.push(new Enemy(ex + 22, ey + 18, 'dog'));
-                        }
-                    } else {
-                        enemies.push(new Enemy(ex, ey, 'security'));
-                    }
-                }
-
-                updateMissionUI();
-
-                phoneCutscene.start({
-                    clock: '14:20 PM',
-                    opsec: 'OPSEC WARNING: CELLULAR RELAY UNENCRYPTED',
-                    contactName: 'KABELO // ROOFTOP SPOTTER',
-                    contactSub: 'BURNER SMS &bull; BREE ST SECTOR',
-                    contactAvatar: 'male',
-                    messages: [
-                        { side: 'system', text: 'DAY 1 AFTERNOON // JOHANNESBURG CBD' },
-                        { side: 'incoming', sender: 'KABELO', time: '14:19', text: 'Blaze, cellular towers downtown are running on generator backup—Syndicate scanners are sniffing SMS traffic, so keep moving.' },
-                        { side: 'outgoing', sender: 'BLAZE', time: '14:20', text: 'Pressure gauge on the portable flamethrower is green. Stepping out of Bree Street Taxi Rank now.' },
-                        { side: 'incoming', sender: 'KABELO', time: '14:20', text: 'Syndicate crews blockaded the avenue straight north of you. Burn through their roadblock and push east toward Central Arcade.' }
-                    ]
-                });
-            }
-
-            function initSniperMissions() {
-                mission = {
-                    campaign: 'sniper',
-                    stage: 1,
-                    targetX: 1450,
-                    targetY: 2365,
-                    stage2Spawned: false,
-                    stage3Spawned: false,
-                    bossSpawned: false
-                };
-
-                const railTargets = [
-                    [1280, 2365], [1420, 2435], [1560, 2295], [1640, 2435], [1490, 2365]
-                ];
-                for (let i = 0; i < railTargets.length; i++) {
-                    enemies.push(new Enemy(railTargets[i][0], railTargets[i][1], i % 2 === 0 ? 'syndicate' : 'looter'));
-                }
-
-                for (let i = 0; i < 40; i++) {
-                    let ex = 0;
-                    let ey = 0;
-                    do {
-                        ex = Math2.rand(250, WORLD_SIZE - 250);
-                        ey = Math2.rand(250, WORLD_SIZE - 250);
-                    } while (pointInsideBuilding(ex, ey) || Math2.dist(ex, ey, 920, 2660) < 950);
-
-                    const roll = Math.random();
-                    if (roll < 0.32) {
-                        enemies.push(new Enemy(ex, ey, 'looter'));
-                    } else if (roll < 0.7) {
-                        enemies.push(new Enemy(ex, ey, 'syndicate'));
-                        if (Math.random() < 0.4) {
-                            enemies.push(new Enemy(ex + 24, ey + 18, 'dog'));
-                        }
-                    } else {
-                        enemies.push(new Enemy(ex, ey, 'security'));
-                    }
-                }
-
-                updateMissionUI();
-
-                phoneCutscene.start({
-                    clock: '17:45 PM',
-                    opsec: 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED',
-                    contactName: 'DAVID // EXFIL OPS',
-                    contactSub: 'BURNER SIM &bull; INDUSTRIAL FREIGHT BELT',
-                    contactAvatar: 'mall',
-                    messages: [
-                        { side: 'system', text: 'DAY 1 DUSK // SOUTH FREIGHT RAIL YARD' },
-                        { side: 'incoming', sender: 'DAVID', time: '17:44', text: 'Uncle, since nobody had encrypted DMR radios pre-issued before the grid fell, we are stuck using burner phones. Keep your screen dim.' },
-                        { side: 'outgoing', sender: 'THE UNCLE', time: '17:45', text: 'In position on the Signal Overwatch nest. Ruger M77 bolt-action is zeroed and my iPods are queued up.' },
-                        { side: 'incoming', sender: 'DAVID', time: '17:45', text: 'Syndicate lookouts are spotting the freight lines below you. Use [Right-Click] to pan your scope and punch armor-piercing rounds through them.' }
-                    ]
-                });
-            }
-
-            function updateMissionDirector() {
-                if (!mission || !player) return;
-
-                if (mission.campaign === 'training') {
-                    if (mission.stage === 1) {
-                        let bridgeAdults = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 2200, 2150) < 420) {
-                                bridgeAdults++;
-                            }
-                        }
-                        const d = Math2.dist(player.x, player.y, mission.targetX, mission.targetY);
-                        document.getElementById('missionProgress').innerText = bridgeAdults > 0
-                            ? `CREEK BRIDGE ADULTS: ${bridgeAdults}`
-                            : `CROSS TIMBER BRIDGE (${Math.round(d / 10)}m)`;
-
-                        if (bridgeAdults === 0 && d < 220) {
-                            mission.stage = 2;
-                            mission.targetX = 2880;
-                            mission.targetY = 1470;
-                            if (!mission.stage2Spawned) {
-                                mission.stage2Spawned = true;
-                                enemies.push(new Enemy(2780, 1450, 'airsoft_adult'));
-                                enemies.push(new Enemy(2940, 1490, 'airsoft_adult'));
-                                enemies.push(new Enemy(3040, 1410, 'airsoft_adult'));
-                            }
-                            updateMissionUI();
-                            phoneCutscene.start({
-                                clock: '09:42 AM',
-                                isTraining: true,
-                                opsec: 'TIMBER BRIDGE SECURED // PUSHING TO SANDBAG RIDGE',
-                                contactName: 'YOUNGER G & YOUNGER BLAZE',
-                                contactSub: 'YOUTH SQUAD GROUP CHAT // PINE RIDGE FIELD',
-                                contactAvatar: 'young_blaze',
-                                messages: [
-                                    { side: 'incoming', sender: 'YOUNGER BLAZE', time: '09:42', text: 'Nice push across the creek! We tagged out their forward scouts. The rest of the grown-ups fell back behind the Sandbag Ridge up the hill.' },
-                                    { side: 'outgoing', sender: 'YOUNGER YAEL', time: '09:42', text: 'Grabbed the spare M4 AEG from the bridge crate. Advancing up the ridge with you two now!' }
-                                ]
-                            });
-                        }
-                    } else if (mission.stage === 2) {
-                        let ridgeAdults = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 2880, 1470) < 420) {
-                                ridgeAdults++;
-                            }
-                        }
-                        const d = Math2.dist(player.x, player.y, mission.targetX, mission.targetY);
-                        document.getElementById('missionProgress').innerText = ridgeAdults > 0
-                            ? `SANDBAG RIDGE DEFENDERS: ${ridgeAdults}`
-                            : `BREACH SANDBAG RIDGE (${Math.round(d / 10)}m)`;
-
-                        if (ridgeAdults === 0 && d < 220) {
-                            mission.stage = 3;
-                            mission.targetX = 3540;
-                            mission.targetY = 1040;
-                            if (!mission.bossSpawned) {
-                                mission.bossSpawned = true;
-                                enemies.push(new Enemy(3540, 1020, 'airsoft_adult', true));
-                                enemies.push(new Enemy(3420, 1060, 'airsoft_adult'));
-                                enemies.push(new Enemy(3650, 1060, 'airsoft_adult'));
-                                enemies.push(new Enemy(3490, 1130, 'airsoft_adult'));
-                            }
-                            updateMissionUI();
-                            phoneCutscene.start({
-                                clock: '09:55 AM',
-                                isTraining: true,
-                                opsec: 'FINAL OBJECTIVE // ADULT MILSIM HQ FLAG',
-                                contactName: 'YOUNGER G & YOUNGER BLAZE',
-                                contactSub: 'YOUTH SQUAD GROUP CHAT // PINE RIDGE FIELD',
-                                contactAvatar: 'young_g',
-                                messages: [
-                                    { side: 'incoming', sender: 'YOUNGER G', time: '09:55', text: 'Their HQ camp and flag are just through the north-east pines! Their squad captain is holding the sandbags with a heavy support AEG.' },
-                                    { side: 'incoming', sender: 'YOUNGER BLAZE', time: '09:55', text: 'Suppressing on your mark—tag them out and touch their flag to win the match!' }
-                                ]
-                            });
-                        }
-                    } else if (mission.stage === 3) {
-                        let hqAdults = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 3540, 1040) < 460) {
-                                hqAdults++;
-                            }
-                        }
-                        const d = Math2.dist(player.x, player.y, mission.targetX, mission.targetY);
-                        document.getElementById('missionProgress').innerText = hqAdults > 0
-                            ? `ADULT HQ DEFENDERS: ${hqAdults}`
-                            : `CAPTURE BASE FLAG (${Math.round(d / 10)}m)`;
-
-                        if (hqAdults === 0 && d < 175) {
-                            triggerGameOver(true);
-                        }
-                    }
-                    return;
-                }
-
-                if (mission.campaign === 'mall') {
-                    if (mission.stage === 1) {
-                        const d = Math2.dist(player.x, player.y, mission.targetX, mission.targetY);
-                        document.getElementById('missionProgress').innerText = `REACH SOUTH CONCOURSE (${Math.round(d / 10)}m)`;
-                        if (d < 170) {
-                            mission.stage = 2;
-                            mission.targetX = 2050;
-                            mission.targetY = 2000;
-                            if (!mission.stage2Spawned) {
-                                mission.stage2Spawned = true;
-                                enemies.push(new Enemy(1920, 1980, 'looter'));
-                                enemies.push(new Enemy(2080, 2040, 'looter'));
-                                enemies.push(new Enemy(2160, 1940, 'looter'));
-                                enemies.push(new Enemy(2000, 2120, 'unarmed_looter'));
-                                enemies.push(new Enemy(2140, 2100, 'unarmed_looter'));
-                            }
-                            updateMissionUI();
-                            phoneCutscene.start({
-                                clock: '07:09 AM',
-                                opsec: 'OPSEC WARNING: TOWER HANDOFF DETECTED',
-                                contactName: 'DAVID // EXFIL OPS',
-                                contactSub: 'BURNER SIM &bull; CENTRAL ATRIUM',
-                                contactAvatar: 'male',
-                                messages: [
-                                    { side: 'incoming', sender: 'DAVID', time: '07:09', text: 'You made it out of the discount shop. Watch the Central Atrium Food Court ahead—yellow-shirt spotters are calling out lone shoppers to armed looters.' },
-                                    { side: 'outgoing', sender: 'YAEL', time: '07:09', text: 'Copy. Checking my spare mags—only a few left.' },
-                                    { side: 'incoming', sender: 'DAVID', time: '07:09', text: 'If gunfire breaks out, switch off your white light [F], use Thermal/NVG [V] to track them silently, and slip away from your Last Known Position.' }
-                                ]
-                            });
-                        }
-                    } else if (mission.stage === 2) {
-                        let atriumArmed = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && !e.isUnarmed && e.panicState === 'normal' && Math2.dist(e.x, e.y, 2050, 2000) < 420) {
-                                atriumArmed++;
-                            }
-                        }
-                        const d = Math2.dist(player.x, player.y, mission.targetX, mission.targetY);
-                        document.getElementById('missionProgress').innerText = atriumArmed > 0
-                            ? `ATRIUM GUNMEN ACTIVE: ${atriumArmed}`
-                            : `MOVE INTO ATRIUM CENTER (${Math.round(d / 10)}m)`;
-
-                        if (atriumArmed === 0 && d < 220) {
-                            mission.stage = 3;
-                            mission.targetX = 3380;
-                            mission.targetY = 2050;
-                            if (!mission.stage3Spawned) {
-                                mission.stage3Spawned = true;
-                                enemies.push(new Enemy(3240, 1980, 'looter'));
-                                enemies.push(new Enemy(3340, 2120, 'looter'));
-                                enemies.push(new Enemy(3440, 2040, 'blockade_goon'));
-                            }
-                            updateMissionUI();
-                            phoneCutscene.start({
-                                clock: '07:16 AM',
-                                opsec: 'OPSEC WARNING: LOCAL CELL TRAFFIC SPIKE',
-                                contactName: 'DAVID // EXFIL OPS',
-                                contactSub: 'BURNER SIM &bull; EAST CONCOURSE',
-                                contactAvatar: 'male',
-                                messages: [
-                                    { side: 'incoming', sender: 'DAVID', time: '07:16', text: 'Police radio bands are jammed near the East Mall Entrance. Heavily armed AK-47 goons with idling minibus taxis are holding the outer road so SAPS cannot breach.' },
-                                    { side: 'outgoing', sender: 'YAEL', time: '07:16', text: 'Heading toward the East Entrance doors now. Will check the Security Office if I need 120gr +P JHP hollow points or heavier gear.' }
-                                ]
-                            });
-                        }
-                    } else if (mission.stage === 3) {
-                        const d = Math2.dist(player.x, player.y, mission.targetX, mission.targetY);
-                        document.getElementById('missionProgress').innerText = `EAST ENTRANCE DOORS (${Math.round(d / 10)}m)`;
-                        if (d < 190) {
-                            mission.stage = 4;
-                            mission.targetX = 3980;
-                            mission.targetY = 2050;
-                            updateMissionUI();
-                            showPhoneMessage(
-                                'PHONE // DAVID (EXFIL OPS)',
-                                '07:22 AM',
-                                'You are at the doors! Neutralize the Kalashnikov goons guarding the taxis and reach the police perimeter checkpoint!'
-                            );
-                        }
-                    } else if (mission.stage === 4) {
-                        let goonsLeft = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && e.faction === 'blockade_goon') {
-                                goonsLeft++;
-                            }
-                        }
-                        const d = Math2.dist(player.x, player.y, mission.targetX, mission.targetY);
-                        document.getElementById('missionProgress').innerText = goonsLeft > 0
-                            ? `AK-47 BLOCKADE GOONS: ${goonsLeft}`
-                            : `REACH EXFIL CHECKPOINT (${Math.round(d / 10)}m)`;
-
-                        if (goonsLeft === 0 && d < 180) {
-                            triggerGameOver(true);
-                        }
-                    }
-                    return;
-                }
-
-                if (mission.campaign === 'sniper') {
-                    if (mission.stage === 1) {
-                        let railSpotters = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 1450, 2365) < 420) {
-                                railSpotters++;
-                            }
-                        }
-                        document.getElementById('missionProgress').innerText = `RAIL YARD SPOTTERS IN SIGHTS: ${railSpotters}`;
-
-                        if (railSpotters === 0) {
-                            mission.stage = 2;
-                            mission.targetX = 2850;
-                            mission.targetY = 1250;
-                            if (!mission.stage2Spawned) {
-                                mission.stage2Spawned = true;
-                                enemies.push(new Enemy(2710, 1290, 'syndicate'));
-                                enemies.push(new Enemy(2850, 1310, 'syndicate'));
-                                enemies.push(new Enemy(2980, 1290, 'looter'));
-                                enemies.push(new Enemy(2810, 1380, 'dog'));
-                            }
-                            updateMissionUI();
-                            phoneCutscene.start({
-                                clock: '18:02 PM',
-                                opsec: 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED',
-                                contactName: 'DAVID // EXFIL OPS',
-                                contactSub: 'BURNER SIM &bull; CONTAINER YARD',
-                                contactAvatar: 'mall',
-                                messages: [
-                                    { side: 'incoming', sender: 'DAVID', time: '18:02', text: 'Rail tracks are clear. Syndicate runners moved their weapon crates into the Container Terminal north-east of your nest.' },
-                                    { side: 'outgoing', sender: 'THE UNCLE', time: '18:02', text: 'Moving down from the tower now. Will sweep the containers and grab that Tactical AR-15.' }
-                                ]
-                            });
-                        }
-                    } else if (mission.stage === 2) {
-                        let terminalHostiles = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 2850, 1250) < 420) {
-                                terminalHostiles++;
-                            }
-                        }
-                        const gotAR15 = WEAPONS.some((w) => w.id === 'ar15' && w.unlocked);
-                        document.getElementById('missionProgress').innerText = gotAR15
-                            ? `CLEAR CONTAINER TERMINAL (${terminalHostiles})`
-                            : `RECOVER AR-15 & CLEAR TERMINAL (${terminalHostiles})`;
-
-                        if (terminalHostiles === 0 && gotAR15) {
-                            mission.stage = 3;
-                            mission.targetX = 3050;
-                            mission.targetY = 3490;
-                            if (!mission.stage3Spawned) {
-                                mission.stage3Spawned = true;
-                                enemies.push(new Enemy(2920, 3500, 'security'));
-                                enemies.push(new Enemy(3050, 3530, 'security'));
-                                enemies.push(new Enemy(3180, 3500, 'security'));
-                                enemies.push(new Enemy(3100, 3570, 'security'));
-                            }
-                            showBanner('STAGE 3: BREACH REFINERY FUEL DEPOT', 2800);
-                            updateMissionUI();
-                        }
-                    } else if (mission.stage === 3) {
-                        let depotGuards = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 3050, 3490) < 430) {
-                                depotGuards++;
-                            }
-                        }
-                        const gotShotgun = WEAPONS.some((w) => w.id === 'shotgun' && w.unlocked);
-                        document.getElementById('missionProgress').innerText = gotShotgun
-                            ? `NEUTRALIZE REMAINING PMC UNITS (${depotGuards})`
-                            : `SECURE SHOTGUN & CLEAR DEPOT (${depotGuards})`;
-
-                        if (depotGuards === 0 && gotShotgun) {
-                            mission.stage = 4;
-                            mission.targetX = 1150;
-                            mission.targetY = 1230;
-                            if (!mission.bossSpawned) {
-                                mission.bossSpawned = true;
-                                enemies.push(new Enemy(1150, 1215, 'syndicate', true));
-                                enemies.push(new Enemy(1050, 1255, 'syndicate'));
-                                enemies.push(new Enemy(1240, 1255, 'syndicate'));
-                                enemies.push(new Enemy(1090, 1300, 'dog'));
-                                enemies.push(new Enemy(1200, 1300, 'dog'));
-                            }
-                            updateMissionUI();
-                            phoneCutscene.start({
-                                clock: '18:34 PM',
-                                opsec: 'OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED',
-                                contactName: 'DAVID // EXFIL OPS',
-                                contactSub: 'BURNER SIM &bull; MINE DUMP CITADEL',
-                                contactAvatar: 'mall',
-                                messages: [
-                                    { side: 'incoming', sender: 'DAVID', time: '18:34', text: 'Thermal drone caught the Syndicate Arms Broker retreating up the Mine Dump Citadel in the north-west with attack hounds.' },
-                                    { side: 'outgoing', sender: 'THE UNCLE', time: '18:34', text: 'Cycling a fresh 5-round clip into the Ruger. Ending this now.' }
-                                ]
-                            });
-                        }
-                    } else if (mission.stage === 4) {
-                        let bossAlive = false;
-                        let guardsLeft = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0) {
-                                if (e.isBoss) bossAlive = true;
-                                if (Math2.dist(e.x, e.y, 1150, 1230) < 440) guardsLeft++;
-                            }
-                        }
-                        document.getElementById('missionProgress').innerText = bossAlive
-                            ? `ARMS BROKER ACTIVE (${guardsLeft} ESCORTS)`
-                            : `CLEAR REMAINING ESCORTS (${guardsLeft})`;
-
-                        if (!bossAlive && guardsLeft === 0) {
-                            triggerGameOver(true);
-                        }
-                    }
-                    return;
-                }
-
-                if (mission.campaign === 'cbd') {
-                    if (mission.stage === 1) {
-                        let rankHostiles = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 1850, 2450) < 360) {
-                                rankHostiles++;
-                            }
-                        }
-                        document.getElementById('missionProgress').innerText = `TAXI RANK ROADBLOCK: ${rankHostiles}`;
-
-                        if (rankHostiles === 0) {
-                            mission.stage = 2;
-                            mission.targetX = 2910;
-                            mission.targetY = 2490;
-                            if (!mission.stage2Spawned) {
-                                mission.stage2Spawned = true;
-                                enemies.push(new Enemy(2790, 2490, 'syndicate'));
-                                enemies.push(new Enemy(2910, 2520, 'syndicate'));
-                                enemies.push(new Enemy(3030, 2490, 'looter'));
-                                enemies.push(new Enemy(2860, 2570, 'dog'));
-                            }
-                            updateMissionUI();
-                            phoneCutscene.start({
-                                clock: '14:38 PM',
-                                opsec: 'OPSEC WARNING: CELLULAR RELAY UNENCRYPTED',
-                                contactName: 'KABELO // ROOFTOP SPOTTER',
-                                contactSub: 'BURNER SMS &bull; CENTRAL ARCADE',
-                                contactAvatar: 'male',
-                                messages: [
-                                    { side: 'incoming', sender: 'KABELO', time: '14:38', text: 'Bree Street intersection is clear! Syndicate gunmen fell back into Central Arcade Plaza to the east.' },
-                                    { side: 'outgoing', sender: 'BLAZE', time: '14:38', text: 'On my way. Keep an eye out for spare fuel canisters on the corners.' }
-                                ]
-                            });
-                        }
-                    } else if (mission.stage === 2) {
-                        let arcadeHostiles = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 2910, 2490) < 380) {
-                                arcadeHostiles++;
-                            }
-                        }
-                        const gotShotgun = WEAPONS.some((w) => w.id === 'shotgun' && w.unlocked);
-                        document.getElementById('missionProgress').innerText = gotShotgun
-                            ? `CLEAR ARCADE DEFENDERS (${arcadeHostiles})`
-                            : `CLAIM SHOTGUN & CLEAR ARCADE (${arcadeHostiles})`;
-
-                        if (arcadeHostiles === 0 && gotShotgun) {
-                            mission.stage = 3;
-                            mission.targetX = 2910;
-                            mission.targetY = 1070;
-                            if (!mission.stage3Spawned) {
-                                mission.stage3Spawned = true;
-                                enemies.push(new Enemy(2780, 1080, 'security'));
-                                enemies.push(new Enemy(2910, 1110, 'security'));
-                                enemies.push(new Enemy(3040, 1080, 'security'));
-                                enemies.push(new Enemy(2960, 1160, 'security'));
-                            }
-                            showBanner('STAGE 3: BREACH RESERVE BANK PRECINCT', 2800);
-                            updateMissionUI();
-                        }
-                    } else if (mission.stage === 3) {
-                        let bankGuards = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0 && Math2.dist(e.x, e.y, 2910, 1070) < 380) {
-                                bankGuards++;
-                            }
-                        }
-                        const gotAR15 = WEAPONS.some((w) => w.id === 'ar15' && w.unlocked);
-                        document.getElementById('missionProgress').innerText = gotAR15
-                            ? `NEUTRALIZE REMAINING PMC UNITS (${bankGuards})`
-                            : `RECOVER AR-15 & CLEAR PRECINCT (${bankGuards})`;
-
-                        if (bankGuards === 0 && gotAR15) {
-                            mission.stage = 4;
-                            mission.targetX = 780;
-                            mission.targetY = 1070;
-                            if (!mission.bossSpawned) {
-                                mission.bossSpawned = true;
-                                enemies.push(new Enemy(780, 1060, 'syndicate', true));
-                                enemies.push(new Enemy(690, 1090, 'syndicate'));
-                                enemies.push(new Enemy(870, 1090, 'syndicate'));
-                                enemies.push(new Enemy(720, 1140, 'dog'));
-                                enemies.push(new Enemy(840, 1140, 'dog'));
-                            }
-                            updateMissionUI();
-                            phoneCutscene.start({
-                                clock: '15:10 PM',
-                                opsec: 'OPSEC WARNING: CELLULAR RELAY UNENCRYPTED',
-                                contactName: 'KABELO // ROOFTOP SPOTTER',
-                                contactSub: 'BURNER SMS &bull; CARLTON TOWER PLAZA',
-                                contactAvatar: 'male',
-                                messages: [
-                                    { side: 'incoming', sender: 'KABELO', time: '15:10', text: 'Reserve Bank is yours! Only Carlton Tower Plaza in the north-west remains—the CBD Kingpin is holed up there with his attack dogs.' },
-                                    { side: 'outgoing', sender: 'BLAZE', time: '15:10', text: 'Rolling west now. Time to burn them out.' }
-                                ]
-                            });
-                        }
-                    } else if (mission.stage === 4) {
-                        let bossAlive = false;
-                        let guardsLeft = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp > 0) {
-                                if (e.isBoss) bossAlive = true;
-                                if (Math2.dist(e.x, e.y, 780, 1070) < 400) guardsLeft++;
-                            }
-                        }
-                        document.getElementById('missionProgress').innerText = bossAlive
-                            ? `CBD KINGPIN ACTIVE (${guardsLeft} ESCORTS)`
-                            : `CLEAR REMAINING ESCORTS (${guardsLeft})`;
-
-                        if (!bossAlive && guardsLeft === 0) {
-                            triggerGameOver(true);
-                        }
-                    }
-                    return;
-                }
-
-                // Chapter 4: The Suburbs (Protagonist: G)
-                if (mission.stage === 1) {
-                    let nearbyLooters = 0;
-                    for (let i = 0; i < enemies.length; i++) {
-                        const e = enemies[i];
-                        if (e.hp > 0 && Math2.dist(e.x, e.y, 2100, 2540) < 340) {
-                            nearbyLooters++;
-                        }
-                    }
-                    document.getElementById('missionProgress').innerText = `LOOTERS ON THE BLOCK: ${nearbyLooters}`;
-
-                    if (nearbyLooters === 0) {
-                        mission.stage = 2;
-                        mission.targetX = 2970;
-                        mission.targetY = 1640;
-                        if (!mission.stage2Spawned) {
-                            mission.stage2Spawned = true;
-                            enemies.push(new Enemy(2860, 1650, 'looter'));
-                            enemies.push(new Enemy(2970, 1680, 'syndicate'));
-                            enemies.push(new Enemy(3080, 1650, 'looter'));
-                            enemies.push(new Enemy(2930, 1730, 'dog'));
-                        }
-                        updateMissionUI();
-                        phoneCutscene.start({
-                            clock: '06:32 AM',
-                            opsec: 'OPSEC WARNING: CELLULAR DATA INTERCEPTABLE',
-                            contactName: 'SAREL // SECTOR RELAY',
-                            contactSub: 'PREPAID SIM &bull; COMMERCIAL STRIP',
-                            contactAvatar: 'sniper',
-                            messages: [
-                                { side: 'incoming', sender: 'SAREL', time: '06:32', text: 'Block is quiet, G. Syndicate scavengers just breached the Stripped Shopping Centre to the north-east.' },
-                                { side: 'outgoing', sender: 'G', time: '06:32', text: 'Copy. Moving north-east to secure the strip and recover that Pump Shotgun.' }
-                            ]
-                        });
-                    }
-                } else if (mission.stage === 2) {
-                    let mallHostiles = 0;
-                    for (let i = 0; i < enemies.length; i++) {
-                        const e = enemies[i];
-                        if (e.hp > 0 && Math2.dist(e.x, e.y, 2970, 1640) < 350) {
-                            mallHostiles++;
-                        }
-                    }
-                    const gotShotgun = WEAPONS.some((w) => w.id === 'shotgun' && w.unlocked);
-                    document.getElementById('missionProgress').innerText = gotShotgun
-                        ? `CLEAR REMAINING HOSTILES (${mallHostiles})`
-                        : `RECOVER PUMP SHOTGUN & CLEAR HOSTILES (${mallHostiles})`;
-
-                    if (mallHostiles === 0 && gotShotgun) {
-                        mission.stage = 3;
-                        mission.targetX = 2990;
-                        mission.targetY = 3410;
-                        if (!mission.stage3Spawned) {
-                            mission.stage3Spawned = true;
-                            enemies.push(new Enemy(2860, 3420, 'security'));
-                            enemies.push(new Enemy(2990, 3450, 'security'));
-                            enemies.push(new Enemy(3120, 3420, 'security'));
-                            enemies.push(new Enemy(3040, 3500, 'security'));
-                        }
-                        showBanner('STAGE 3: BREACH PRIVATE SECURITY FOB FOR AR-15', 2800);
-                        updateMissionUI();
-                    }
-                } else if (mission.stage === 3) {
-                    let fobGuards = 0;
-                    for (let i = 0; i < enemies.length; i++) {
-                        const e = enemies[i];
-                        if (e.hp > 0 && Math2.dist(e.x, e.y, 2990, 3410) < 360) {
-                            fobGuards++;
-                        }
-                    }
-                    const gotAR15 = WEAPONS.some((w) => w.id === 'ar15' && w.unlocked);
-                    document.getElementById('missionProgress').innerText = gotAR15
-                        ? `NEUTRALIZE REMAINING PMC GUARDS (${fobGuards})`
-                        : `SECURE TACTICAL AR-15 & CLEAR FOB (${fobGuards})`;
-
-                    if (fobGuards === 0 && gotAR15) {
-                        mission.stage = 4;
-                        mission.targetX = 820;
-                        mission.targetY = 950;
-                        if (!mission.bossSpawned) {
-                            mission.bossSpawned = true;
-                            enemies.push(new Enemy(820, 940, 'syndicate', true));
-                            enemies.push(new Enemy(740, 960, 'syndicate'));
-                            enemies.push(new Enemy(900, 960, 'syndicate'));
-                            enemies.push(new Enemy(770, 1010, 'dog'));
-                            enemies.push(new Enemy(870, 1010, 'dog'));
-                        }
-                        updateMissionUI();
-                        phoneCutscene.start({
-                            clock: '07:05 AM',
-                            opsec: 'OPSEC WARNING: CELLULAR DATA INTERCEPTABLE',
-                            contactName: 'SAREL // SECTOR RELAY',
-                            contactSub: 'PREPAID SIM &bull; SUBSTATION #4',
-                            contactAvatar: 'sniper',
-                            messages: [
-                                { side: 'incoming', sender: 'SAREL', time: '07:05', text: 'FOB breached! Substation #4 in the north-west is the last relay keeping our neighborhood grid dark. A Syndicate Warlord is holding the courtyard.' },
-                                { side: 'outgoing', sender: 'G', time: '07:05', text: 'Taking the Nyala north-west now. Going dark on cellular until the substation is ours.' }
-                            ]
-                        });
-                    }
-                } else if (mission.stage === 4) {
-                    let bossAlive = false;
-                    let guardsLeft = 0;
-                    for (let i = 0; i < enemies.length; i++) {
-                        const e = enemies[i];
-                        if (e.hp > 0) {
-                            if (e.isBoss) bossAlive = true;
-                            if (Math2.dist(e.x, e.y, 820, 950) < 380) guardsLeft++;
-                        }
-                    }
-                    document.getElementById('missionProgress').innerText = bossAlive
-                        ? `SYNDICATE WARLORD ACTIVE (${guardsLeft} ESCORTS)`
-                        : `CLEAR REMAINING ESCORTS (${guardsLeft})`;
-
-                    if (!bossAlive && guardsLeft === 0) {
-                        triggerGameOver(true);
-                    }
-                }
-            }
-
-            function updateMissionUI() {
-                if (!mission) return;
-                const phaseEl = document.getElementById('missionPhase');
-                const titleEl = document.getElementById('missionTitle');
-                const descEl = document.getElementById('missionDesc');
-
-                if (mission.campaign === 'training') {
-                    if (mission.stage === 1) {
-                        phaseEl.innerText = 'TRAINING 1 / 3 — PINE WOODLAND CREEK';
-                        titleEl.innerText = 'Advance to the Timber Creek Bridge';
-                        descEl.innerText = 'Team up with Younger G and Younger Blaze. Use pine trunks and pallet bunkers for cover against the grown-up MilSim adults, and grab the M4 AEG at the bridge.';
-                    } else if (mission.stage === 2) {
-                        phaseEl.innerText = 'TRAINING 2 / 3 — SANDBAG RIDGE';
-                        titleEl.innerText = 'Flank the Grown-Ups on Sandbag Ridge';
-                        descEl.innerText = 'Push up the wooded hill past the creek and tag out the grown-up adult defenders holding the sandbag emplacements.';
-                    } else if (mission.stage === 3) {
-                        phaseEl.innerText = 'TRAINING 3 / 3 — ADULT MILSIM HQ';
-                        titleEl.innerText = 'Capture the Adults\' Base Flag';
-                        descEl.innerText = 'Tag out the grown-up squad captain and his defenders in the north-east clearing, then touch their HQ flag to win the skirmish!';
-                    }
-                    return;
-                }
-
-                if (mission.campaign === 'mall') {
-                    if (mission.stage === 1) {
-                        phaseEl.innerText = 'STAGE 1 / 4 — GOLDEN DRAGON SHOP (07:00 AM)';
-                        titleEl.innerText = 'Escape the Dark Discount Shop';
-                        descEl.innerText = 'Kill white light [F] to sneak or use NVG/Thermal [V] + invisible IR laser. Find 120gr +P JHP stashes [B] for higher stopping power. Reloading forfeits unspent rounds.';
-                    } else if (mission.stage === 2) {
-                        phaseEl.innerText = 'STAGE 2 / 4 — CENTRAL ATRIUM FOOD COURT';
-                        titleEl.innerText = 'Break Through the Looter Crowd';
-                        descEl.innerText = 'Cross the Central Atrium. Watch for yellow-shirt looter spotters raising the alarm—relocate in the dark to break their Last Known Position.';
-                    } else if (mission.stage === 3) {
-                        phaseEl.innerText = 'STAGE 3 / 4 — EAST ENTRANCE CONCOURSE';
-                        titleEl.innerText = 'Push to the East Mall Doors';
-                        descEl.innerText = 'Fight east toward the main entrance doors. Check the Security Office for a 120gr +P JHP stash and shotgun.';
-                    } else if (mission.stage === 4) {
-                        phaseEl.innerText = 'STAGE 4 / 4 — TAXI RANK BLOCKADE';
-                        titleEl.innerText = 'Clear the AK-47 Goons & Exfil';
-                        descEl.innerText = 'Hardened goons with Kalashnikov rifles are posted around idling taxis keeping SAPS back. Eliminate them and reach the police perimeter checkpoint!';
-                    }
-                    return;
-                }
-
-                if (mission.campaign === 'sniper') {
-                    if (mission.stage === 1) {
-                        phaseEl.innerText = 'STAGE 1 / 4 — SOUTH RAIL OVERWATCH';
-                        titleEl.innerText = 'Snipe the Freight Yard Lookouts';
-                        descEl.innerText = 'Hold [Right-Click] to pan your Ruger M77 scope downrange, line up collateral armor-piercing shots, and clear the Syndicate spotters along the rail tracks.';
-                    } else if (mission.stage === 2) {
-                        phaseEl.innerText = 'STAGE 2 / 4 — CONTAINER TERMINAL';
-                        titleEl.innerText = 'Infiltrate the Container Maze';
-                        descEl.innerText = 'Push north-east across the rail lines into the shipping container yard, eliminate the Syndicate riflemen, and recover the Tactical AR-15.';
-                    } else if (mission.stage === 3) {
-                        phaseEl.innerText = 'STAGE 3 / 4 — REFINERY FUEL DEPOT';
-                        titleEl.innerText = 'Break the PMC Refinery Perimeter';
-                        descEl.innerText = 'Rogue PMC contractors have locked down the south-east fuel silos. Pick them off from distance, claim the Pump Shotgun, and seize their armored Nyala.';
-                    } else if (mission.stage === 4) {
-                        phaseEl.innerText = 'STAGE 4 / 4 — MINE DUMP CITADEL';
-                        titleEl.innerText = 'Eliminate the Syndicate Arms Broker';
-                        descEl.innerText = 'The Syndicate Arms Broker and his attack dogs are entrenched on the north-west tailings ridge. Take him out to shut down the contraband pipeline.';
-                    }
-                    return;
-                }
-
-                if (mission.campaign === 'cbd') {
-                    if (mission.stage === 1) {
-                        phaseEl.innerText = 'STAGE 1 / 4 — BREE STREET TAXI RANK';
-                        titleEl.innerText = 'Torch the Inner-City Roadblock';
-                        descEl.innerText = 'Step out of the Bree Street Taxi Rank with your Portable Flamethrower and clear the Syndicate ambush blocking the avenue north.';
-                    } else if (mission.stage === 2) {
-                        phaseEl.innerText = 'STAGE 2 / 4 — CENTRAL ARCADE PLAZA';
-                        titleEl.innerText = 'Burn Through Central Arcade';
-                        descEl.innerText = 'Fight east into Central Arcade Plaza, incinerate the Syndicate defenders, and grab the Pump Shotgun and spare fuel.';
-                    } else if (mission.stage === 3) {
-                        phaseEl.innerText = 'STAGE 3 / 4 — RESERVE BANK PRECINCT';
-                        titleEl.innerText = 'Breach the PMC Bank Perimeter';
-                        descEl.innerText = 'Heavily armed Private Security units are holding the Reserve Bank block. Break their cordon, claim the Tactical AR-15, and hijack their armored Nyala.';
-                    } else if (mission.stage === 4) {
-                        phaseEl.innerText = 'STAGE 4 / 4 — CARLTON TOWER PLAZA';
-                        titleEl.innerText = 'Eliminate the CBD Kingpin';
-                        descEl.innerText = 'The Syndicate Kingpin and his attack hounds have fortified Carlton Tower Plaza in the north-west. Burn them out to take back downtown.';
-                    }
-                    return;
-                }
-
-                if (mission.stage === 1) {
-                    phaseEl.innerText = 'STAGE 1 / 4 — SUBURBAN PERIMETER';
-                    titleEl.innerText = 'Clear the Immediate Block';
-                    descEl.innerText = 'Grab the spare ammo and medkit in your compound, then clear the looters down the avenue with your Vektor LM4 before rolling out.';
-                } else if (mission.stage === 2) {
-                    phaseEl.innerText = 'STAGE 2 / 4 — COMMERCIAL STRIP';
-                    titleEl.innerText = 'Raid the Stripped Shopping Centre';
-                    descEl.innerText = 'Move north-east to the looted shopping centre, eliminate the hostiles, and recover the Pump Shotgun.';
-                } else if (mission.stage === 3) {
-                    phaseEl.innerText = 'STAGE 3 / 4 — SECURITY CHECKPOINT';
-                    titleEl.innerText = 'Breach the Private Security FOB';
-                    descEl.innerText = 'Rogue PMC contractors have locked down the south-east compound. Neutralize them to secure the Tactical AR-15 and armored Nyala.';
-                } else if (mission.stage === 4) {
-                    phaseEl.innerText = 'STAGE 4 / 4 — POWER GRID RESTORATION';
-                    titleEl.innerText = 'Eliminate the Syndicate Warlord';
-                    descEl.innerText = 'Assault Substation #4 in the north-west, take down the Syndicate Warlord and his attack dogs, and restore local power.';
-                }
-            }
-
-            // ============================================================================
-            // HUD & PHYSICAL ROUND / MAGAZINE RENDERING (TOP-LEFT UNDER PORTRAIT)
-            // ============================================================================
-            // Replacing identical innerHTML every animation frame destroys/recreates dozens
-            // of elements and listeners. The cache is per DOM node and reset by the DOM itself.
-            const hudHTMLCache = new WeakMap();
-            function setHudHTML(element, markup) {
-                if (!element || hudHTMLCache.get(element) === markup) return false;
-                element.innerHTML = markup;
-                hudHTMLCache.set(element, markup);
-                return true;
-            }
-            function setHudText(element, value) {
-                const text = String(value);
-                if (element.textContent !== text) element.textContent = text;
-            }
-            function setHudWidth(element, value) {
-                if (element.style.width !== value) element.style.width = value;
-            }
-
-            function updateHUD() {
-                if (!player) return;
-                const isTraining = mission && mission.campaign === 'training';
-                setHudText(document.getElementById('hpLabelText'), isTraining ? 'IN-PLAY' : 'HEALTH');
-                setHudText(document.getElementById('armorLabelText'), isTraining ? 'VEST PAD' : 'ARMOR');
-
-                setHudText(document.getElementById('hpVal'), Math.ceil(player.hp));
-                setHudWidth(document.getElementById('hpBar'), `${player.hp}%`);
-                setHudText(document.getElementById('armorVal'), Math.ceil(player.armor));
-                setHudWidth(document.getElementById('armorBar'), `${player.armor}%`);
-                setHudText(document.getElementById('stamVal'), Math.ceil(player.stamina));
-                setHudWidth(document.getElementById('stamBar'), `${player.stamina}%`);
-
-                // Optics Mode Status
-                const opticsEl = document.getElementById('opticsStatus');
-                if (opticsEl) {
-                    if (player.opticsMode === 'nvg') {
-                        setHudText(opticsEl, 'OPTICS [V]: NVG + IR LASER');
-                        opticsEl.style.color = '#4ade80';
-                    } else if (player.opticsMode === 'thermal') {
-                        setHudText(opticsEl, 'OPTICS [V]: THERMAL + IR LASER');
-                        opticsEl.style.color = '#fb923c';
-                    } else {
-                        setHudText(opticsEl, 'OPTICS [V]: STANDARD');
-                        opticsEl.style.color = '#94a3b8';
-                    }
-                }
-
-                // Update Stealth / Squad Signature Indicator
-                const stealthEl = document.getElementById('stealthStatus');
-                if (stealthEl) {
-                    if (isTraining) {
-                        const activeAllies = allies.filter((a) => !a.isOut).length;
-                        setHudText(stealthEl, `SQUAD ACTIVE: ${1 + activeAllies} / 3 (YAEL, G, BLAZE)`);
-                        stealthEl.style.color = '#4ade80';
-                    } else {
-                        let searchingCount = 0;
-                        let spottedCount = 0;
-                        for (let i = 0; i < enemies.length; i++) {
-                            const e = enemies[i];
-                            if (e.hp <= 0 || e.isUnarmed) continue;
-                            if (e.hesitationTimer > 0.1) spottedCount++;
-                            else if (e.lkpTimer > 0) searchingCount++;
-                        }
-                        if (spottedCount > 0) {
-                            setHudText(stealthEl, 'SIGNATURE: SPOTTED // IN CONTACT');
-                            stealthEl.style.color = '#ef4444';
-                        } else if (searchingCount > 0) {
-                            setHudText(stealthEl, `SIGNATURE: SEARCHING LKP (${searchingCount})`);
-                            stealthEl.style.color = '#facc15';
-                        } else if (mission && mission.campaign === 'mall' && !player.flashlightOn && !isPlayerIlluminatedByEnvironment()) {
-                            setHudText(stealthEl, player.opticsMode !== 'standard'
-                                ? 'SIGNATURE: SHADOW + IR STEALTH'
-                                : 'SIGNATURE: SHADOW CONCEALED');
-                            stealthEl.style.color = '#4ade80';
-                        } else if (player.lightMode === 'strobe') {
-                            setHudText(stealthEl, 'SIGNATURE: STROBE ACTIVE');
-                            stealthEl.style.color = '#38bdf8';
-                        } else {
-                            setHudText(stealthEl, player.flashlightOn ? 'SIGNATURE: BEAM EXPOSED' : 'SIGNATURE: LOW PROFILE');
-                            stealthEl.style.color = player.flashlightOn ? '#fb923c' : '#38bdf8';
-                        }
-                    }
-                }
-
-                const wep = WEAPONS[player.wepIdx];
-                const ammoVisualRow = document.getElementById('ammoVisualRow');
-                const ammoTypeToggle = document.getElementById('ammoTypeToggle');
-                const magRoundsLabel = document.getElementById('magRoundsLabel');
-                const magRoundsGrid = document.getElementById('magRoundsGrid');
-                const magCountLabel = document.getElementById('magCountLabel');
-                const magCountIcons = document.getElementById('magCountIcons');
-
-                if (player.vehicle) {
-                    const vNames = {
-                        nyala: 'ARMORED NYALA (4x4)',
-                        saps: 'SAPS RESPONSE VAN',
-                        taxi: 'MINIBUS TAXI',
-                        bakkie: 'DOUBLE-CAB BAKKIE',
-                        hatchback: 'COMPACT HATCHBACK'
-                    };
-                    setHudText(document.getElementById('wepName'), vNames[player.vehicle.kind] || 'VEHICLE');
-                    setHudHTML(document.getElementById('ammoDisplay'), `${Math.ceil(player.vehicle.hp)} <span>CHASSIS HP</span>`);
-                    setHudText(document.getElementById('reloadIndicator'), isMobileDevice ? 'TAP [EXIT] • [BRAKE] DRIFT' : '[E] EXIT • [SPACE] DRIFT');
-                    if (ammoVisualRow) ammoVisualRow.style.display = 'none';
-                    if (ammoTypeToggle) ammoTypeToggle.style.display = 'none';
-                } else {
-                    if (ammoVisualRow) ammoVisualRow.style.display = 'flex';
-                    setHudText(document.getElementById('wepName'), wep.name);
-
-                    if (ammoTypeToggle) {
-                        if (wep.id === 'glock26') {
-                            ammoTypeToggle.style.display = 'inline-block';
-                            const isJhp = wep.ammoLoad === 'jhp';
-                            ammoTypeToggle.classList.toggle('jhp-active', isJhp);
-                            setHudText(ammoTypeToggle, isJhp
-                                ? `LOAD: 120GR +P JHP [B] (FMJ: ${wep.fmjReserve})`
-                                : `LOAD: 100GR FMJ [B] (JHP STASH: ${wep.jhpReserve})`);
-                        } else {
-                            ammoTypeToggle.style.display = 'none';
-                        }
-                    }
-
-                    if (wep.type === 'melee') {
-                        setHudHTML(document.getElementById('ammoDisplay'), wep.isAirsoft ? `&infin; <span>RUBBER EDGE</span>` : `&infin; <span>BLADE</span>`);
-                    } else if (wep.isAirsoft) {
-                        setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve} BBS</span>`);
-                    } else if (wep.type === 'flame') {
-                        setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve} FUEL</span>`);
-                    } else if (wep.id === 'glock26') {
-                        wep.reserve = wep.ammoLoad === 'jhp' ? wep.jhpReserve : wep.fmjReserve;
-                        const lightTag = player.lightMode === 'strobe'
-                            ? '<span style="color:#38bdf8;font-weight:900;">STROBE [T]</span>'
-                            : (player.lightMode === 'steady'
-                                ? '<span style="color:#facc15;">LIGHT: ON [F]</span>'
-                                : '<span style="color:#64748b;">LIGHT: OFF [F]</span>');
-                        setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve} (${lightTag})</span>`);
-                    } else {
-                        setHudHTML(document.getElementById('ammoDisplay'), `${wep.mag} <span>/ ${wep.reserve}</span>`);
-                    }
-                    setHudText(document.getElementById('reloadIndicator'), player.isReloading
-                        ? (wep.type === 'flame' ? 'SWAPPING FUEL TANK...' : 'SWAPPING MAGAZINE...')
-                        : '');
-
-                    // Render Physical Rounds / BBs in Magazine & Physical Spare Magazine Count
-                    if (magRoundsGrid && magCountIcons) {
-                        if (wep.type === 'melee') {
-                            setHudText(magRoundsLabel, 'MELEE EDGE');
-                            setHudHTML(magRoundsGrid, '<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#cbd5e1;">READY // NO AMMO REQUIRED</span>');
-                            setHudText(magCountLabel, 'RESERVE');
-                            setHudHTML(magCountIcons, '<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#64748b;">&mdash;</span>');
-                        } else if (wep.type === 'flame') {
-                            const totalCells = 20;
-                            const activeCells = Math.ceil((wep.mag / wep.magMax) * totalCells);
-                            setHudText(magRoundsLabel, `TANK PRESSURE (${wep.mag}%)`);
-                            let cellsHtml = '';
-                            for (let i = 0; i < totalCells; i++) {
-                                cellsHtml += `<div class="round-pip ${i < activeCells ? 'loaded flame-cell' : ''}"></div>`;
-                            }
-                            setHudHTML(magRoundsGrid, cellsHtml);
-
-                            const spareTanks = Math.ceil(wep.reserve / wep.magMax);
-                            setHudText(magCountLabel, `SPARE TANKS (${spareTanks})`);
-                            if (spareTanks <= 0) {
-                                setHudHTML(magCountIcons, '<span class="mag-empty-text">NONE</span>');
-                            } else {
-                                let tanksHtml = '';
-                                for (let m = 0; m < Math.min(spareTanks, 8); m++) {
-                                    tanksHtml += '<div class="mag-icon fuel-can"></div>';
-                                }
-                                setHudHTML(magCountIcons, tanksHtml);
-                            }
-                        } else {
-                            const roundLabelWord = wep.isAirsoft ? 'BBS IN MAG' : 'ROUNDS IN MAG';
-                            setHudText(magRoundsLabel, player.isReloading
-                                ? `MAG EJECTED (0 / ${wep.magMax})`
-                                : `${roundLabelWord} (${wep.mag} / ${wep.magMax})`);
-
-                            const compact = wep.magMax > 20 ? ' compact' : '';
-                            const tipCls = wep.isAirsoft
-                                ? ' bb-pellet'
-                                : (wep.pierce ? ' ap-tip' : ((wep.id === 'glock26' && wep.ammoLoad === 'jhp') ? ' jhp-tip' : ''));
-                            let pipsHtml = '';
-                            for (let i = 0; i < wep.magMax; i++) {
-                                const isLoaded = i < wep.mag;
-                                pipsHtml += `<div class="round-pip${compact}${isLoaded ? ' loaded' + tipCls : ''}"></div>`;
-                            }
-                            setHudHTML(magRoundsGrid, pipsHtml);
-
-                            const fullMags = Math.floor(wep.reserve / wep.magMax);
-                            const remainderRounds = wep.reserve % wep.magMax;
-                            const totalSpareMags = fullMags + (remainderRounds > 0 ? 1 : 0);
-
-                            setHudText(magCountLabel, wep.id === 'shotgun'
-                                ? `SPARE TUBES (${totalSpareMags})`
-                                : `SPARE MAGS (${totalSpareMags})`);
-
-                            if (totalSpareMags <= 0) {
-                                setHudHTML(magCountIcons, '<span class="mag-empty-text">DRY</span>');
-                            } else {
-                                const pinkCls = (wep.id === 'glock26' || wep.id === 'airsoft_pistol') ? ' pink-mag' : '';
-                                const bbCls = wep.isAirsoft ? ' bb-mag' : '';
-                                let magsHtml = '';
-                                const maxIcons = Math.min(totalSpareMags, 10);
-                                for (let m = 0; m < maxIcons; m++) {
-                                    const isPartialLast = (m === totalSpareMags - 1) && remainderRounds > 0;
-                                    magsHtml += `<div class="mag-icon${pinkCls}${bbCls}${isPartialLast ? ' partial' : ''}"></div>`;
-                                }
-                                if (totalSpareMags > 10) {
-                                    magsHtml += `<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#facc15;">+${totalSpareMags - 10}</span>`;
-                                }
-                                setHudHTML(magCountIcons, magsHtml);
-                            }
-                        }
-                    }
-                }
-
-                if (isMobileDevice) {
-                    const btnVeh = document.getElementById('btnVehicle');
-                    const btnSpr = document.getElementById('btnSprint');
-                    const btnUtil = document.getElementById('btnUtil');
-                    const btnStr = document.getElementById('btnStrobe');
-                    const btnOpt = document.getElementById('btnOptics');
-                    if (btnVeh) setHudText(btnVeh, player.vehicle ? 'EXIT' : 'CAR [E]');
-                    if (btnSpr) setHudText(btnSpr, player.vehicle ? 'BRAKE' : 'SPRINT');
-                    if (btnOpt) {
-                        btnOpt.classList.remove('optics-nvg', 'optics-thermal');
-                        if (player.opticsMode === 'nvg') {
-                            setHudText(btnOpt, 'NVG');
-                            btnOpt.classList.add('optics-nvg');
-                        } else if (player.opticsMode === 'thermal') {
-                            setHudText(btnOpt, 'FLIR');
-                            btnOpt.classList.add('optics-thermal');
-                        } else {
-                            setHudText(btnOpt, 'OPTICS');
-                        }
-                    }
-                    if (btnUtil) {
-                        if (player.vehicle) {
-                            setHudText(btnUtil, 'HORN');
-                            btnUtil.classList.remove('active');
-                        } else if (player.hasFlashlight) {
-                            setHudText(btnUtil, player.flashlightOn ? 'LIGHT ON' : 'LIGHT OFF');
-                            btnUtil.classList.toggle('active', player.flashlightOn);
-                        } else {
-                            setHudText(btnUtil, 'SCOPE');
-                        }
-                    }
-                    if (btnStr) {
-                        btnStr.style.display = (!player.vehicle && player.hasFlashlight) ? 'flex' : 'none';
-                        btnStr.classList.toggle('strobe-active', player.lightMode === 'strobe');
-                    }
-                }
-
-                const slots = document.getElementById('slotBar');
-                if (slots) {
-                    const shortLabels = {
-                        airsoft_pistol: 'G26 GBB',
-                        rubber_knife: 'KNIFE',
-                        airsoft_aeg: 'M4 AEG',
-                        glock26: 'G26 PINK',
-                        knife: 'BLADE',
-                        ak47: 'AK-47',
-                        lm4: 'LM4',
-                        ruger: 'RUGER',
-                        flamethrower: 'FLAMER',
-                        glock: 'G17',
-                        panga: 'PANGA',
-                        shotgun: 'SHOTGUN',
-                        ar15: 'AR-15'
-                    };
-                    const slotMarkup = WEAPONS.map((w, idx) => {
-                        const cls = [
-                            'wep-slot',
-                            w.unlocked ? 'unlocked' : '',
-                            (!player.vehicle && idx === player.wepIdx) ? 'active' : ''
-                        ].filter(Boolean).join(' ');
-                        return `<div class="${cls}" data-slot="${idx}">${idx + 1}: ${shortLabels[w.id] || w.id.toUpperCase()}</div>`;
-                    }).join('');
-                    setHudHTML(slots, slotMarkup);
-                }
-            }
-
-            const slotBarElement = document.getElementById('slotBar');
-            slotBarElement.addEventListener('click', (event) => {
-                const slot = event.target.closest('.wep-slot.unlocked');
-                if (!slot || !slotBarElement.contains(slot) || !player || player.vehicle) return;
-                const idx = Number(slot.dataset.slot);
-                if (WEAPONS[idx]?.unlocked) {
-                    player.wepIdx = idx;
-                    player.isReloading = false;
-                    updateHUD();
-                }
-            });
-
-            function renderRadarTerrain() {
-                const w = radarCanvas.width;
-                const h = radarCanvas.height;
-                const scale = w / WORLD_SIZE;
-
-                radarTerrainCtx.fillStyle = (mission && mission.campaign === 'training') ? '#102114' : '#090d16';
-                radarTerrainCtx.fillRect(0, 0, w, h);
-
-                if (woodlandCreek) {
-                    radarTerrainCtx.strokeStyle = '#0284c7';
-                    radarTerrainCtx.lineWidth = 3;
-                    radarTerrainCtx.beginPath();
-                    radarTerrainCtx.moveTo(woodlandCreek[0].x * scale, woodlandCreek[0].y * scale);
-                    for (let i = 1; i < woodlandCreek.length; i++) {
-                        radarTerrainCtx.lineTo(woodlandCreek[i].x * scale, woodlandCreek[i].y * scale);
-                    }
-                    radarTerrainCtx.stroke();
-                }
-
-                for (let i = 0; i < mallZones.length; i++) {
-                    const mz = mallZones[i];
-                    radarTerrainCtx.fillStyle = mz.floor;
-                    radarTerrainCtx.fillRect(mz.x * scale, mz.y * scale, mz.w * scale, mz.h * scale);
-                }
-
-                radarTerrainCtx.fillStyle = '#1e293b';
-                for (let i = 0; i < roads.length; i++) {
-                    const r = roads[i];
-                    radarTerrainCtx.fillRect(r.x * scale, r.y * scale, r.w * scale, r.h * scale);
-                }
-
-                radarTerrainCtx.fillStyle = '#57534e';
-                for (let i = 0; i < railTracks.length; i++) {
-                    const tr = railTracks[i];
-                    radarTerrainCtx.fillRect(tr.x * scale, tr.y * scale, tr.w * scale, 1.5);
-                }
-
-                radarTerrainCtx.fillStyle = '#334155';
-                for (let i = 0; i < buildings.length; i++) {
-                    const b = buildings[i];
-                    radarTerrainCtx.fillRect(b.x * scale, b.y * scale, b.w * scale, b.h * scale);
-                }
-
-            }
-
-            function renderRadar() {
-                if (!player) return;
-                if (radarTerrainDirty) {
-                    renderRadarTerrain();
-                    radarTerrainDirty = false;
-                }
-                radarCtx.drawImage(radarTerrainCanvas, 0, 0);
-                const w = radarCanvas.width;
-                const h = radarCanvas.height;
-                const scale = w / WORLD_SIZE;
-
-                for (let i = 0; i < pickups.length; i++) {
-                    const p = pickups[i];
-                    if (p.collected) continue;
-                    radarCtx.fillStyle = p.type === 'jhp_stash' ? '#ef4444' : (p.type === 'cash' ? '#22c55e' : (p.type === 'fuel' ? '#f97316' : '#38bdf8'));
-                    radarCtx.fillRect(p.x * scale - 1.5, p.y * scale - 1.5, 3, 3);
-                }
-
-                radarCtx.fillStyle = '#eab308';
-                for (let i = 0; i < vehicles.length; i++) {
-                    const v = vehicles[i];
-                    if (v.destroyed) continue;
-                    radarCtx.fillRect(v.x * scale - 2, v.y * scale - 2, 4, 4);
-                }
-
-                // Friendly Allies on Radar
-                for (let i = 0; i < allies.length; i++) {
-                    const al = allies[i];
-                    if (al.isOut) continue;
-                    radarCtx.fillStyle = '#38bdf8';
-                    radarCtx.beginPath();
-                    radarCtx.arc(al.x * scale, al.y * scale, 3, 0, Math.PI * 2);
-                    radarCtx.fill();
-                }
-
-                for (let i = 0; i < enemies.length; i++) {
-                    const e = enemies[i];
-                    if (e.hp <= 0) continue;
-                    if (e.isUnarmed || e.panicState === 'fleeing' || e.panicState === 'wounded_retreat' || e.panicState === 'in_cover') {
-                        radarCtx.fillStyle = '#fb923c';
-                    } else {
-                        radarCtx.fillStyle = e.isBoss ? '#f59e0b' : (e.faction === 'security' ? '#60a5fa' : '#ef4444');
-                    }
-                    const sz = e.isBoss ? 5 : 2.5;
-                    radarCtx.fillRect(e.x * scale - sz / 2, e.y * scale - sz / 2, sz, sz);
-                }
-
-                if (mission) {
-                    const pulse = 3 + Math.sin(performance.now() * 0.008) * 1.5;
-                    radarCtx.strokeStyle = '#facc15';
-                    radarCtx.lineWidth = 1.5;
-                    radarCtx.beginPath();
-                    radarCtx.arc(mission.targetX * scale, mission.targetY * scale, pulse, 0, Math.PI * 2);
-                    radarCtx.stroke();
-                }
-
-                radarCtx.fillStyle = '#22c55e';
-                radarCtx.beginPath();
-                radarCtx.arc(player.x * scale, player.y * scale, 3.5, 0, Math.PI * 2);
-                radarCtx.fill();
-            }
-
-            // ============================================================================
-            // INDOOR POWER-OUTAGE DARKNESS, FLASHLIGHT/STROBE & NVG/THERMAL OPTICS
-            // ============================================================================
-            function renderMallLighting() {
-                if (!mission || mission.campaign !== 'mall' || !player) return;
-                if (player.opticsMode === 'thermal') return;
-
-                lightCtx.globalCompositeOperation = 'source-over';
-                lightCtx.clearRect(0, 0, lightCanvas.width, lightCanvas.height);
-
-                const mallScreenX = 450 - camera.x;
-                const mallScreenY = 450 - camera.y;
-                const darknessAlpha = player.opticsMode === 'nvg' ? 0.36 : 0.90;
-                lightCtx.fillStyle = `rgba(4, 7, 15, ${darknessAlpha})`;
-                lightCtx.fillRect(mallScreenX, mallScreenY, 3200, 3100);
-
-                const entranceX = 3630 - camera.x;
-                const entranceY = 2050 - camera.y;
-                lightCtx.globalCompositeOperation = 'destination-out';
-                const dawnGrad = lightCtx.createRadialGradient(entranceX, entranceY, 30, entranceX, entranceY, 340);
-                dawnGrad.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
-                dawnGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                lightCtx.fillStyle = dawnGrad;
-                lightCtx.beginPath();
-                lightCtx.arc(entranceX, entranceY, 340, 0, Math.PI * 2);
-                lightCtx.fill();
-
-                for (let i = 0; i < mallLights.length; i++) {
-                    const ml = mallLights[i];
-                    const sx = ml.x - camera.x;
-                    const sy = ml.y - camera.y;
-                    if (sx < -400 || sx > lightCanvas.width + 400 || sy < -400 || sy > lightCanvas.height + 400) continue;
-                    const flick = ml.flicker ? (0.85 + Math.sin(performance.now() * 0.03 + i * 2) * 0.15) : 1;
-                    const rad = ml.r * flick;
-                    const g = lightCtx.createRadialGradient(sx, sy, 8, sx, sy, rad);
-                    g.addColorStop(0, 'rgba(0, 0, 0, 0.82)');
-                    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                    lightCtx.fillStyle = g;
-                    lightCtx.beginPath();
-                    lightCtx.arc(sx, sy, rad, 0, Math.PI * 2);
-                    lightCtx.fill();
-                }
-
-                const px = player.x - camera.x;
-                const py = player.y - camera.y;
-
-                const ambientG = lightCtx.createRadialGradient(px, py, 12, px, py, 92);
-                ambientG.addColorStop(0, 'rgba(0, 0, 0, 0.92)');
-                ambientG.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                lightCtx.fillStyle = ambientG;
-                lightCtx.beginPath();
-                lightCtx.arc(px, py, 92, 0, Math.PI * 2);
-                lightCtx.fill();
-
-                const isStrobe = player.lightMode === 'strobe';
-                const strobePulse = !isStrobe || (Math.sin(performance.now() * 0.105) > 0);
-
-                if (player.flashlightOn && !player.vehicle && strobePulse) {
-                    const beamLen = isStrobe ? 475 : 460;
-                    const halfSpread = isStrobe ? 0.36 : 0.34;
-                    const beamGrad = lightCtx.createRadialGradient(px, py, 14, px, py, beamLen);
-                    beamGrad.addColorStop(0, 'rgba(0, 0, 0, 1)');
-                    beamGrad.addColorStop(0.68, 'rgba(0, 0, 0, 0.9)');
-                    beamGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-                    lightCtx.fillStyle = beamGrad;
-                    lightCtx.beginPath();
-                    lightCtx.moveTo(px, py);
-                    lightCtx.arc(px, py, beamLen, player.angle - halfSpread, player.angle + halfSpread);
-                    lightCtx.closePath();
-                    lightCtx.fill();
-                }
-
-                // Muzzle flash burst illuminates the dark room (bigger burst for 120gr +P JHP!)
-                if (performance.now() - player.lastShot < 68) {
-                    const wep = WEAPONS[player.wepIdx];
-                    const isJHP = (wep && wep.id === 'glock26' && wep.ammoLoad === 'jhp');
-                    const flashBurstRad = isJHP ? 370 : 230;
-                    const flashG = lightCtx.createRadialGradient(px, py, 10, px, py, flashBurstRad);
-                    flashG.addColorStop(0, 'rgba(0, 0, 0, 0.96)');
-                    flashG.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                    lightCtx.fillStyle = flashG;
-                    lightCtx.beginPath();
-                    lightCtx.arc(px, py, flashBurstRad, 0, Math.PI * 2);
-                    lightCtx.fill();
-                }
-
-                ctx.drawImage(lightCanvas, 0, 0);
-
-                if (player.flashlightOn && !player.vehicle && strobePulse) {
-                    ctx.save();
-                    const beamLen = isStrobe ? 465 : 440;
-                    const halfSpread = isStrobe ? 0.35 : 0.33;
-                    const tint = ctx.createRadialGradient(px, py, 12, px, py, beamLen);
-                    if (isStrobe) {
-                        tint.addColorStop(0, 'rgba(224, 242, 254, 0.34)');
-                        tint.addColorStop(0.6, 'rgba(186, 230, 253, 0.14)');
-                        tint.addColorStop(1, 'rgba(186, 230, 253, 0)');
-                    } else {
-                        tint.addColorStop(0, 'rgba(254, 249, 195, 0.16)');
-                        tint.addColorStop(1, 'rgba(254, 249, 195, 0)');
-                    }
-                    ctx.fillStyle = tint;
-                    ctx.beginPath();
-                    ctx.moveTo(px, py);
-                    ctx.arc(px, py, beamLen, player.angle - halfSpread, player.angle + halfSpread);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.restore();
-                }
-
-                for (let i = 0; i < mallLights.length; i++) {
-                    const ml = mallLights[i];
-                    const sx = ml.x - camera.x;
-                    const sy = ml.y - camera.y;
-                    if (sx < -300 || sx > canvas.width + 300 || sy < -300 || sy > canvas.height + 300) continue;
-                    const g = ctx.createRadialGradient(sx, sy, 4, sx, sy, ml.r * 0.75);
-                    g.addColorStop(0, ml.color);
-                    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                    ctx.fillStyle = g;
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, ml.r * 0.75, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-
-            // Render NVG Phosphor Green / FLIR White-Hot Thermal Overlay + Invisible IR Aiming Laser
-            function renderOpticsOverlay(shakeX, shakeY) {
-                if (!player || player.opticsMode === 'standard') return;
-
-                if (player.opticsMode === 'nvg') {
-                    ctx.save();
-                    ctx.fillStyle = 'rgba(16, 185, 129, 0.24)';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                    ctx.fillStyle = 'rgba(4, 47, 46, 0.16)';
-                    for (let y = 0; y < canvas.height; y += 4) {
-                        ctx.fillRect(0, y, canvas.width, 1.5);
-                    }
-
-                    const vig = ctx.createRadialGradient(
-                        canvas.width / 2, canvas.height / 2, canvas.height * 0.34,
-                        canvas.width / 2, canvas.height / 2, canvas.width * 0.65
-                    );
-                    vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
-                    vig.addColorStop(1, 'rgba(2, 18, 12, 0.72)');
-                    ctx.fillStyle = vig;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.restore();
-                } else if (player.opticsMode === 'thermal') {
-                    ctx.save();
-                    ctx.fillStyle = 'rgba(7, 13, 32, 0.68)';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                    ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
-
-                    for (let i = 0; i < vehicles.length; i++) {
-                        const v = vehicles[i];
-                        if (v.destroyed) continue;
-                        ctx.save();
-                        ctx.translate(v.x, v.y);
-                        ctx.rotate(v.angle);
-                        ctx.fillStyle = 'rgba(251, 146, 60, 0.55)';
-                        ctx.fillRect(v.w * 0.15, -v.h * 0.35, v.w * 0.3, v.h * 0.7);
-                        ctx.restore();
-                    }
-
-                    for (let i = 0; i < allies.length; i++) {
-                        const al = allies[i];
-                        const g = ctx.createRadialGradient(al.x, al.y, 2, al.x, al.y, 18);
-                        g.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
-                        g.addColorStop(0.55, 'rgba(186, 230, 253, 0.55)');
-                        g.addColorStop(1, 'rgba(56, 189, 248, 0)');
-                        ctx.fillStyle = g;
-                        ctx.beginPath();
-                        ctx.arc(al.x, al.y, 18, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    for (let i = 0; i < civilians.length; i++) {
-                        const c = civilians[i];
-                        const g = ctx.createRadialGradient(c.x, c.y, 2, c.x, c.y, 18);
-                        g.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
-                        g.addColorStop(0.55, 'rgba(253, 224, 71, 0.55)');
-                        g.addColorStop(1, 'rgba(251, 146, 60, 0)');
-                        ctx.fillStyle = g;
-                        ctx.beginPath();
-                        ctx.arc(c.x, c.y, 18, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    for (let i = 0; i < enemies.length; i++) {
-                        const e = enemies[i];
-                        if (e.hp <= 0) continue;
-                        const rad = e.isBoss ? 26 : (e.faction === 'dog' ? 14 : 20);
-                        const g = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, rad);
-                        g.addColorStop(0, 'rgba(255, 255, 255, 1)');
-                        g.addColorStop(0.5, e.burnTimer > 0 ? 'rgba(249, 115, 22, 0.85)' : 'rgba(254, 240, 138, 0.65)');
-                        g.addColorStop(1, 'rgba(234, 88, 12, 0)');
-                        ctx.fillStyle = g;
-                        ctx.beginPath();
-                        ctx.arc(e.x, e.y, rad, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    for (let i = 0; i < flameJets.length; i++) {
-                        const fj = flameJets[i];
-                        if (!fj.active) continue;
-                        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-                        ctx.beginPath();
-                        ctx.arc(fj.x, fj.y, fj.radius, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    if (!player.vehicle) {
-                        const pg = ctx.createRadialGradient(player.x, player.y, 2, player.x, player.y, 18);
-                        pg.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-                        pg.addColorStop(0.6, 'rgba(186, 230, 253, 0.45)');
-                        pg.addColorStop(1, 'rgba(56, 189, 248, 0)');
-                        ctx.fillStyle = pg;
-                        ctx.beginPath();
-                        ctx.arc(player.x, player.y, 18, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    ctx.restore();
-                }
-
-                // Draw Invisible Infrared (IR) Aiming Laser (Visible ONLY through NVG or Thermal!)
-                if (!player.vehicle && WEAPONS[player.wepIdx].type !== 'melee') {
-                    ctx.save();
-                    ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
-
-                    const wep = WEAPONS[player.wepIdx];
-                    const maxLaserDist = wep.id === 'ruger' ? 1150 : 760;
-                    const startX = player.x + Math.cos(player.angle) * 18;
-                    const startY = player.y + Math.sin(player.angle) * 18;
-                    const rawEndX = startX + Math.cos(player.angle) * maxLaserDist;
-                    const rawEndY = startY + Math.sin(player.angle) * maxLaserDist;
-
-                    let hitT = raycastBuildingsT(startX, startY, rawEndX, rawEndY);
-
-                    for (let i = 0; i < enemies.length; i++) {
-                        const e = enemies[i];
-                        if (e.hp <= 0) continue;
-                        const t = segmentCircleIntersectT(startX, startY, rawEndX, rawEndY, e.x, e.y, e.r);
-                        if (t !== null && t < hitT) {
-                            hitT = t;
-                        }
-                    }
-
-                    const endX = startX + (rawEndX - startX) * hitT;
-                    const endY = startY + (rawEndY - startY) * hitT;
-
-                    const isNvg = player.opticsMode === 'nvg';
-                    ctx.strokeStyle = isNvg ? 'rgba(134, 239, 172, 0.72)' : 'rgba(255, 255, 255, 0.78)';
-                    ctx.lineWidth = 1.6;
-                    ctx.beginPath();
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(endX, endY);
-                    ctx.stroke();
-
-                    ctx.fillStyle = isNvg ? '#bbf7d0' : '#ffffff';
-                    ctx.beginPath();
-                    ctx.arc(endX, endY, 3.2, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.restore();
-                }
-            }
-
-            // ============================================================================
-            // MAIN SCENE RENDERER
-            // ============================================================================
-            function isInView(x, y, margin = 160) {
-                return x >= camera.x - margin && x <= camera.x + canvas.width + margin &&
-                    y >= camera.y - margin && y <= camera.y + canvas.height + margin;
-            }
-
-            function render() {
-                const isTraining = mission && mission.campaign === 'training';
-                ctx.fillStyle = isTraining ? '#162918' : '#181c24';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                const shakeX = camera.shake > 0.1 ? Math2.rand(-camera.shake, camera.shake) : 0;
-                const shakeY = camera.shake > 0.1 ? Math2.rand(-camera.shake, camera.shake) : 0;
-
-                ctx.save();
-                ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
-
-                // Woodland Creek & Dirt Trails (Training Stage)
-                if (isTraining && woodlandCreek) {
-                    ctx.save();
-                    ctx.strokeStyle = '#0369a1';
-                    ctx.lineWidth = 68;
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    ctx.beginPath();
-                    ctx.moveTo(woodlandCreek[0].x, woodlandCreek[0].y);
-                    for (let i = 1; i < woodlandCreek.length; i++) {
-                        ctx.lineTo(woodlandCreek[i].x, woodlandCreek[i].y);
-                    }
-                    ctx.stroke();
-
-                    ctx.strokeStyle = 'rgba(125, 211, 252, 0.35)';
-                    ctx.lineWidth = 28;
-                    ctx.stroke();
-
-                    // Forest dirt path from Youth Staging -> Bridge -> Sandbag Ridge -> Adult HQ
-                    ctx.strokeStyle = 'rgba(120, 53, 15, 0.38)';
-                    ctx.lineWidth = 46;
-                    ctx.setLineDash([18, 12]);
-                    ctx.beginPath();
-                    ctx.moveTo(780, 3260);
-                    ctx.lineTo(2200, 2150);
-                    ctx.lineTo(2880, 1470);
-                    ctx.lineTo(3540, 1040);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                    ctx.restore();
-                }
-
-                // Indoor Mall Zones
-                for (let i = 0; i < mallZones.length; i++) {
-                    const mz = mallZones[i];
-                    ctx.fillStyle = mz.floor;
-                    ctx.fillRect(mz.x, mz.y, mz.w, mz.h);
-                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(mz.x, mz.y, mz.w, mz.h);
-                    if (mz.label) {
-                        ctx.fillStyle = 'rgba(148, 163, 184, 0.16)';
-                        ctx.font = '900 18px ui-monospace, monospace';
-                        ctx.textAlign = 'center';
-                        ctx.fillText(mz.label, mz.x + mz.w / 2, mz.y + 42);
-                    }
-                }
-
-                // Sidewalk / Mall Tile Grid (Omitted in natural woodland)
-                if (!isTraining) {
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
-                    ctx.lineWidth = 1;
-                    const gridStep = (mission && mission.campaign === 'mall') ? 64 : 100;
-                    const startGridX = Math.floor(camera.x / gridStep) * gridStep;
-                    const startGridY = Math.floor(camera.y / gridStep) * gridStep;
-                    for (let gx = startGridX; gx < camera.x + canvas.width + gridStep; gx += gridStep) {
-                        ctx.beginPath();
-                        ctx.moveTo(gx, camera.y);
-                        ctx.lineTo(gx, camera.y + canvas.height);
-                        ctx.stroke();
-                    }
-                    for (let gy = startGridY; gy < camera.y + canvas.height + gridStep; gy += gridStep) {
-                        ctx.beginPath();
-                        ctx.moveTo(camera.x, gy);
-                        ctx.lineTo(camera.x + canvas.width, gy);
-                        ctx.stroke();
-                    }
-                }
-
-                // Asphalt Roads
-                for (let i = 0; i < roads.length; i++) {
-                    const r = roads[i];
-                    if (r.x > camera.x + canvas.width + 80 || r.x + r.w < camera.x - 80 ||
-                        r.y > camera.y + canvas.height + 80 || r.y + r.h < camera.y - 80) continue;
-                    ctx.fillStyle = '#11141c';
-                    ctx.fillRect(r.x, r.y, r.w, r.h);
-
-                    ctx.strokeStyle = 'rgba(250, 204, 21, 0.32)';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([22, 24]);
-                    ctx.beginPath();
-                    if (r.dir === 'h') {
-                        ctx.moveTo(r.x, r.y + r.h / 2);
-                        ctx.lineTo(r.x + r.w, r.y + r.h / 2);
-                    } else {
-                        ctx.moveTo(r.x + r.w / 2, r.y);
-                        ctx.lineTo(r.x + r.w / 2, r.y + r.h);
-                    }
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
-                // Freight Rail Tracks
-                for (let i = 0; i < railTracks.length; i++) {
-                    const tr = railTracks[i];
-                    if (tr.x > camera.x + canvas.width + 80 || tr.x + tr.w < camera.x - 80 ||
-                        tr.y > camera.y + canvas.height + 80 || tr.y < camera.y - 80) continue;
-                    ctx.fillStyle = '#1c1917';
-                    ctx.fillRect(tr.x, tr.y - 8, tr.w, 16);
-                    ctx.fillStyle = '#44403c';
-                    for (let tx = tr.x + 6; tx < tr.x + tr.w - 6; tx += 14) {
-                        ctx.fillRect(tx, tr.y - 7, 5, 14);
-                    }
-                    ctx.strokeStyle = '#94a3b8';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    ctx.moveTo(tr.x, tr.y - 4);
-                    ctx.lineTo(tr.x + tr.w, tr.y - 4);
-                    ctx.moveTo(tr.x, tr.y + 4);
-                    ctx.lineTo(tr.x + tr.w, tr.y + 4);
-                    ctx.stroke();
-                }
-
-                // Downtown Pedestrian Crosswalks
-                ctx.fillStyle = 'rgba(226, 232, 240, 0.24)';
-                for (let i = 0; i < crosswalks.length; i++) {
-                    const cw = crosswalks[i];
-                    if (!isInView(cw.x + 44, cw.y + 44)) continue;
-                    if (cw.dir === 'h') {
-                        for (let s = 0; s < 88; s += 16) {
-                            ctx.fillRect(cw.x + s, cw.y, 9, 12);
-                        }
-                    } else {
-                        for (let s = 0; s < 88; s += 16) {
-                            ctx.fillRect(cw.x, cw.y + s, 12, 9);
-                        }
-                    }
-                }
-
-                // Ground Decals
-                for (let i = 0; i < decals.length; i++) {
-                    if (isInView(decals[i].x, decals[i].y)) decals[i].draw(ctx);
-                }
-
-                // Subtle Tactical Last Known Position (LKP) ghost reticle
-                if (player && player.hp > 0) {
-                    let activeLkp = null;
-                    for (let i = 0; i < enemies.length; i++) {
-                        const e = enemies[i];
-                        if (e.hp > 0 && !e.isUnarmed && e.lkpTimer > 1.2 && e.lkpX !== null && e.hesitationTimer < 0.1) {
-                            if (Math2.dist(player.x, player.y, e.lkpX, e.lkpY) > 70) {
-                                activeLkp = { x: e.lkpX, y: e.lkpY };
-                                break;
-                            }
-                        }
-                    }
-                    if (activeLkp) {
-                        const pulse = 16 + Math.sin(performance.now() * 0.008) * 4;
-                        ctx.save();
-                        ctx.strokeStyle = 'rgba(250, 204, 21, 0.45)';
-                        ctx.lineWidth = 1.5;
-                        ctx.setLineDash([5, 4]);
-                        ctx.beginPath();
-                        ctx.arc(activeLkp.x, activeLkp.y, pulse, 0, Math.PI * 2);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                        ctx.fillStyle = 'rgba(250, 204, 21, 0.65)';
-                        ctx.font = '800 9px ui-monospace, monospace';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('LKP', activeLkp.x, activeLkp.y - pulse - 4);
-                        ctx.restore();
-                    }
-                }
-
-                // Spent Brass Shells
-                for (let i = 0; i < shells.length; i++) {
-                    if (isInView(shells[i].x, shells[i].y)) shells[i].draw(ctx);
-                }
-
-                // Tossed / Dropped Magazines
-                for (let i = 0; i < droppedMags.length; i++) {
-                    if (isInView(droppedMags[i].x, droppedMags[i].y)) droppedMags[i].draw(ctx);
-                }
-
-                // Pickups
-                for (let i = 0; i < pickups.length; i++) {
-                    if (isInView(pickups[i].x, pickups[i].y)) pickups[i].draw(ctx);
-                }
-
-                // Vehicles
-                for (let i = 0; i < vehicles.length; i++) {
-                    if (isInView(vehicles[i].x, vehicles[i].y)) vehicles[i].draw(ctx);
-                }
-
-                // Trapped Shoppers / Civilians
-                for (let i = 0; i < civilians.length; i++) {
-                    if (isInView(civilians[i].x, civilians[i].y)) civilians[i].draw(ctx);
-                }
-
-                // Friendly Allies (Younger G & Younger Blaze)
-                for (let i = 0; i < allies.length; i++) {
-                    if (isInView(allies[i].x, allies[i].y)) allies[i].draw(ctx);
-                }
-
-                // Enemies
-                for (let i = 0; i < enemies.length; i++) {
-                    if (isInView(enemies[i].x, enemies[i].y)) enemies[i].draw(ctx);
-                }
-
-                // Player
-                if (player) {
-                    player.draw(ctx);
-                }
-
-                // Flamethrower Jets
-                for (let i = 0; i < flameJets.length; i++) {
-                    if (isInView(flameJets[i].x, flameJets[i].y)) flameJets[i].draw(ctx);
-                }
-
-                // Bullets & 6mm BBs
-                for (let i = 0; i < bullets.length; i++) {
-                    if (isInView(bullets[i].x, bullets[i].y)) bullets[i].draw(ctx);
-                }
-
-                // 2.5D Buildings with Rooftop Details
-                const viewCenterX = camera.x + canvas.width / 2;
-                const viewCenterY = camera.y + canvas.height / 2;
-
-                for (let i = 0; i < buildings.length; i++) {
-                    const b = buildings[i];
-                    if (b.x + b.w < camera.x - 120 || b.x > camera.x + canvas.width + 120 ||
-                        b.y + b.h < camera.y - 120 || b.y > camera.y + canvas.height + 120) {
-                        continue;
-                    }
-
-                    if (b.isLowWall) {
-                        ctx.fillStyle = b.roof;
-                        ctx.fillRect(b.x, b.y, b.w, b.h);
-                        ctx.strokeStyle = '#94a3b8';
-                        ctx.lineWidth = 1;
-                        ctx.strokeRect(b.x, b.y, b.w, b.h);
-                        continue;
-                    }
-
-                    const depth = b.height || 16;
-                    const offX = Math2.clamp(((b.x + b.w / 2) - viewCenterX) * 0.035, -depth, depth);
-                    const offY = Math2.clamp(((b.y + b.h / 2) - viewCenterY) * 0.035, -depth, depth);
-
-                    ctx.fillStyle = b.color;
-                    ctx.beginPath();
-                    ctx.moveTo(b.x, b.y);
-                    ctx.lineTo(b.x + offX, b.y + offY);
-                    ctx.lineTo(b.x + b.w + offX, b.y + offY);
-                    ctx.lineTo(b.x + b.w, b.y);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    ctx.beginPath();
-                    ctx.moveTo(b.x, b.y + b.h);
-                    ctx.lineTo(b.x + offX, b.y + b.h + offY);
-                    ctx.lineTo(b.x + b.w + offX, b.y + b.h + offY);
-                    ctx.lineTo(b.x + b.w, b.y + b.h);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    ctx.beginPath();
-                    ctx.moveTo(b.x, b.y);
-                    ctx.lineTo(b.x + offX, b.y + offY);
-                    ctx.lineTo(b.x + offX, b.y + b.h + offY);
-                    ctx.lineTo(b.x, b.y + b.h);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    ctx.beginPath();
-                    ctx.moveTo(b.x + b.w, b.y);
-                    ctx.lineTo(b.x + b.w + offX, b.y + offY);
-                    ctx.lineTo(b.x + b.w + offX, b.y + b.h + offY);
-                    ctx.lineTo(b.x + b.w, b.y + b.h);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    const rx = b.x + offX;
-                    const ry = b.y + offY;
-                    ctx.fillStyle = b.roof;
-                    ctx.fillRect(rx, ry, b.w, b.h);
-                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
-                    ctx.lineWidth = 1.5;
-                    ctx.strokeRect(rx, ry, b.w, b.h);
-
-                    if (b.roofProp === 'helipad') {
-                        const cx = rx + b.w / 2;
-                        const cy = ry + b.h / 2;
-                        ctx.strokeStyle = 'rgba(250, 204, 21, 0.55)';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.arc(cx, cy, Math.min(b.w, b.h) * 0.26, 0, Math.PI * 2);
-                        ctx.stroke();
-                        ctx.fillStyle = 'rgba(250, 204, 21, 0.55)';
-                        ctx.font = '900 28px system-ui, sans-serif';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText('H', cx, cy);
-                    } else if (b.roofProp === 'skylight') {
-                        ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
-                        ctx.fillRect(rx + 28, ry + 28, b.w - 56, b.h - 56);
-                        ctx.strokeStyle = 'rgba(125, 211, 252, 0.35)';
-                        ctx.lineWidth = 1.5;
-                        ctx.strokeRect(rx + 28, ry + 28, b.w - 56, b.h - 56);
-                    } else if (b.roofProp === 'hvac') {
-                        ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
-                        ctx.fillRect(rx + 24, ry + 24, 34, 24);
-                        ctx.fillRect(rx + b.w - 58, ry + b.h - 48, 34, 24);
-                    }
-
-                    if (b.label) {
-                        ctx.fillStyle = 'rgba(248, 250, 252, 0.85)';
-                        ctx.font = '800 11px ui-monospace, monospace';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'alphabetic';
-                        ctx.fillText(b.label, rx + b.w / 2, ry + b.h / 2 + 4);
-                    }
-                }
-
-                // Woodland Pine & Acacia Tree Trunks + Translucent Overhead Canopies
-                for (let i = 0; i < woodlandTrees.length; i++) {
-                    const tr = woodlandTrees[i];
-                    if (tr.x + tr.canopyR < camera.x - 80 || tr.x - tr.canopyR > camera.x + canvas.width + 80 ||
-                        tr.y + tr.canopyR < camera.y - 80 || tr.y - tr.canopyR > camera.y + canvas.height + 80) {
-                        continue;
-                    }
-                    // Ground shadow
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
-                    ctx.beginPath();
-                    ctx.arc(tr.x + 8, tr.y + 10, tr.canopyR * 0.92, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // Solid trunk
-                    ctx.fillStyle = '#451a03';
-                    ctx.beginPath();
-                    ctx.arc(tr.x, tr.y, tr.trunkR, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // Translucent pine canopy (so you can still see players underneath!)
-                    ctx.save();
-                    ctx.globalAlpha = 0.76;
-                    ctx.fillStyle = tr.shade;
-                    ctx.beginPath();
-                    ctx.arc(tr.x, tr.y, tr.canopyR, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = '#052e16';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    ctx.restore();
-                }
-
-                // Particles
-                for (let i = 0; i < particles.length; i++) {
-                    if (isInView(particles[i].x, particles[i].y)) particles[i].draw(ctx);
-                }
-
-                // Adults' HQ Capture Flag (Training Stage)
-                if (isTraining) {
-                    const pulse = 32 + Math.sin(performance.now() * 0.006) * 7;
-                    ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(3540, 1040, pulse, 0, Math.PI * 2);
-                    ctx.stroke();
-                    // Flagpole + waving orange flag
-                    ctx.fillStyle = '#f8fafc';
-                    ctx.fillRect(3538, 1005, 3, 35);
-                    ctx.fillStyle = '#f97316';
-                    ctx.beginPath();
-                    ctx.moveTo(3541, 1005);
-                    ctx.lineTo(3566, 1014);
-                    ctx.lineTo(3541, 1023);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.fillStyle = '#fde047';
-                    ctx.font = '900 10.5px ui-monospace, monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('ADULT HQ FLAG', 3540, 1056);
-                }
-
-                // Exfil Checkpoint Marker (Mall Blockade Stage 4)
-                if (mission && mission.campaign === 'mall') {
-                    const pulse = 36 + Math.sin(performance.now() * 0.006) * 8;
-                    ctx.strokeStyle = 'rgba(34, 197, 94, 0.75)';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(3980, 2050, pulse, 0, Math.PI * 2);
-                    ctx.stroke();
-                    ctx.fillStyle = '#4ade80';
-                    ctx.font = '900 11px ui-monospace, monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('EXFIL CHECKPOINT', 3980, 2000);
-                }
-
-                // Objective Direction Pointer around Player
-                if (mission && player && player.hp > 0) {
-                    const distToObj = Math2.dist(player.x, player.y, mission.targetX, mission.targetY);
-                    if (distToObj > 140) {
-                        const ang = Math2.angle(player.x, player.y, mission.targetX, mission.targetY);
-                        const px = player.x + Math.cos(ang) * 44;
-                        const py = player.y + Math.sin(ang) * 44;
-                        ctx.save();
-                        ctx.translate(px, py);
-                        ctx.rotate(ang);
-                        ctx.fillStyle = '#facc15';
-                        ctx.beginPath();
-                        ctx.moveTo(8, 0);
-                        ctx.lineTo(-5, -5);
-                        ctx.lineTo(-2, 0);
-                        ctx.lineTo(-5, 5);
-                        ctx.closePath();
-                        ctx.fill();
-                        ctx.restore();
-                    }
-                }
-
-                ctx.restore();
-
-                // Indoor Mall Power-Outage Darkness + Yael's Tactical Flashlight / Strobe Beam
-                renderMallLighting();
-
-                // NVG / Thermal Imaging Overlay + Invisible IR Aiming Laser
-                renderOpticsOverlay(shakeX, shakeY);
-
-                renderRadar();
-            }
-
-            // ============================================================================
-            // GAME LOOP & LIFECYCLE
-            // ============================================================================
             function triggerGameOver(victory) {
                 if (gameState !== 'playing') return;
                 gameState = victory ? 'victory' : 'dead';
@@ -5954,11 +6259,11 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (camp === 'training') {
                         endKicker.innerText = 'PINE RIDGE WOODLAND // YOUTH SQUAD VICTORY';
                         endTitle.innerText = 'FLAG CAPTURED!';
-                        endBody.innerText = `Younger Yael, Younger G, and Younger Blaze outflanked the grown-up MilSim squad through the pine woods, tagged out ${kills} adult players, and captured their HQ flag!`;
+                        endBody.innerText = `Younger C, Younger G, and Younger Blaze outflanked the grown-up MilSim squad through the pine woods, tagged out ${kills} adult players, and captured their HQ flag!`;
                     } else if (camp === 'mall') {
-                        endKicker.innerText = 'SHOPPING MALL // EXFIL CHECKPOINT REACHED';
+                        endKicker.innerText = 'SANDTON MALL // EXFIL CHECKPOINT REACHED';
                         endTitle.innerText = 'ESCAPED THE BLOCKADE';
-                        endBody.innerText = `Fighting out of the pitch-dark discount shop with your pink Glock 26, you broke the looter mobs, cleared the Kalashnikov taxi blockade, looted R${cashCollected.toLocaleString()}, and neutralized ${kills} hostiles.`;
+                        endBody.innerText = `Descending from Golden Dragon (L1) down to B1 to gear up in your MOLLE rig and thermal monocular, then ascending via the North Service Stairwell to the L2 Skybridge, C broke the Kalashnikov taxi blockade, looted R${cashCollected.toLocaleString()}, and neutralized ${kills} hostiles.`;
                     } else if (camp === 'sniper') {
                         endKicker.innerText = 'INDUSTRIAL RAIL & MINE DUMPS // SECURED';
                         endTitle.innerText = 'OVERWATCH COMPLETE';
@@ -6050,7 +6355,7 @@ import { createAudioEngine } from './audio/sfx.js';
                         pickups[i].update(dt);
                     }
 
-                    const wep = WEAPONS[player.wepIdx];
+                    const wep = WEAPONS[player.weaponIdx];
                     let lookAhead = 0;
                     if (!player.vehicle && wep && wep.id === 'ruger') {
                         lookAhead = (mouse.rightDown || touchInput.scopeActive) ? 380 : 190;
@@ -6069,6 +6374,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
 
                 render();
+                eKeyJustPressed = false;
                 mouse.justClicked = false;
                 touchInput.justFired = false;
                 requestAnimationFrame(gameLoop);
@@ -6089,10 +6395,10 @@ import { createAudioEngine } from './audio/sfx.js';
                 const body = document.getElementById('menuBody');
                 if (camp === 'training') {
                     kicker.innerText = 'WOODLAND AIRSOFT ARENA // YOUTH SQUAD TRAINING';
-                    body.innerHTML = 'Years before the grid went dark—a Sunday morning airsoft skirmish in a dense pine woodland. Play as <strong>Younger Yael</strong> alongside <strong>Younger G</strong> and <strong>Younger Blaze</strong> in a 3-player youth squad facing off against an entrenched team of <strong>grown-up MilSim adults</strong>. Use forest cover, coordinate with your teammates, and capture the adults\' base flag!';
+                    body.innerHTML = 'Years before the grid went dark—a Sunday morning airsoft skirmish in a dense pine woodland. Play as <strong>Younger C</strong> alongside <strong>Younger G</strong> and <strong>Younger Blaze</strong> in a 3-player youth squad facing off against an entrenched team of <strong>grown-up MilSim adults</strong>. Use forest cover, coordinate with your teammates, and capture the adults\' base flag!';
                 } else if (camp === 'mall') {
-                    kicker.innerText = 'SHOPPING MALL // 07:00 AM POWER OUTAGE';
-                    body.innerHTML = '07:00 AM — two hours after the initial impact. Trapped inside a pitch-dark Chinese discount shop, <strong>Yael</strong> packs a custom <strong>Glock 26</strong> loaded with <strong>100gr FMJ</strong> (and can scavenge <strong>120gr +P JHP</strong> hollow-point stashes <strong>[B]</strong>—bigger flash and louder bang, but huge stopping power), under-barrel light (<strong>[F]</strong>) + strobe (<strong>[T]</strong>), and <strong>NVG / Thermal goggles ([V])</strong>.';
+                    kicker.innerText = 'SANDTON-SCALE 4-FLOOR MALL // 07:00 AM POWER OUTAGE';
+                    body.innerHTML = '07:00 AM — two hours after impact. Having arrived before dawn to help Mr. Chen evacuate stock from <strong>Golden Dragon (Level 1)</strong>, <strong>C</strong> starts in rolled-up olive-check flannel and denims with her concealed <strong>pink Glock 26</strong>. Descend to <strong>Ground [G]</strong> and <strong>B1 Underground Parkade</strong> to recover your <strong>Go-Bag, MOLLE vest, and battery-limited Thermal/NVG optics + 10,000 mAh power bank</strong> from your car boot, then take an alternate stairwell up to the <strong>L2 Skybridge</strong>!';
                 } else if (camp === 'sniper') {
                     kicker.innerText = 'GAUTENG INDUSTRIAL BELT // SNIPER OVERWATCH';
                     body.innerHTML = '<strong>The Uncle</strong> takes position on the elevated Signal Overwatch above the freight rail yard. Armed with a high-caliber <strong>Ruger M77 Bolt-Action</strong> rifle and a <strong>Glock 17</strong>, hold <strong>Right-Click</strong> to pan your scope downrange, punch armor-piercing rounds through Syndicate lookouts, and eliminate the Arms Broker atop the Mine Dump Citadel.';
@@ -6130,12 +6436,12 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 if (selectedCampaign === 'training') {
                     generateWoodlandWorld();
-                    player = new Player(760, 3260, 'young_yael');
-                    updatePortraitSVG('young_yael');
+                    player = new Player(760, 3260, 'young_c');
+                    updatePortraitSVG('young_c');
                     initTrainingMissions();
                 } else if (selectedCampaign === 'mall') {
                     generateMallWorld();
-                    player = new Player(740, 3150, 'mall');
+                    player = new Player(520, 1680, 'mall');
                     updatePortraitSVG('mall');
                     initMallMissions();
                 } else if (selectedCampaign === 'sniper') {
@@ -6147,7 +6453,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     generateCBDWorld();
                     player = new Player(1850, 2930, 'female');
                     updatePortraitSVG('female');
-                    initCBDMissions();
+                    initCbdMissions();
                 } else {
                     generateSuburbsWorld();
                     player = new Player(1950, 1980, 'male');
@@ -6161,6 +6467,7 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 document.getElementById('startOverlay').classList.add('hidden');
                 document.getElementById('endOverlay').classList.add('hidden');
+                document.getElementById('monologueToast').classList.remove('visible');
 
                 if (gameState !== 'cutscene') {
                     gameState = 'playing';
@@ -6168,6 +6475,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 syncMobileControlsVisibility();
                 updateHUD();
             }
+
 
             const titleMenu = setupTitleScreen({
                 start: () => {
@@ -6179,23 +6487,22 @@ import { createAudioEngine } from './audio/sfx.js';
                     document.getElementById('startOverlay').classList.remove('hidden');
                 }
             });
-
             document.getElementById('startBtn').addEventListener('click', startGame);
             document.getElementById('restartBtn').addEventListener('click', () => {
                 phoneCutscene.close();
                 document.getElementById('endOverlay').classList.add('hidden');
                 document.getElementById('startOverlay').classList.remove('hidden');
                 document.getElementById('phoneToast').classList.remove('visible');
+                document.getElementById('monologueToast').classList.remove('visible');
                 gameState = 'menu';
                 syncMobileControlsVisibility();
             });
 
-            // Initialize platform detection, start card portraits, and preview backdrop
-            populateStartCardAvatars();
+
             detectPlatform();
             initMobileControls();
             generateWoodlandWorld();
-            updatePortraitSVG('young_yael');
+            updatePortraitSVG('young_c');
             camera.x = 550;
             camera.y = 2750;
             requestAnimationFrame(gameLoop);

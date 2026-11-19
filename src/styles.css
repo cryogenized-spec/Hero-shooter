@@ -1,3 +1,4 @@
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -116,7 +117,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-width: 205px;
+            min-width: 210px;
         }
 
         #wepName {
@@ -233,7 +234,6 @@
             min-height: 15px;
         }
 
-        /* Individual Physical Cartridge / BB Icon */
         .round-pip {
             width: 4.5px;
             height: 14px;
@@ -283,7 +283,6 @@
             border-color: #fed7aa;
         }
 
-        /* Physical Spare Magazine Icons */
         #magCountIcons {
             display: flex;
             align-items: flex-end;
@@ -364,7 +363,7 @@
             top: 14px;
             left: 50%;
             transform: translateX(-50%);
-            width: 340px;
+            width: 356px;
             max-width: calc(100vw - 28px);
             background: rgba(15, 23, 42, 0.88);
             backdrop-filter: blur(8px);
@@ -379,7 +378,7 @@
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 10px;
             font-weight: 800;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.08em;
             color: #f59e0b;
             text-transform: uppercase;
             margin-bottom: 3px;
@@ -449,7 +448,65 @@
             color: #f1f5f9;
         }
 
-        /* Top-Right Stats, Optics Mode & iPods Music Player */
+        /* Internal Monologue Bar (Distinct Inner-Thought UI) */
+        #monologueToast {
+            position: absolute;
+            bottom: 72px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            width: 540px;
+            max-width: calc(100vw - 32px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(9, 13, 22, 0.94);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-left: 4px solid #38bdf8;
+            border-radius: 12px;
+            padding: 10px 14px;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.82);
+            opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        #monologueToast.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .mono-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1.5px solid #38bdf8;
+            background: #1e293b;
+            flex-shrink: 0;
+        }
+
+        .mono-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mono-tag {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 9.5px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: #38bdf8;
+            margin-bottom: 2px;
+        }
+
+        .mono-text {
+            font-size: 12.5px;
+            font-style: italic;
+            line-height: 1.38;
+            color: #e2e8f0;
+        }
+
+        /* Top-Right Stats, Floor Indicator, Optics + Power Bank & iPods */
         #topRightStats {
             position: absolute;
             top: 14px;
@@ -461,6 +518,15 @@
             border-radius: 10px;
             padding: 10px 14px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        #floorIndicator {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 11.5px;
+            font-weight: 900;
+            color: #facc15;
+            margin-bottom: 2px;
+            display: none;
         }
 
         #killCounter {
@@ -495,7 +561,7 @@
             font-weight: 800;
             color: #94a3b8;
             margin-top: 3px;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.03em;
         }
 
         #opticsStatus:hover {
@@ -520,11 +586,11 @@
         /* Center Contextual Prompt Banner */
         #promptBanner {
             position: absolute;
-            bottom: 32px;
+            bottom: 28px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(15, 23, 42, 0.94);
-            border: 1px solid rgba(250, 204, 21, 0.5);
+            border: 1px solid rgba(250, 204, 21, 0.55);
             color: #fef08a;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 12px;
@@ -539,6 +605,12 @@
 
         #promptBanner.visible {
             opacity: 1;
+        }
+
+        #promptBanner.exec-ready {
+            border-color: #ef4444;
+            color: #fca5a5;
+            background: rgba(69, 10, 10, 0.94);
         }
 
         /* Bottom-Right Radar Minimap */
@@ -581,7 +653,7 @@
         }
 
         .smartphone-chassis {
-            width: 410px;
+            width: 416px;
             max-width: 100%;
             background: #0b1120;
             border: 3px solid #334155;
@@ -1049,7 +1121,7 @@
             right: 14px;
             bottom: 174px;
             display: grid;
-            grid-template-columns: repeat(2, 66px);
+            grid-template-columns: repeat(2, 68px);
             gap: 7px;
             pointer-events: auto;
         }
@@ -1096,7 +1168,6 @@
             color: #ffedd5;
         }
 
-        /* Reposition HUD panels on mobile so thumbsticks stay unobstructed */
         body.mobile-mode #playerPanel {
             top: 10px;
             left: 10px;
@@ -1146,7 +1217,7 @@
         }
 
         body.mobile-mode #radarFrame {
-            top: 108px;
+            top: 114px;
             right: 10px;
             bottom: auto;
             width: 84px;
@@ -1161,9 +1232,9 @@
             #missionPanel {
                 left: auto;
                 right: 14px;
-                top: 128px;
+                top: 138px;
                 transform: none;
-                width: 290px;
+                width: 295px;
             }
         }
 
@@ -1185,7 +1256,86 @@
             }
         }
 
+/* Latest Gemini version: dialogue accessibility and stance display */
+        /* Internal Monologue Bar (Distinct Inner-Thought UI — 2x Scale) */
+        #monologueToast {
+            position: absolute;
+            bottom: 64px;
+            left: 50%;
+            transform: translateX(-50%) translateY(14px);
+            width: 860px;
+            max-width: calc(100vw - 32px);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: rgba(9, 13, 22, 0.96);
+            backdrop-filter: blur(10px);
+            border: 1.5px solid rgba(56, 189, 248, 0.45);
+            border-left: 7px solid #38bdf8;
+            border-radius: 16px;
+            padding: 20px 26px;
+            box-shadow: 0 22px 54px rgba(0, 0, 0, 0.9);
+            opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
 
+        #monologueToast.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .mono-avatar {
+            width: 84px;
+            height: 84px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 2px solid #38bdf8;
+            background: #1e293b;
+            flex-shrink: 0;
+        }
+
+        .mono-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mono-tag {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            color: #38bdf8;
+            margin-bottom: 6px;
+        }
+
+        .mono-text {
+            font-size: 21px;
+            font-style: italic;
+            line-height: 1.42;
+            color: #f1f5f9;
+        }
+
+        @media (max-width: 760px) {
+            #monologueToast {
+                padding: 14px 16px;
+                gap: 14px;
+            }
+            .mono-avatar {
+                width: 58px;
+                height: 58px;
+            }
+            .mono-tag {
+                font-size: 11px;
+            }
+            .mono-text {
+                font-size: 15px;
+            }
+        }
+
+
+#stanceStatus { cursor:pointer; color:#facc15; font:800 11px ui-monospace,monospace; }
+#stanceStatus.sneaking { color:#4ade80; }
+#mobileActionCluster { grid-template-columns: repeat(2,68px); }
 /* ============================================================================
    Title screen — the artwork is displayed whole, with real accessible controls
    mapped to the text already printed on the raster art.
