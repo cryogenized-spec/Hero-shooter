@@ -21,6 +21,11 @@ export function setupTitleScreen({ start, continueChapter }) {
     const optionsButton = document.getElementById('titleOptions');
     checkbox.checked = readPreference(MUSIC) === 'true';
 
+    const openLatest = (chapter = null) => {
+        const url = new URL('./play/', window.location.href);
+        if (chapter && CAMPAIGNS.has(chapter)) url.searchParams.set('chapter', chapter);
+        window.location.assign(url.href);
+    };
     const showChapterSelect = (kind) => {
         if (screen.classList.contains('hidden')) return;
         screen.classList.add('hidden');
@@ -45,11 +50,18 @@ export function setupTitleScreen({ start, continueChapter }) {
         optionsButton.focus({ preventScroll: true });
     };
 
-    startButton.addEventListener('click', () => showChapterSelect('start'));
-    document.getElementById('titlePressStart').addEventListener('click', () => showChapterSelect('start'));
-    continueButton.addEventListener('click', () => showChapterSelect('continue'));
+    startButton.addEventListener('click', () => openLatest());
+    document.getElementById('titlePressStart').addEventListener('click', () => openLatest());
+    continueButton.addEventListener('click', () => {
+        const last = readPreference(STORE);
+        openLatest(CAMPAIGNS.has(last) ? last : 'mall');
+    });
     optionsButton.addEventListener('click', openOptions);
     document.getElementById('titleOptionsBack').addEventListener('click', closeOptions);
+    document.getElementById('titleClassic').addEventListener('click', () => {
+        closeOptions();
+        showChapterSelect('start');
+    });
     checkbox.addEventListener('change', () => savePreference(MUSIC, String(checkbox.checked)));
     document.getElementById('titleFullscreen').addEventListener('click', async () => {
         try {
@@ -68,7 +80,7 @@ export function setupTitleScreen({ start, continueChapter }) {
         if (screen.classList.contains('hidden')) return;
         if ((event.key === 'Enter' || event.key === ' ') && event.target === document.body) {
             event.preventDefault();
-            showChapterSelect('start');
+            openLatest();
         }
     });
 
