@@ -52,3 +52,74 @@ test('shop boot is lightweight, old campaign still archived intact',async()=>{
   assert.match(game,/function generateWorld\(camp\)/);
   assert.match(game,/function gameLoop\(timestamp\)/);
 });
+
+test('actual Home & More first gameplay frame renders from its committed Tiled map',async()=>{
+  const source=await read('public/play/sprites.js');
+  const scene=await read('public/play/shop.js');
+  const map=JSON.parse(await read('public/play/maps/home-and-more.tmj'));
+  const elements=new Map();
+  const element=(id)=>{
+    if(!elements.has(id)) elements.set(id,{
+      id,hidden:true,textContent:'',style:{},
+      classList:{add:noop,remove:noop},replaceChildren:noop,
+      addEventListener:noop
+    });
+    return elements.get(id);
+  };
+  const document={
+    body:{classList:{add:noop,remove:noop}},
+    getElementById:element
+  };
+  const root={
+    document,addEventListener:noop,localStorage:{getItem:()=>null,setItem:noop,removeItem:noop},
+    location:{search:'?fresh=1'},console
+  };
+  const environment={
+    window:root,document,fetch:async()=>({ok:true,json:async()=>map}),
+    console,Math,Object,Number,JSON,String,Set
+  };
+  vm.runInNewContext(source,environment);
+  vm.runInNewContext(scene,environment);
+  await root.HeroShop.start();
+  const ctx=mockCanvas();
+  ctx.setTransform=noop;
+  ctx.arc=noop;ctx.fillText=noop;ctx.fillRect=noop;
+  ctx.measureText=(value)=>({width:String(value).length*7});
+  ctx.createRadialGradient=()=>({addColorStop:noop});
+  const input={keys:{},leftStick:{active:false,dx:0,dy:0}};
+  assert.doesNotThrow(()=>root.HeroShop.frame(0.016,{ctx,width:1100,height:690,input}));
+  input.keys.KeyW=true;
+  assert.doesNotThrow(()=>root.HeroShop.frame(0.016,{ctx,width:1100,height:690,input}));
+  assert.equal(element('shopLayer').hidden,false);
+  assert.match(element('shopFloor').textContent,/SALES FLOOR/);
+});
+
+test('lightweight entry starts the Sunday map without loading or selecting a legacy chapter',async()=>{
+  const entry=await read('public/play/entry.js');
+  const jobs=[];
+  let starts=0,frames=0;
+  const canvas={width:0,height:0,getContext:()=>mockCanvas()};
+  const elements={
+    gameCanvas:canvas,shopConversation:{hidden:true},
+    shopNotice:{style:{},textContent:''},
+    shopLayer:{hidden:true}
+  };
+  const root={
+    location:{href:'https://example.org/Hero-shooter/public/play/index.html?autostart=1&fresh=1',
+      pathname:'/Hero-shooter/public/play/index.html',search:'?autostart=1&fresh=1',
+      replace:noop,assign:noop},
+    document:{readyState:'complete',body:{classList:{add:noop}},
+      getElementById:(id)=>elements[id]},
+    HeroShop:{start:()=>{starts++},frame:()=>{frames++},keydown:noop,stop:noop},
+    HeroSprites:{},addEventListener:noop,
+    performance:{now:()=>0},innerWidth:1024,innerHeight:768,
+    requestAnimationFrame:(fn)=>{jobs.push(fn)},console
+  };
+  vm.runInNewContext(entry,{window:root,URL,URLSearchParams,Math,Object,console,Error});
+  assert.equal(starts,1);
+  assert.equal(canvas.width,1024);
+  assert.equal(jobs.length,1);
+  jobs[0](16);
+  assert.equal(frames,1);
+  assert.equal(jobs.length,2);
+});
