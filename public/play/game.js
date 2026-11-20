@@ -3787,6 +3787,7 @@
                 currentCampaign = camp;
                 const map = {
                     training: 'btnCampTraining',
+                    shop: 'btnCampShop',
                     mall: 'btnCampMall',
                     cbd: 'btnCampCBD',
                     sniper: 'btnCampSniper',
@@ -4794,8 +4795,12 @@
                 lastTimestamp = timestamp;
 
                 if (gameState === 'playing') {
-                    updateSimulation(dt);
-                    renderWorld();
+                    if (currentCampaign === 'shop' && window.HeroShop) {
+                        window.HeroShop.frame(dt, { ctx, width, height, input });
+                    } else {
+                        updateSimulation(dt);
+                        renderWorld();
+                    }
                 }
                 requestAnimationFrame(gameLoop);
             }
@@ -4817,6 +4822,11 @@
                 }
 
                 input.keys[e.code] = true;
+                if (currentCampaign === 'shop' && gameState === 'playing') {
+                    if (e.code === 'Tab') e.preventDefault();
+                    if (!e.repeat && window.HeroShop) window.HeroShop.keydown(e.code);
+                    return;
+                }
                 if (gameState !== 'playing' || !player) return;
 
                 if (e.code === 'KeyR') player.reload();
@@ -4920,6 +4930,17 @@
             // GAME STATE TRANSITIONS & BOOTSTRAP
             // ============================================================================
             function startGame() {
+                if (currentCampaign === 'shop') {
+                    document.getElementById('startModal').classList.add('hidden');
+                    document.getElementById('endModal').classList.add('hidden');
+                    document.getElementById('monologueToast').classList.remove('visible');
+                    if (window.sfx && sfx.pausePhoenixTrack) sfx.pausePhoenixTrack();
+                    gameState = 'playing';
+                    window.HeroShop.start();
+                    lastTimestamp = performance.now();
+                    return;
+                }
+                if (window.HeroShop) window.HeroShop.stop();
                 sfx.init();
                 try {
                     window.localStorage.setItem('hero-shooter:last-chapter', currentCampaign);
@@ -4937,6 +4958,7 @@
             }
 
             function openMenu() {
+                if (window.HeroShop) window.HeroShop.stop();
                 gameState = 'menu';
                 phoneCutscene.active = false;
                 document.getElementById('phoneCutscene').classList.remove('active');
@@ -4982,7 +5004,7 @@
                 SpriteAtlas.init(ctx);
                 initMenuAvatars();
                 const chapterFromLink = new URLSearchParams(window.location.search).get('chapter');
-                selectCampaign(['training', 'mall', 'cbd', 'sniper', 'suburbs'].includes(chapterFromLink) ? chapterFromLink : 'mall');
+                selectCampaign(['training', 'shop', 'mall', 'cbd', 'sniper', 'suburbs'].includes(chapterFromLink) ? chapterFromLink : 'shop');
                 requestAnimationFrame(gameLoop);
             };
         })();
