@@ -2045,7 +2045,8 @@
                             triggerLKP(this.x, this.y, 175, currentMallFloor);
                         }
                     } else {
-                        this.stamina = Math.min(100, this.stamina + 24 * dt);
+                        const resources = Math.max(0.35, (this.condition.hydration + this.condition.nutrition) / 200);
+                        this.stamina = Math.min(100, this.stamina + 24 * dt * resources);
                     }
 
                     if (isMoving) {
@@ -3652,8 +3653,7 @@
                             showBanner(`SCAVENGED R${amt} CASH!`, 1300);
                         } else if (this.type === 'food') {
                             HeroCondition.eatAndDrink(player.condition);
-                            player.stamina = Math.min(100, player.stamina + 18);
-                            showBanner('FOOD & WATER — CONDITION IMPROVED (NO INSTANT HEALING)', 1700);
+                            showBanner('FOOD & WATER — SUPPORTS GRADUAL STAMINA RECOVERY', 1700);
                         } else if (this.type === 'knife_7inch') {
                             player.hasKnife = true;
                             showBanner('EQUIPPED 7-INCH HUNTING KNIFE IN LEATHER SCABBARD! [Q / RMB / E]', 2600);
