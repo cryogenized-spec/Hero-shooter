@@ -2752,7 +2752,7 @@
             const PAIN_CRIES = [
                 'EISH!', 'EINA!', 'HAWU!', 'HAYI BO!',
                 'NGICELA USIZO!', 'MAMA!', 'NKOSI YAMI!',
-                'NGIYAZWA!', 'NGISIZENI!', 'AYI!' // Provisional: native-speaker review before voice work.
+                'NGIYAZWA!', 'NGISIZENI!', 'AYI!' // Provisional: AI cross-check of natural conversational isiZulu before voice work.
             ];
 
             class Enemy {
