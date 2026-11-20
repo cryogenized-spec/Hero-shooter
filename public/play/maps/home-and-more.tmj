@@ -31,12 +31,12 @@
     {
       "name": "entryX",
       "type": "float",
-      "value": 1185
+      "value": 1200
     },
     {
       "name": "entryY",
       "type": "float",
-      "value": 1555
+      "value": 1610
     }
   ],
   "layers": [

@@ -85,6 +85,9 @@
       walls:list('Architecture'),fixtures:list('Fixtures'),zones:list('Zones'),
       points:list('Interactables'),actors:list('Actors'),lights:list('Lighting')
     };
+    const mapSettings=props(map);
+    const entryX=Number.isFinite(mapSettings.entryX)?mapSettings.entryX:1200;
+    const entryY=Number.isFinite(mapSettings.entryY)?mapSettings.entryY:1610;
     const actors = geometry.actors.map(o => {
       const nodes = String(o.meta.route||'').split(';').filter(Boolean)
         .map(s=>s.split(',').map(Number)).filter(x=>x.length===2 && x.every(Number.isFinite));
@@ -96,7 +99,7 @@
     });
     return {
       map,geometry,actors,loaded:true,floor:'shop',
-      player:{x:1180,y:1555,angle:-Math.PI/2,radius:15,walkAngle:-Math.PI/2,walkPhase:0,walkBlend:0,isSneaking:false,hasMolleVest:false,weaponVisible:false,flashlightOn:false},
+      player:{x:entryX,y:entryY,angle:-Math.PI/2,radius:15,walkAngle:-Math.PI/2,walkPhase:0,walkBlend:0,isSneaking:false,hasMolleVest:false,weaponVisible:false,flashlightOn:false},
       camera:{x:0,y:0},dialogue:false,chosen:null,rotateIndex:0,
       envelopes:[],assigned:false,delivered:[],hasWater:false,waterOffered:false,
       visitedOffice:false,visitedStockroom:false,elapsed:0,
@@ -119,6 +122,8 @@
       if(epoch!==frameNumber) return;
       state=loadState(map);
       restoreProgress();
+      // Existing saves can be inside shelving after a map revision. Never trap C.
+      if (ensureClearPlayerPosition()) saveProgress();
     } catch (error) {
       if(epoch===frameNumber) {
         state={loaded:false,error:error.message};
@@ -152,6 +157,29 @@
     // Indoors: keep actors inside the intended playable store or upstairs office.
     if(state.floor==='shop') return x<285||x>2300||y<225||y>1709;
     return x<365||x>1190||y<287||y>842;
+  }
+
+  function ensureClearPlayerPosition() {
+    if (!state || !state.loaded || !collisionAt(state.player.x,state.player.y)) return false;
+    const originX=state.player.x,originY=state.player.y;
+    // Search expanding rings for the nearest walkable centre. This is a
+    // recovery path for old saves and map changes, not normal collision movement.
+    for (let radius=8;radius<=320;radius+=8) {
+      for (let n=0;n<32;n++) {
+        const angle=(Math.PI*2*n)/32;
+        const x=originX+Math.cos(angle)*radius;
+        const y=originY+Math.sin(angle)*radius;
+        if (!collisionAt(x,y)) {
+          state.player.x=x;
+          state.player.y=y;
+          console.warn('[Home & More] Moved C to a clear position after an obstructed spawn.',
+            {from:[originX,originY],to:[x,y]});
+          return true;
+        }
+      }
+    }
+    // A completely invalid map should not leave the player permanently stuck.
+    throw new Error('No walkable space was found near C’s starting position');
   }
 
   function movePlayer(dt,input) {
