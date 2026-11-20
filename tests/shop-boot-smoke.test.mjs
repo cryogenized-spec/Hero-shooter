@@ -76,7 +76,7 @@ test('actual Home & More first gameplay frame renders from its committed Tiled m
   };
   const environment={
     window:root,document,fetch:async()=>({ok:true,json:async()=>map}),
-    console,Math,Object,Number,JSON,String,Set
+    console,Math,Object,Number,JSON,String,Set,URLSearchParams
   };
   vm.runInNewContext(source,environment);
   vm.runInNewContext(scene,environment);
