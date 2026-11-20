@@ -87,3 +87,11 @@ The previously pasted incomplete update has now been superseded by the **complet
 The v10 game is separated into `public/play/index.html`, `public/play/styles.css`, and `public/play/game.js` and is copied directly into the static build. The newer lookahead/reverb music engine is present. The existing game's optimisations are unchanged; the v10 engine additionally avoids redundant ammunition-icon DOM rendering and offscreen background fill operations. Full performance parity should be benchmarked before removing the previous build. The Gemini v10 layout currently still depends on Tailwind's browser CDN, which should be replaced with compiled local CSS before declaring the game fully offline-capable.
 
 The title's **CONTINUE** selection remembers the last started chapter but does not restore a mid-chapter save.
+
+## Story and condition system (work in progress)
+
+The editable Chapter 1 continuity notes live at `docs/story/chapter-01-sunday-opening.md` and are **not** included in the public web build. Local uncommitted screenplay drafts can be kept in `story-drafts/` (ignored by Git). Git ignores cannot hide a committed file from GitHub code search; use `docs/story/` for versioned story and `story-drafts/` for notes that must stay local.
+
+The v1 gameplay condition model is in `public/play/condition.js`, loaded before `game.js`. Injuries can persist as a status, larger wounds can cause continuing health loss, and **H** (or the mobile **CARE** action) consumes one fictional field-care item to stabilize ongoing bleeding without restoring lost health. Food/water restore resources and a little stamina, **not health**. Rest-based *partial* recovery is exposed as a tested helper for future **actual** linked-chapter transitions; the current standalone chapter picker does not apply rest or persist conditions between characters.
+
+Ordinary gameplay no longer renders the AI sight wedges. Set `window.HERO_DEBUG_VISION = true` before launching a chapter to inspect the original debug cones. A fuller distinction between noticing a person and choosing to confront them belongs to the later map/AI redesign. isiZulu text snippets are provisional and require review from a fluent speaker before voices are recorded.
