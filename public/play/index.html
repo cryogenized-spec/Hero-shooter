@@ -192,13 +192,13 @@
             </div>
             <div class="flex items-center justify-between mb-3">
                 <span class="px-3 py-1 rounded-full bg-yellow-400/15 border border-yellow-400/40 text-yellow-300 text-xs font-extrabold tracking-widest uppercase">
-                    TACTICAL ACTION // 5 CHAPTERS
+                    FIVE CHAPTERS · SUNDAY INTRO BUILD
                 </span>
                 <span class="text-xs font-mono text-slate-400">BUILD v10.1</span>
             </div>
             <h1 class="text-2xl sm:text-4xl font-black tracking-tight text-white mb-1">HERO SHOOTER</h1>
             <p class="text-xs sm:text-sm text-slate-300 mb-4 leading-relaxed">
-                Select an operation. Experience <strong class="text-emerald-300">Pine Ridge Woodland Airsoft</strong> with Younger C, G &amp; Blaze, or deploy into the <strong class="text-pink-400">4-Floor Sandton Mall Blockade</strong> with C, her pink 3D-printed Glock 26, and 150 BPM Full-On Psytrance (<strong class="text-yellow-300">[M]</strong>).
+                Begin with C's <strong class="text-amber-300">Sunday morning inside Home &amp; More</strong> — an explorable shop with working employees, payroll errands and an upstairs office. The earlier four-floor mall combat prototype remains selectable separately.
             </p>
 
             <!-- Campaign Selector Grid -->
@@ -210,6 +210,16 @@
                         <div class="text-[10px] font-black text-emerald-400 uppercase tracking-wider">PROLOGUE // WOODLAND</div>
                         <div class="text-sm font-black text-white truncate">Airsoft Skirmish</div>
                         <div class="text-[11px] text-slate-400 truncate">Younger C, G &amp; Blaze vs. Adults</div>
+                    </div>
+                </button>
+
+                <!-- First playable Chapter 1 slice: Home & More Sunday morning -->
+                <button id="btnCampShop" onclick="selectCampaign('shop')" class="camp-card text-left p-3 rounded-2xl border border-slate-700 bg-slate-800/50 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl overflow-hidden border border-amber-400/60 shrink-0 bg-slate-950 flex items-center justify-center text-2xl">🏬</div>
+                    <div class="min-w-0">
+                        <div class="text-[10px] font-black text-amber-300 uppercase tracking-wider">CHAPTER 1 · SUNDAY PROLOGUE · NEW</div>
+                        <div class="text-sm font-black text-white truncate">Home &amp; More — Opening</div>
+                        <div class="text-[11px] text-slate-400 truncate">Explore the shop, staff &amp; mezzanine office</div>
                     </div>
                 </button>
 
@@ -297,7 +307,46 @@
         </div>
     </div>
 
+    <!-- Shared Canvas and chapter selector: this is a scene within the game, not a separate demo page. -->
+    <div id="shopLayer" class="shop-layer" hidden>
+      <header class="shop-topbar">
+        <div class="shop-identity">
+          <span class="shop-eyebrow">HERO SHOOTER · CHAPTER 1</span>
+          <strong>HOME &amp; MORE</strong>
+          <span id="shopFloor">L1 · SALES FLOOR</span>
+        </div>
+        <div class="shop-actions">
+          <span class="shop-time" id="shopNotice">SUNDAY · 06:55</span>
+          <button type="button" onclick="openMenu()">STAGES</button>
+        </div>
+      </header>
+      <div class="shop-objective" id="shopObjective">Speak with Wei Chen or visit Mrs. Chen upstairs.</div>
+      <div id="shopPrompt" class="shop-prompt" aria-live="polite"></div>
+      <div class="shop-mobile" id="shopMobile">
+        <div class="shop-dpad" aria-label="Movement controls">
+          <button id="shopUp" type="button" aria-label="Walk up">↑</button>
+          <button id="shopLeft" type="button" aria-label="Walk left">←</button>
+          <button id="shopDown" type="button" aria-label="Walk down">↓</button>
+          <button id="shopRight" type="button" aria-label="Walk right">→</button>
+        </div>
+        <div class="shop-mobile-actions">
+          <button id="shopMobileCycle" type="button">NEXT</button>
+          <button id="shopMobileAction" type="button">TALK / E</button>
+        </div>
+      </div>
+      <section id="shopConversation" class="shop-dialogue" aria-label="Conversation" aria-live="polite" hidden>
+        <div class="shop-c-portrait"><img src="../assets/portraits/c-portrait.webp" alt="C"></div>
+        <div class="shop-dialogue-body">
+          <span id="shopSpeaker" class="shop-speaker">Wei Chen</span>
+          <p id="shopDialogue"></p>
+          <div id="shopChoices" class="shop-choices"></div>
+        </div>
+        <div class="shop-npc-portrait" id="shopNPCPortrait" aria-hidden="true">WC</div>
+      </section>
+    </div>
+
     <script src="./condition.js" defer></script>
+    <script src="./shop.js" defer></script>
     <script src="./game.js" defer></script>
 </body>
 </html>
