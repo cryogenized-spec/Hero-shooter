@@ -61,12 +61,13 @@
         .map(s=>s.split(',').map(Number)).filter(x=>x.length===2 && x.every(Number.isFinite));
       return Object.assign(o,{
         homeX:o.x,homeY:o.y,route:nodes,index:0,speech:'',speechTime:0,
-        speechDelay:5+o.id%6,activity:o.type==='worker'?'packing':'idle',step:0
+        speechDelay:5+o.id%6,activity:o.type==='worker'?'packing':'idle',step:0,
+        radius:14,angle:-Math.PI/2,walkAngle:-Math.PI/2,walkPhase:0,walkBlend:0,woundedSpeedFactor:1
       });
     });
     return {
       map,geometry,actors,loaded:true,floor:'shop',
-      player:{x:1180,y:1555,angle:-Math.PI/2},
+      player:{x:1180,y:1555,angle:-Math.PI/2,radius:15,walkAngle:-Math.PI/2,walkPhase:0,walkBlend:0,isSneaking:false,hasMolleVest:false,weaponVisible:false,flashlightOn:false},
       camera:{x:0,y:0},dialogue:false,chosen:null,rotateIndex:0,
       envelopes:[],assigned:false,delivered:[],hasWater:false,waterOffered:false,
       visitedOffice:false,visitedStockroom:false,elapsed:0,
@@ -134,8 +135,12 @@
       if(keys.KeyW||keys.ArrowUp||joystick.up)y--;
       if(keys.KeyS||keys.ArrowDown||joystick.down)y++;
     }
+    const beforeX=state.player.x,beforeY=state.player.y;
     const mag=Math.hypot(x,y);
-    if(mag<0.01) return;
+    if(mag<0.01) {
+      root.HeroSprites.updateWalk(state.player,beforeX,beforeY,dt,146,18);
+      return;
+    }
     x/=mag;y/=mag;
     state.player.angle=Math.atan2(y,x);
     const k=(input&&input.keys&&(input.keys.ShiftLeft||input.keys.ShiftRight))?1.36:1;
@@ -143,19 +148,23 @@
     const nx=state.player.x+x*speed,ny=state.player.y+y*speed;
     if(!collisionAt(nx,state.player.y))state.player.x=nx;
     if(!collisionAt(state.player.x,ny))state.player.y=ny;
+    root.HeroSprites.updateWalk(state.player,beforeX,beforeY,dt,146,speed);
   }
 
   function animateActors(dt) {
     for(const a of state.actors) {
       if(a.meta.floor!==state.floor)continue;
+      const beforeX=a.x,beforeY=a.y;
       if(a.route.length && a.type==='worker') {
         const goal=a.route[a.index % a.route.length];
         let dx=goal[0]-a.x,dy=goal[1]-a.y;
         const d=Math.hypot(dx,dy);
         if(d<4) a.index=(a.index+1)%a.route.length;
         else { const dist=Math.min(d,dt*(a.meta.pair==='receiving'?22:30));
-          a.x+=dx/d*dist;a.y+=dy/d*dist;a.step+=dt*9; }
+          a.x+=dx/d*dist;a.y+=dy/d*dist;a.step+=dt*9;
+          a.angle=Math.atan2(dy,dx); }
       }
+      root.HeroSprites.updateWalk(a,beforeX,beforeY,dt,110,40*dt);
       a.speechDelay-=dt;
       if(a.speechTime>0)a.speechTime-=dt;
       if(a.speechDelay<=0 && a.type==='worker' && !state.dialogue) {
@@ -346,15 +355,17 @@
     ctx.restore();
   }
   function drawActor(ctx,a) {
-    const worker=a.type==='worker',son=a.type==='family-son',mother=a.type==='family-mother';
-    const garment=worker?'#497b7a':son?'#8e9fa5':mother?'#866f98':'#65767d';
-    ctx.save();ctx.translate(a.x,a.y);
-    ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(0,12,19,9,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=garment;ctx.beginPath();ctx.ellipse(0,4,14,14,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=mother?'#dcb49c':'#ad8066';ctx.beginPath();ctx.arc(0,-3,9,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#1d2430';ctx.beginPath();ctx.arc(-2,-8,8,Math.PI,Math.PI*2);ctx.fill();
-    ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillStyle='#eff5ed';ctx.fillText(a.name,0,-25);
-    if(a.speechTime>0&&a.speech){ctx.font='12px system-ui';let w=ctx.measureText(a.speech).width+16;ctx.fillStyle='#dce5d9';ctx.fillRect(-w/2,-62,w,22);ctx.fillStyle='#20373c';ctx.fillText(a.speech,0,-46)}
+    // Codex's original procedural body/leg silhouettes, not placeholder circles.
+    const looks=a.type==='family-son'?'manager':a.type==='worker'?(a.name==='Thandeka Dlamini'?'cashier':'assistant'):a.type==='family-mother'?'manager':'chen';
+    const prop=a.type==='worker' && a.meta.pair==='receiving' ? 'crate' : 'none';
+    root.HeroSprites.drawNpc(ctx,a,looks,prop);
+    ctx.save();ctx.font='bold 11px system-ui';ctx.textAlign='center';
+    ctx.fillStyle='#f4f5ec';ctx.fillText(a.name,a.x,a.y-29);
+    if(a.speechTime>0&&a.speech){
+      ctx.font='12px system-ui';const w=ctx.measureText(a.speech).width+16;
+      ctx.fillStyle='#dce5d9';ctx.fillRect(a.x-w/2,a.y-68,w,23);
+      ctx.fillStyle='#20373c';ctx.fillText(a.speech,a.x,a.y-51);
+    }
     ctx.restore();
   }
   function drawScene(ctx,w,h) {
@@ -399,15 +410,11 @@
       ctx.beginPath();ctx.moveTo(l.x,l.y);ctx.lineTo(l.x+l.width,l.y);ctx.stroke();
     }
     for(const a of state.actors)if(a.meta.floor===floor)drawActor(ctx,a);
-    // C is the only controllable person in this peaceful prologue.
+    // C uses the authentic procedural olive-flannel figure from Codex PR #8.
+    // She keeps her compact pistol concealed during the peaceful opening.
     const p=state.player;
-    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
-    ctx.fillStyle='rgba(0,0,0,.55)';ctx.beginPath();ctx.ellipse(0,12,19,9,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#a85173';ctx.beginPath();ctx.ellipse(0,2,15,12,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#ca9a83';ctx.beginPath();ctx.arc(3,0,9,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#171323';ctx.beginPath();ctx.arc(1,-5,9,Math.PI,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#f9c8d7';ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(25,0);ctx.lineTo(12,5);ctx.fill();
-    ctx.restore();drawLabel(ctx,'C',p.x,p.y-24);
+    root.HeroSprites.drawC(ctx,p);
+    drawLabel(ctx,'C',p.x,p.y-29);
     const current=target();
     if(current&&!state.dialogue){
       ctx.strokeStyle='#f6da81';ctx.lineWidth=2;ctx.beginPath();ctx.arc(current.x+7,current.y+7,27,0,Math.PI*2);ctx.stroke();
