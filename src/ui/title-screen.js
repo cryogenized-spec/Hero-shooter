@@ -1,7 +1,7 @@
 /** Start menu controls for the selected static 16:9 anime title screen. */
 const STORE = 'hero-shooter:last-chapter';
 const MUSIC = 'hero-shooter:music-on-start';
-const CAMPAIGNS = new Set(['training', 'mall', 'cbd', 'sniper', 'suburbs']);
+const CAMPAIGNS = new Set(['shop']);
 
 function readPreference(key) {
     try { return window.localStorage.getItem(key); } catch { return null; }
@@ -19,11 +19,14 @@ export function setupTitleScreen({ start, continueChapter }) {
     const startButton = document.getElementById('titleStart');
     const continueButton = document.getElementById('titleContinue');
     const optionsButton = document.getElementById('titleOptions');
+    // Other campaign data and legacy code remain in the repository, but no longer form public navigation.
     checkbox.checked = readPreference(MUSIC) === 'true';
 
-    const openLatest = (chapter = null) => {
+    const openLatest = (chapter = 'shop', resume = false) => {
         const url = new URL('./play/', window.location.href);
-        if (chapter && CAMPAIGNS.has(chapter)) url.searchParams.set('chapter', chapter);
+        url.searchParams.set('chapter', 'shop');
+        url.searchParams.set('autostart', '1');
+        url.searchParams.set(resume ? 'resume' : 'fresh', '1');
         window.location.assign(url.href);
     };
     const showChapterSelect = (kind) => {
@@ -50,11 +53,11 @@ export function setupTitleScreen({ start, continueChapter }) {
         optionsButton.focus({ preventScroll: true });
     };
 
-    startButton.addEventListener('click', () => openLatest());
-    document.getElementById('titlePressStart').addEventListener('click', () => openLatest());
+    startButton.addEventListener('click', () => openLatest('shop'));
+    document.getElementById('titlePressStart').addEventListener('click', () => openLatest('shop'));
     continueButton.addEventListener('click', () => {
         const last = readPreference(STORE);
-        openLatest(CAMPAIGNS.has(last) ? last : 'mall');
+        openLatest(CAMPAIGNS.has(last) ? last : 'shop', true);
     });
     optionsButton.addEventListener('click', openOptions);
     document.getElementById('titleOptionsBack').addEventListener('click', closeOptions);
@@ -80,7 +83,7 @@ export function setupTitleScreen({ start, continueChapter }) {
         if (screen.classList.contains('hidden')) return;
         if ((event.key === 'Enter' || event.key === ' ') && event.target === document.body) {
             event.preventDefault();
-            openLatest();
+            openLatest('shop');
         }
     });
 
