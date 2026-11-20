@@ -1,5 +1,5 @@
 /* Hero Shooter / Home & More. A data-driven, non-combat store-opening scene.
-   Tiled JSON in maps/home-and-more.tmj is the sole source of floor geometry. */
+   Tiled JSON in maps/home-and-more.tmj is the sole source of floor geometry. Short isiZulu barks are provisional and will be AI cross-checked. */
 (function (root) {
   'use strict';
   const $ = (id) => document.getElementById(id);
