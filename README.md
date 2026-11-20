@@ -94,7 +94,7 @@ The editable Chapter 1 continuity notes live at `docs/story/chapter-01-sunday-op
 
 The v1 gameplay condition model is in `public/play/condition.js`, loaded before `game.js`. Injuries can persist as a status, larger wounds can cause continuing health loss, and **H** (or the mobile **CARE** action) consumes one fictional field-care item to stabilize ongoing bleeding without restoring lost health. Food/water restore energy/hydration reserves and thereby support gradual stamina recovery, **not health or instant stamina**. Rest-based *partial* recovery is exposed as a tested helper for future **actual** linked-chapter transitions; the current standalone chapter picker does not apply rest or persist conditions between characters.
 
-Ordinary gameplay no longer renders the AI sight wedges. Set `window.HERO_DEBUG_VISION = true` before launching a chapter to inspect the original debug cones. A fuller distinction between noticing a person and choosing to confront them belongs to the later map/AI redesign. isiZulu text snippets are provisional and require review from a fluent speaker before voices are recorded.
+Ordinary gameplay no longer renders the AI sight wedges. Set `window.HERO_DEBUG_VISION = true` before launching a chapter to inspect the original debug cones. A fuller distinction between noticing a person and choosing to confront them belongs to the later map/AI redesign. isiZulu text snippets are provisional. This one-person project will refine them through AI cross-checking and repeated in-game listening; no outside human reviewer is required.
 
 ## Home & More — playable Sunday-morning blockout
 
