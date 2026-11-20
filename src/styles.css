@@ -1,4 +1,7 @@
 
+        /* Preserve the legacy campaign DOM without exposing it as a selectable game mode. */
+        #titleClassic, #startOverlay { display: none !important; }
+
         * {
             box-sizing: border-box;
             margin: 0;

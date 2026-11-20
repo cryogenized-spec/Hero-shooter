@@ -3784,7 +3784,8 @@
             }
 
             function selectCampaign(camp) {
-                currentCampaign = camp;
+                // Retain all chapter implementations but make the Sunday opening the only public mode.
+                currentCampaign = 'shop';
                 const map = {
                     training: 'btnCampTraining',
                     shop: 'btnCampShop',
@@ -4937,6 +4938,7 @@
                     if (window.sfx && sfx.pausePhoenixTrack) sfx.pausePhoenixTrack();
                     gameState = 'playing';
                     window.HeroShop.start();
+                    try { window.localStorage.setItem('hero-shooter:last-chapter','shop'); } catch {}
                     lastTimestamp = performance.now();
                     return;
                 }
@@ -4958,6 +4960,12 @@
             }
 
             function openMenu() {
+                if (currentCampaign === 'shop') {
+                    if (window.HeroShop) window.HeroShop.stop();
+                    const relative = window.location.pathname.includes('/public/play/') ? '../../' : '../';
+                    window.location.assign(new URL(relative, window.location.href).href);
+                    return;
+                }
                 if (window.HeroShop) window.HeroShop.stop();
                 gameState = 'menu';
                 phoneCutscene.active = false;
@@ -5003,8 +5011,18 @@
             window.onload = function () {
                 SpriteAtlas.init(ctx);
                 initMenuAvatars();
-                const chapterFromLink = new URLSearchParams(window.location.search).get('chapter');
-                selectCampaign(['training', 'shop', 'mall', 'cbd', 'sniper', 'suburbs'].includes(chapterFromLink) ? chapterFromLink : 'shop');
+                const query = new URLSearchParams(window.location.search);
+                const relative = window.location.pathname.includes('/public/play/') ? '../../' : '../';
+                document.querySelectorAll('a[aria-label="Return to Hero Shooter title screen"]').forEach(a => {
+                    a.href = new URL(relative, window.location.href).href;
+                });
+                if (query.get('autostart') !== '1') {
+                    // An old /play/ bookmark should open the approved title, not a legacy chapter picker.
+                    window.location.replace(new URL(relative, window.location.href).href);
+                    return;
+                }
+                selectCampaign('shop');
+                startGame();
                 requestAnimationFrame(gameLoop);
             };
         })();

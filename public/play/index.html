@@ -192,9 +192,9 @@
             </div>
             <div class="flex items-center justify-between mb-3">
                 <span class="px-3 py-1 rounded-full bg-yellow-400/15 border border-yellow-400/40 text-yellow-300 text-xs font-extrabold tracking-widest uppercase">
-                    FIVE CHAPTERS · SUNDAY INTRO BUILD
+                    SUNDAY INTRODUCTION · IN DEVELOPMENT
                 </span>
-                <span class="text-xs font-mono text-slate-400">BUILD v10.1</span>
+                <span class="text-xs font-mono text-slate-400">SUNDAY ALPHA</span>
             </div>
             <h1 class="text-2xl sm:text-4xl font-black tracking-tight text-white mb-1">HERO SHOOTER</h1>
             <p class="text-xs sm:text-sm text-slate-300 mb-4 leading-relaxed">
@@ -204,7 +204,7 @@
             <!-- Campaign Selector Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-4">
                 <!-- Prologue: Woodland Airsoft -->
-                <button id="btnCampTraining" onclick="selectCampaign('training')" class="camp-card text-left p-3 rounded-2xl border-2 border-emerald-400/80 bg-emerald-950/25 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3">
+                <button id="btnCampTraining" onclick="selectCampaign('training')" class="legacy-hidden camp-card text-left p-3 rounded-2xl border-2 border-emerald-400/80 bg-emerald-950/25 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3">
                     <div id="cardAvatarTraining" class="w-12 h-12 rounded-xl overflow-hidden border border-emerald-400/60 shrink-0 bg-slate-900"></div>
                     <div class="min-w-0">
                         <div class="text-[10px] font-black text-emerald-400 uppercase tracking-wider">PROLOGUE // WOODLAND</div>
@@ -224,7 +224,7 @@
                 </button>
 
                 <!-- Stage 1: The Mall Blockade -->
-                <button id="btnCampMall" onclick="selectCampaign('mall')" class="camp-card text-left p-3 rounded-2xl border-2 border-pink-400 bg-slate-800/90 transition cursor-pointer flex items-center gap-3">
+                <button id="btnCampMall" onclick="selectCampaign('mall')" class="legacy-hidden camp-card text-left p-3 rounded-2xl border-2 border-pink-400 bg-slate-800/90 transition cursor-pointer flex items-center gap-3">
                     <div id="cardAvatarMall" class="w-12 h-12 rounded-xl overflow-hidden border border-pink-400/60 shrink-0 bg-slate-900"></div>
                     <div class="min-w-0">
                         <div class="text-[10px] font-black text-pink-400 uppercase tracking-wider">STAGE 1 // 4-FLOOR MALL</div>
@@ -234,7 +234,7 @@
                 </button>
 
                 <!-- Stage 2: Joburg CBD -->
-                <button id="btnCampCBD" onclick="selectCampaign('cbd')" class="camp-card text-left p-3 rounded-2xl border border-slate-700 bg-slate-800/50 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3">
+                <button id="btnCampCBD" onclick="selectCampaign('cbd')" class="legacy-hidden camp-card text-left p-3 rounded-2xl border border-slate-700 bg-slate-800/50 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3">
                     <div id="cardAvatarCBD" class="w-12 h-12 rounded-xl overflow-hidden border border-orange-400/60 shrink-0 bg-slate-900"></div>
                     <div class="min-w-0">
                         <div class="text-[10px] font-black text-orange-400 uppercase tracking-wider">STAGE 2 // DOWNTOWN</div>
@@ -244,7 +244,7 @@
                 </button>
 
                 <!-- Stage 3: Sniper Overwatch -->
-                <button id="btnCampSniper" onclick="selectCampaign('sniper')" class="camp-card text-left p-3 rounded-2xl border border-slate-700 bg-slate-800/50 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3">
+                <button id="btnCampSniper" onclick="selectCampaign('sniper')" class="legacy-hidden camp-card text-left p-3 rounded-2xl border border-slate-700 bg-slate-800/50 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3">
                     <div id="cardAvatarSniper" class="w-12 h-12 rounded-xl overflow-hidden border border-sky-400/60 shrink-0 bg-slate-900"></div>
                     <div class="min-w-0">
                         <div class="text-[10px] font-black text-sky-400 uppercase tracking-wider">STAGE 3 // RAIL YARD</div>
@@ -254,7 +254,7 @@
                 </button>
 
                 <!-- Stage 4: The Suburbs -->
-                <button id="btnCampSuburbs" onclick="selectCampaign('suburbs')" class="camp-card text-left p-3 rounded-2xl border border-slate-700 bg-slate-800/50 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3 sm:col-span-2 lg:col-span-2">
+                <button id="btnCampSuburbs" onclick="selectCampaign('suburbs')" class="legacy-hidden camp-card text-left p-3 rounded-2xl border border-slate-700 bg-slate-800/50 hover:bg-slate-800 transition cursor-pointer flex items-center gap-3 sm:col-span-2 lg:col-span-2">
                     <div id="cardAvatarSuburbs" class="w-12 h-12 rounded-xl overflow-hidden border border-yellow-400/60 shrink-0 bg-slate-900"></div>
                     <div class="min-w-0">
                         <div class="text-[10px] font-black text-yellow-400 uppercase tracking-wider">STAGE 4 // RESIDENTIAL GRID</div>
@@ -346,6 +346,7 @@
     </div>
 
     <script src="./condition.js" defer></script>
+    <script src="./sprites.js" defer></script>
     <script src="./shop.js" defer></script>
     <script src="./game.js" defer></script>
 </body>

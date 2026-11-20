@@ -388,6 +388,8 @@
     border-radius: 50%;
 }
 
+.legacy-hidden { display: none !important; }
+
 /* Home & More: a quiet, integrated retail scene. Legacy action HUD stays untouched. */
 body.shop-mode #hudOverlay { display: none !important; }
 .shop-layer[hidden], .shop-dialogue[hidden] { display: none !important; }

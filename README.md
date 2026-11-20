@@ -121,3 +121,11 @@ GitHub Pages can be configured to publish either **GitHub Actions build artifact
 **Preferred one-time GitHub setting:** Repo → Settings → Pages → Build and deployment → Source = **GitHub Actions**. This disables the competing automatic Jekyll deployment. Until that setting is changed, the fallback keeps the advertised game path working in either mode. A successful workflow check alone does not verify which site's directory was served.
 
 If a link 404s, check the published deployment artifact contents and the current Pages source before claiming a deployment succeeded.
+
+## Public chapter selector and approved animated sprites
+
+The root site **`/Hero-shooter/`** is the main title screen. Its approved retro-anime art has working **Start**, **Continue**, and **Options** hotspots. **Start** launches a new `Home & More` shop intro through `/play/?chapter=shop&autostart=1&fresh=1`; **Continue** uses `resume=1` and retrieves the shop character's saved position, office/sales-floor level and optional errands from localStorage. Return to the title via the **STAGES** control. All other chapters and the older root game engine are retained in source for development, but no legacy chapters are selectable from the normal UI or URL.
+
+The shop and its NPCs use **the procedural sprite renderer from Codex PR #8**, now extracted into `public/play/sprites.js`: olive-flannel C silhouette, independent stride animation, actual travel direction and distinguishable human NPC sprites. This is *procedural Canvas art*, **not** an invented sprite sheet. During the peaceful Sunday-morning scene, C's weapon is not drawn. Codex's original PR #8 remains available separately while its reusable sprite logic is adopted in the active playable shop.
+
+The title image is also present under `assets/title/` (identical Git blob to `public/assets/title/`) so both Pages source modes resolve it. `/play/` without the `autostart=1` flag routes to the approved main title rather than showing the old stage menu.
