@@ -8,7 +8,7 @@ test('complete Gemini v10.1 HTML archived and current gameplay is modular', asyn
     assert.match(original, /BUILD v10\.1/);
     assert.match(original, /<\/html>/);
     const html = await read('public/play/index.html');
-    assert.match(html, /\.\/game\.js/);
+    assert.match(html, /\.\/entry\.js/);
     assert.match(html, /\.\/styles\.css/);
     assert.match(html, /btnCampMall/);
     assert.match(html, /btnCampTraining/);
