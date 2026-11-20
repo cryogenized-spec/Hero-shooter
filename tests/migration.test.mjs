@@ -28,7 +28,8 @@ test('five chapter definitions remain available', () => {
 test('essential game and portrait interfaces are present', async () => {
   const html = await read('index.html');
   const js = await read('src/main.js');
-  assert.match(html, /type="module" src="\.\/src\/main\.js"/);
+  assert.match(html, /type="module" src="\.\/src\/title-entry\.js"/);
+  // The complete original game engine remains in source, but is not booted on the title page.
   assert.match(html, /id="campTrainingBtn"/);
   assert.match(html, /id="campMallBtn"/);
   assert.match(js, /generateWoodlandWorld\(\)/);
