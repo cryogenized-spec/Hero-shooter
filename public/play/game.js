@@ -1813,6 +1813,7 @@
                     this.armor = config.armor !== undefined ? config.armor : 35;
                     this.maxArmor = config.maxArmor || 100;
                     this.stamina = 100;
+                    this.condition = HeroCondition.create({ fieldCare: config.fieldCare !== undefined ? config.fieldCare : (config.weaponId === 'airsoft_pistol' ? 0 : 1) });
 
                     this.gender = config.gender || 'israeli_c';
                     this.heroTitle = config.heroTitle || 'C';
@@ -1927,6 +1928,14 @@
                 }
 
                 update(dt) {
+                    const ongoingLoss = HeroCondition.update(this.condition, dt);
+                    if (ongoingLoss > 0) {
+                        this.hp = Math.max(0, this.hp - ongoingLoss);
+                        if (this.hp <= 0) {
+                            triggerEndGame(false);
+                            return;
+                        }
+                    }
                     if (this.invulnTimer > 0) this.invulnTimer -= dt;
                     if (this.meleeCooldown > 0) this.meleeCooldown -= dt;
                     if (this.meleeAnim > 0) this.meleeAnim -= dt * 4;
@@ -2027,16 +2036,17 @@
                     }
 
                     const wantsSprint = !this.isSneaking && (input.keys['ShiftLeft'] || input.keys['ShiftRight']) && isMoving && this.stamina > 5;
-                    let speed = this.isSneaking ? this.sneakSpeed : this.baseSpeed;
+                    let speed = (this.isSneaking ? this.sneakSpeed : this.baseSpeed) * HeroCondition.mobilityFactor(this.condition);
 
                     if (wantsSprint) {
-                        speed = this.sprintSpeed;
+                        speed = this.sprintSpeed * HeroCondition.mobilityFactor(this.condition);
                         this.stamina = Math.max(0, this.stamina - 32 * dt);
                         if (currentCampaign === 'mall' && Math.random() < 0.08) {
                             triggerLKP(this.x, this.y, 175, currentMallFloor);
                         }
                     } else {
-                        this.stamina = Math.min(100, this.stamina + 24 * dt);
+                        const resources = Math.max(0.35, (this.condition.hydration + this.condition.nutrition) / 200);
+                        this.stamina = Math.min(100, this.stamina + 24 * dt * resources);
                     }
 
                     if (isMoving) {
@@ -2186,6 +2196,13 @@
                     this.updateHUD();
                 }
 
+                useFieldCare() {
+                    const outcome = HeroCondition.useFieldCare(this.condition);
+                    showBanner(outcome.reason, 1700);
+                    this.updateHUD();
+                    return outcome.ok;
+                }
+
                 takeDamage(amount) {
                     if (this.invulnTimer > 0) return;
                     sfx.playHit();
@@ -2197,6 +2214,9 @@
                         amount -= absorbed;
                     }
                     this.hp = Math.max(0, this.hp - amount);
+                    if (currentCampaign !== 'training' && amount > 0) {
+                        HeroCondition.recordInjury(this.condition, amount);
+                    }
                     this.updateHUD();
 
                     if (this.hp <= 0) {
@@ -2216,6 +2236,18 @@
                         }
                     }
 
+                    const conditionEl = document.getElementById('conditionStatus');
+                    if (conditionEl) {
+                        conditionEl.textContent = this.condition.bleeding > 0
+                            ? `BLEEDING · FIELD CARE [H] · ${this.condition.fieldCare} LEFT`
+                            : (this.condition.injury > 0 ? `INJURED · ${this.condition.fieldCare} CARE KITS` : `STABLE · ${this.condition.fieldCare} CARE KITS`);
+                        conditionEl.style.color = this.condition.bleeding > 0 ? '#fda4af' : '#86efac';
+                    }
+                    const careButton = document.getElementById('btnMobileCare');
+                    if (careButton) {
+                        careButton.style.display = this.condition.bleeding > 0 ? '' : 'none';
+                        careButton.disabled = this.condition.fieldCare < 1;
+                    }
                     const hpPct = Math.ceil((this.hp / this.maxHp) * 100);
                     document.getElementById('hpValue').innerText = `${hpPct}%`;
                     document.getElementById('hpBar').style.width = `${hpPct}%`;
@@ -2718,12 +2750,9 @@
                 'SHESHISA!'
             ];
             const PAIN_CRIES = [
-                'AAARGH!!',
-                'UGH—MY LEG!!',
-                'AAAH! I\'M HIT!',
-                'EISH!! EINA!!',
-                'GAAH!! HELP!',
-                'OH GOD—!!'
+                'EISH!', 'EINA!', 'HAWU!', 'HAYI BO!',
+                'NGICELA USIZO!', 'MAMA!', 'NKOSI YAMI!',
+                'NGIYAZWA!', 'NGISIZENI!', 'AYI!' // Provisional: native-speaker review before voice work.
             ];
 
             class Enemy {
@@ -3230,21 +3259,24 @@
                 }
 
                 draw(ctx) {
-                    const cone = this.getVisionConeParams();
                     ctx.save();
                     ctx.translate(this.x, this.y);
                     ctx.rotate(this.angle);
 
-                    const coneGrad = ctx.createRadialGradient(0, 0, 8, 0, 0, cone.range);
-                    const isAlerted = (this.lkpSearchTimer > 0 || this.hesitationTimer > 0.1);
-                    coneGrad.addColorStop(0, isAlerted ? 'rgba(248, 113, 113, 0.14)' : 'rgba(250, 204, 21, 0.075)');
-                    coneGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                    ctx.fillStyle = coneGrad;
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.arc(0, 0, cone.range, -cone.halfAngle, cone.halfAngle);
-                    ctx.closePath();
-                    ctx.fill();
+                    // Keep perception in AI logic, not as visible geometry for players.
+                    if (window.HERO_DEBUG_VISION === true) {
+                        const cone = this.getVisionConeParams();
+                        const coneGrad = ctx.createRadialGradient(0, 0, 8, 0, 0, cone.range);
+                        const isAlerted = (this.lkpSearchTimer > 0 || this.hesitationTimer > 0.1);
+                        coneGrad.addColorStop(0, isAlerted ? 'rgba(248, 113, 113, 0.14)' : 'rgba(250, 204, 21, 0.075)');
+                        coneGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                        ctx.fillStyle = coneGrad;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.arc(0, 0, cone.range, -cone.halfAngle, cone.halfAngle);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
 
                     if (this.faction === 'dog') {
                         ctx.fillStyle = '#78350f';
@@ -3625,9 +3657,8 @@
                             }
                             showBanner(`SCAVENGED R${amt} CASH!`, 1300);
                         } else if (this.type === 'food') {
-                            player.hp = Math.min(player.maxHp, player.hp + 20);
-                            player.stamina = 100;
-                            showBanner('CANNED FOOD & WATER (+20 HP / +STAMINA)', 1400);
+                            HeroCondition.eatAndDrink(player.condition);
+                            showBanner('FOOD & WATER — SUPPORTS GRADUAL STAMINA RECOVERY', 1700);
                         } else if (this.type === 'knife_7inch') {
                             player.hasKnife = true;
                             showBanner('EQUIPPED 7-INCH HUNTING KNIFE IN LEATHER SCABBARD! [Q / RMB / E]', 2600);
@@ -3639,8 +3670,8 @@
                             showBanner('STASH FOUND: +2 MAGS 120GR +P JHP HOLLOW POINTS! [PRESS B]', 2400);
                             triggerMonologue('C', 'Two boxes of 120-grain +P jacketed hollow points. Heavier recoil and bigger muzzle flash, but one hit stops an attacker cold.');
                         } else if (this.type === 'medkit') {
-                            player.hp = Math.min(player.maxHp, player.hp + 38);
-                            showBanner('+38 HEALTH RESTORED', 1200);
+                            player.condition.fieldCare += 1;
+                            showBanner('FIELD-CARE SUPPLIES +1 · USE [H] IF BLEEDING', 1650);
                         } else if (this.type === 'armor') {
                             player.maxArmor = Math.max(player.maxArmor, 75);
                             player.armor = Math.min(player.maxArmor, player.armor + 35);
@@ -4797,6 +4828,7 @@
                 else if (e.code === 'KeyQ') player.meleeOrExecute();
                 else if (e.code === 'KeyE') handleInteract();
                 else if (e.code === 'KeyM') sfx.toggleMusic();
+                else if (e.code === 'KeyH') player.useFieldCare();
             });
 
             window.addEventListener('keyup', (e) => {
@@ -4882,6 +4914,7 @@
             document.getElementById('btnMobileOptics').addEventListener('click', () => { if (player) player.cycleOptics(); });
             document.getElementById('btnMobileInteract').addEventListener('click', () => { handleInteract(); });
             document.getElementById('btnMobileReload').addEventListener('click', () => { if (player) player.reload(); });
+            document.getElementById('btnMobileCare').addEventListener('click', () => { if (player) player.useFieldCare(); });
 
             // ============================================================================
             // GAME STATE TRANSITIONS & BOOTSTRAP

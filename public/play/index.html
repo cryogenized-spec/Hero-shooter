@@ -45,6 +45,7 @@
                     <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
                         <div id="staminaBar" class="h-full bg-amber-400 transition-all duration-75" style="width: 100%"></div>
                     </div>
+                    <div id="conditionStatus" role="status" aria-live="off" class="text-[10px] text-emerald-300 font-mono mt-1">STABLE · 1 CARE KIT</div>
                 </div>
 
                 <!-- Physical Magazine & Cartridge Display Directly Under Portrait -->
@@ -134,6 +135,7 @@
             <span><strong class="text-emerald-400">V</strong> Optics</span>
             <span><strong class="text-slate-200">E</strong> Interact/Execute</span>
             <span><strong class="text-slate-200">M</strong> iPods</span>
+            <span><strong class="text-rose-300">H</strong> Field care</span>
         </div>
 
         <!-- Mobile Dual-Stick & Action Buttons -->
@@ -147,6 +149,7 @@
                 <button id="btnMobileOptics" class="mobile-action-btn border-emerald-400/60 text-emerald-300">OPTICS</button>
                 <button id="btnMobileInteract" class="mobile-action-btn border-yellow-400/60 text-yellow-300">ACTION / EXEC</button>
                 <button id="btnMobileReload" class="mobile-action-btn">RELOAD</button>
+                <button id="btnMobileCare" class="mobile-action-btn border-rose-400/60 text-rose-200" style="display:none" aria-label="Use field-care supplies">CARE</button>
             </div>
         </div>
     </div>
@@ -294,6 +297,7 @@
         </div>
     </div>
 
+    <script src="./condition.js" defer></script>
     <script src="./game.js" defer></script>
 </body>
 </html>

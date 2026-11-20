@@ -2,3 +2,7 @@ dist/
 node_modules/
 .DS_Store
 *.log
+
+# Local story drafts; canonical narrative is kept outside game code in docs/story/.
+story-drafts/
+*.story.local.md
