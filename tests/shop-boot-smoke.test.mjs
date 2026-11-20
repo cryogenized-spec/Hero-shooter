@@ -123,3 +123,70 @@ test('lightweight entry starts the Sunday map without loading or selecting a leg
   assert.equal(frames,1);
   assert.equal(jobs.length,2);
 });
+
+
+test('C can translate in all four keyboard directions and recover obstructed saves',async()=>{
+  const source=await read('public/play/sprites.js');
+  const scene=await read('public/play/shop.js');
+  const map=JSON.parse(await read('public/play/maps/home-and-more.tmj'));
+  const location={search:'?fresh=1'};
+  const store=new Map();
+  const elements=new Map();
+  const element=(id)=>{
+    if(!elements.has(id))elements.set(id,{
+      id,hidden:true,textContent:'',style:{},
+      classList:{add:noop,remove:noop},replaceChildren:noop,addEventListener:noop
+    });
+    return elements.get(id);
+  };
+  const document={body:{classList:{add:noop,remove:noop}},getElementById:element};
+  const root={
+    document,location,addEventListener:noop,console,
+    localStorage:{
+      getItem:key=>store.get(key)||null,
+      setItem:(key,value)=>store.set(key,value),
+      removeItem:key=>store.delete(key)
+    }
+  };
+  const context={window:root,document,fetch:async()=>({ok:true,json:async()=>map}),
+    console,Math,Object,Number,JSON,String,Set,URLSearchParams};
+  vm.runInNewContext(source,context);
+  vm.runInNewContext(scene,context);
+  const ctx=mockCanvas();
+  Object.assign(ctx,{
+    setTransform:noop,arc:noop,fillText:noop,
+    createRadialGradient:()=>({addColorStop:noop}),
+    measureText:value=>({width:String(value).length*7})
+  });
+  const spawn={
+    x:map.properties.find(p=>p.name==='entryX').value,
+    y:map.properties.find(p=>p.name==='entryY').value
+  };
+  const keyMap=[
+    ['KeyW','y',-1],['KeyS','y',1],['KeyA','x',-1],['KeyD','x',1],
+    ['ArrowUp','y',-1],['ArrowRight','x',1]
+  ];
+  const saveKey='hero-shooter:home-and-more-save-v1';
+  for(const [code,axis,sign] of keyMap){
+    location.search='?fresh=1';
+    await root.HeroShop.start();
+    root.HeroShop.frame(.04,{ctx,width:1000,height:650,
+      input:{keys:{[code]:true},leftStick:{active:false,dx:0,dy:0}}});
+    root.HeroShop.stop();
+    const saved=JSON.parse(store.get(saveKey));
+    const movement=(saved.player[axis]-spawn[axis])*sign;
+    assert.ok(movement>4,code+' should move C '+axis+', not only rotate (moved '+movement+')');
+  }
+  // C's old saved position collides with the trolley rack: repair on Continue.
+  location.search='?resume=1';
+  store.set(saveKey,JSON.stringify({floor:'shop',
+    player:{x:1180,y:1555,angle:0},elapsed:23,
+    assigned:false,delivered:[],envelopes:[]}));
+  await root.HeroShop.start();
+  root.HeroShop.frame(.04,{ctx,width:1000,height:650,
+    input:{keys:{KeyS:true},leftStick:{active:false,dx:0,dy:0}}});
+  root.HeroShop.stop();
+  const recovered=JSON.parse(store.get(saveKey)).player;
+  assert.ok(Math.hypot(recovered.x-1180,recovered.y-1555)>15,
+    'old obstructed save must be moved into a walkable spot');
+});
