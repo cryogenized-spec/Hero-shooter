@@ -2243,6 +2243,11 @@
                             : (this.condition.injury > 0 ? `INJURED · ${this.condition.fieldCare} CARE KITS` : `STABLE · ${this.condition.fieldCare} CARE KITS`);
                         conditionEl.style.color = this.condition.bleeding > 0 ? '#fda4af' : '#86efac';
                     }
+                    const careButton = document.getElementById('btnMobileCare');
+                    if (careButton) {
+                        careButton.style.display = this.condition.bleeding > 0 ? '' : 'none';
+                        careButton.disabled = this.condition.fieldCare < 1;
+                    }
                     const hpPct = Math.ceil((this.hp / this.maxHp) * 100);
                     document.getElementById('hpValue').innerText = `${hpPct}%`;
                     document.getElementById('hpBar').style.width = `${hpPct}%`;
