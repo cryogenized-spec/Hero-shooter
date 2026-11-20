@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hero Shooter — Opening game</title>
+  <meta name="robots" content="noindex">
+  <!-- Only used when GitHub Pages is set to publish the repository root.
+       The correct dist/ artifact already contains play/index.html, so the
+       normal build never copies this fallback into dist/. -->
+  <meta http-equiv="refresh" content="0;url=../public/play/index.html">
+  <style>
+    body{font:16px/1.6 system-ui,sans-serif;background:#111923;color:#f6e5c6;
+    display:grid;place-items:center;min-height:100vh;margin:0;padding:24px;text-align:center}
+    a{color:#ffe0a1}
+  </style>
+</head>
+<body>
+  <main>
+    <p>Opening Hero Shooter…</p>
+    <p><a id="gameLink" href="../public/play/index.html">Continue to the game</a></p>
+  </main>
+  <script>
+    // Preserve chapter selection and anchors for the root-source Pages fallback.
+    const destination = new URL('../public/play/index.html', window.location.href);
+    destination.search = window.location.search;
+    destination.hash = window.location.hash;
+    document.getElementById('gameLink').href = destination.href;
+    window.location.replace(destination.href);
+  </script>
+</body>
+</html>

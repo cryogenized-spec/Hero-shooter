@@ -109,3 +109,15 @@ The source of truth for the physical shop is **`public/play/maps/home-and-more.t
 - **Boundaries:** this is a walkable, peaceful opening **blockout**. Cutscene escalation, exterior crowd, shutters closing under pressure, freight-lift travel to the G loading bay, proper lighting occlusion, NPC voice acting, true portrait art for the Chens, saves and the full mall site map are future work. No combat is initiated in the Sunday shop blockout.
 
 The prior story treatment remains at **`docs/story/chapter-01-sunday-opening.md`**. Work-in-progress personal narrative drafts may be kept under the Git-ignored **`story-drafts/`** path.
+
+### GitHub Pages publishing safeguard
+
+GitHub Pages can be configured to publish either **GitHub Actions build artifacts** (recommended) or the **root of `main`** using its automatic Jekyll build. These are **not the same directory layout**.
+
+- The custom `.github/workflows/pages.yml` builds `dist/`; `public/play/index.html` is published at **`/Hero-shooter/play/`**.
+- When the site's source is instead **Deploy from a branch → main → /(root)**, the same file is published at **`/Hero-shooter/public/play/`**.
+- A separate root `play/index.html` redirect exists to make **`/Hero-shooter/play/?chapter=shop`** resolve in the branch-publishing case too. It is *not* packaged into `dist/`; the proper build retains the real game at `play/index.html`.
+
+**Preferred one-time GitHub setting:** Repo → Settings → Pages → Build and deployment → Source = **GitHub Actions**. This disables the competing automatic Jekyll deployment. Until that setting is changed, the fallback keeps the advertised game path working in either mode. A successful workflow check alone does not verify which site's directory was served.
+
+If a link 404s, check the published deployment artifact contents and the current Pages source before claiming a deployment succeeded.
