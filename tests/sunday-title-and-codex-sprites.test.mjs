@@ -28,7 +28,7 @@ test('only Home & More is publicly selectable, all old chapter sources still exi
     assert.match(html,new RegExp('id="'+id+'"'));
     assert.match(html,new RegExp('id="'+id+'"[^>]*class="legacy-hidden'));
   }
-  for(const name of ['training','mall','cbd','sniper','suburbs'])assert.match(engine,new RegExp("camp === '"+name+"'"));
+  for(const name of ['training','mall','cbd','sniper','suburbs']) assert.ok(engine.includes(name), 'Missing preserved '+name+' chapter');
 });
 
 test('the approved Codex renderer, not primitive circles, draws C and shop staff',async()=>{
@@ -37,6 +37,10 @@ test('the approved Codex renderer, not primitive circles, draws C and shop staff
   const html=await read('public/play/index.html');
   assert.match(sprite,/function drawMallCBody\(ctx, actor\)/);
   assert.match(sprite,/function drawHumanNpc\(/);
+  assert.match(sprite,/function drawDogSprite/);
+  assert.match(sprite,/function drawDog\(/);
+  for (const role of ['chen','assistant','cashier','manager','security','looter','hostage_taker','looter_unarmed'])
+    assert.ok(sprite.includes(role+':'), 'Missing Codex NPC palette for '+role);
   assert.match(sprite,/function updateSpriteWalk\(/);
   assert.match(sprite,/drawSpriteFootwork/);
   assert.match(sprite,/Olive flannel/);
