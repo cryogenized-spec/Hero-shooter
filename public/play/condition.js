@@ -30,6 +30,8 @@
   function update(state, seconds, { moving = false } = {}) {
     const dt = clamp(Number(seconds) || 0, 0, 1);
     state.fatigue = clamp(state.fatigue + (moving ? 0.018 : 0.003) * dt, 0, 100);
+    state.hydration = clamp(state.hydration - (moving ? 0.012 : 0.004) * dt, 0, 100);
+    state.nutrition = clamp(state.nutrition - 0.003 * dt, 0, 100);
     // Health decreases gradually only while bleeding is active. No automatic healing.
     return state.bleeding * dt;
   }
