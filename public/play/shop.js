@@ -35,6 +35,35 @@
   let state = null;
   let joystick = {left:false,right:false,up:false,down:false};
   let frameNumber = 0;
+  const SAVE_KEY='hero-shooter:home-and-more-save-v1';
+  function saveProgress() {
+    if (!state || !state.loaded) return;
+    const fields=['floor','assigned','envelopes','delivered','hasWater','waterOffered','visitedOffice','visitedStockroom','elapsed'];
+    const data=Object.fromEntries(fields.map(k=>[k,state[k]]));
+    data.player={x:state.player.x,y:state.player.y,angle:state.player.angle};
+    try { root.localStorage.setItem(SAVE_KEY,JSON.stringify(data)); } catch { /* Offline private mode. */ }
+  }
+  function restoreProgress() {
+    const query=new URLSearchParams(root.location.search);
+    if(query.get('fresh')==='1') {
+      try { root.localStorage.removeItem(SAVE_KEY); } catch {}
+      return;
+    }
+    if(query.get('resume')!=='1')return;
+    try {
+      const data=JSON.parse(root.localStorage.getItem(SAVE_KEY));
+      if(!data || (data.floor!=='shop' && data.floor!=='office') || !data.player)return;
+      const entries=['assigned','envelopes','delivered','hasWater','waterOffered','visitedOffice','visitedStockroom','elapsed'];
+      for(const k of entries)if(data[k]!==undefined)state[k]=data[k];
+      state.floor=data.floor;
+      if(Number.isFinite(data.player.x)&&Number.isFinite(data.player.y)){
+        state.player.x=data.player.x;state.player.y=data.player.y;
+        if(Number.isFinite(data.player.angle))state.player.angle=data.player.angle;
+      }
+      setNotice(state.floor==='office'?'MEZZANINE OFFICE · CONTINUED':'SUNDAY · HOME & MORE · CONTINUED');
+      setObjective(state.assigned && state.delivered.length<4?'Deliver the remaining sealed payslips.':'Explore the shop and speak with the Chen family.');
+    } catch { /* Corrupted saves are ignored. */ }
+  }
 
   function setNotice(message) {
     const el = $('shopNotice');
@@ -89,6 +118,7 @@
       const map=await response.json();
       if(epoch!==frameNumber) return;
       state=loadState(map);
+      restoreProgress();
     } catch (error) {
       if(epoch===frameNumber) {
         state={loaded:false,error:error.message};
@@ -97,6 +127,7 @@
     }
   }
   function stop() {
+    saveProgress();
     frameNumber++;
     state=null;
     root.document.body.classList.remove('shop-mode');
@@ -223,6 +254,7 @@
     if(!state)return;
     state.dialogue=false;
     $('shopConversation').hidden=true;
+    saveProgress();
   }
   function addWater() {
     state.hasWater=true;
@@ -439,6 +471,7 @@
         movePlayer(dt,context.input);
         state.elapsed+=dt;
         animateActors(dt);
+        if(Math.floor(state.elapsed/3)!==Math.floor((state.elapsed-dt)/3))saveProgress();
       }
     }
     drawScene(context.ctx,context.width,context.height);
