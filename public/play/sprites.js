@@ -164,7 +164,7 @@ function drawHumanNpc(ctx, actor, colors, outline, pose, prop, thermal = false) 
 function drawMallCFeet(ctx, actor) {
     // Move the feet along the travel direction while the torso tracks aim.
     drawSpriteEllipse(ctx, -3, 2, 18, 15.5, 0, '#090d1659', null);
-    drawSpriteFootwork(ctx, this, actor.isSneaking ? 2.6 : 5, -15, 8);
+    drawSpriteFootwork(ctx, actor, actor.isSneaking ? 2.6 : 5, -15, 8);
 }
 
 function drawMallCBody(ctx, actor) {

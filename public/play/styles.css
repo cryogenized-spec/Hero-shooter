@@ -389,6 +389,10 @@
 }
 
 .legacy-hidden { display: none !important; }
+/* Legacy modal, tactical HUD and cutscene DOM are preserved but no longer
+   visible or interactive in the Sunday-only playable scene. */
+#startModal, #endModal, #hudOverlay, #phoneCutscene,
+#mobileControls, #desktopControlsHint { display: none !important; }
 
 /* Home & More: a quiet, integrated retail scene. Legacy action HUD stays untouched. */
 body.shop-mode #hudOverlay { display: none !important; }
