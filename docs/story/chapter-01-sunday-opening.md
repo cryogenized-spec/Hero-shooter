@@ -18,7 +18,7 @@
 
 ## Exploration and social interactions
 - Allow genuine free exploration before crisis escalation. Employees work in short, varying loops: move a pallet, check an invoice, fetch cartons, talk, return to work.
-- Workers who share isiZulu speak ordinary, informal isiZulu to one another. C doesn't understand it; literal dialogue bubbles can be shown without pretending she understands. Dialogue needs native-speaker review, no machine-authored stereotypes.
+- Workers who share isiZulu speak ordinary, informal isiZulu to one another. C doesn't understand it; literal dialogue bubbles can be shown without pretending she understands. Dialogue should be iteratively cross-checked with independent AI language reviews and kept grounded in each individual's voice. External human auditing is not a release gate.
 - Optional: C offers to help Mrs. Chen distribute sealed payslip envelopes labelled by hand. Each employee confirms their name; player chooses the correct envelope from a compact inventory. If unfinished, the staff collect their own payslips at closure.
 - Optional: C brings Mrs. Chen water from a dispenser. No experience points required; the action is remembered.
 - Interactions focus one person at a time (direction + distance); nearby alternatives selectable on keyboard/mobile.
