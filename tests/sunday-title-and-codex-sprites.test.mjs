@@ -49,7 +49,7 @@ test('the approved Codex renderer, not primitive circles, draws C and shop staff
   assert.match(shop,/HeroSprites\.drawNpc\(ctx,a,looks,prop\)/);
   assert.match(shop,/HeroSprites\.updateWalk\(state\.player/);
   assert.match(shop,/HeroSprites\.updateWalk\(a,beforeX/);
-  assert.match(html,/\.\/sprites\.js[\s\S]*\.\/shop\.js[\s\S]*\.\/game\.js/);
+  assert.match(html,/\.\/sprites\.js[\s\S]*\.\/shop\.js[\s\S]*\.\/entry\.js/);
 });
 
 test('start and continue have durable in-shop save state',async()=>{
