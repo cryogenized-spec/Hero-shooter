@@ -241,6 +241,33 @@ function drawMallCBody(ctx, actor) {
 }
 
 
+function drawDogSprite(ctx, dog) {
+    const stride = Math.sin(dog.walkPhase) * dog.walkBlend * 3.5;
+    ctx.lineWidth = 1.4;
+    ctx.lineJoin = 'round';
+    drawSpriteEllipse(ctx, -2, 2, 18, 9, 0, '#090d1659', null);
+    drawSpriteBox(ctx, -12 - stride, -8, 7, 4, 2, '#52392f');
+    drawSpriteBox(ctx, -12 + stride, 4, 7, 4, 2, '#52392f');
+    drawSpriteBox(ctx, 4 + stride, -8, 7, 4, 2, '#6c4933');
+    drawSpriteBox(ctx, 4 - stride, 4, 7, 4, 2, '#6c4933');
+    ctx.strokeStyle = '#52392f';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-10, 0);
+    ctx.quadraticCurveTo(-16, 0, -20, stride - 2);
+    ctx.stroke();
+    ctx.lineWidth = 1.4;
+    drawSpriteEllipse(ctx, -2, 0, 12, 6.8, 0, '#8d6245');
+    drawSpriteEllipse(ctx, 10, 0, 6.1, 5.2, 0, '#674634');
+    ctx.beginPath();
+    ctx.moveTo(8, -2.5); ctx.lineTo(5, -7); ctx.lineTo(12, -4.8);
+    ctx.lineTo(12, 4.8); ctx.lineTo(5, 7); ctx.lineTo(8, 2.5);
+    ctx.closePath();
+    paintSpritePath(ctx, '#4d372d');
+    drawSpriteBox(ctx, 12, -2.4, 5, 4.8, 1.5, '#4d372d');
+}
+
 function normalize(actor) {
   if (!Number.isFinite(actor.walkPhase)) actor.walkPhase=0;
   if (!Number.isFinite(actor.walkBlend)) actor.walkBlend=0;
@@ -262,5 +289,11 @@ function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   drawHumanNpc(ctx,actor,colors,'#11181c','standing',prop);
   ctx.restore();
 }
-root.HeroSprites=Object.freeze({drawC,drawNpc,updateWalk:updateSpriteWalk,colors:NPC_SPRITE_COLORS});
+function drawDog(ctx, actor) {
+  normalize(actor);
+  ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
+  drawDogSprite(ctx,actor);
+  ctx.restore();
+}
+root.HeroSprites=Object.freeze({drawC,drawNpc,drawDog,updateWalk:updateSpriteWalk,colors:NPC_SPRITE_COLORS});
 })(window);
