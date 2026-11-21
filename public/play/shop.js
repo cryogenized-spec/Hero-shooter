@@ -416,7 +416,7 @@
   }
   function drawActor(ctx,a) {
     // Codex's original procedural body/leg silhouettes, not placeholder circles.
-    const looks=a.type==='family-son'?'manager':a.type==='worker'?(a.name==='Thandeka Dlamini'?'cashier':'assistant'):a.type==='family-mother'?'manager':'chen';
+    const looks=a.type==='worker' ? (a.name==='Thandeka Dlamini'?'cashier':'assistant') : a.type;
     const prop=a.type==='worker' && a.meta.pair==='receiving' ? 'crate' : 'none';
     root.HeroSprites.drawNpc(ctx,a,looks,prop);
     ctx.save();ctx.font='bold 11px system-ui';ctx.textAlign='center';
