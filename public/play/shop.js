@@ -194,6 +194,8 @@
       if(keys.KeyW||keys.ArrowUp||joystick.up)y--;
       if(keys.KeyS||keys.ArrowDown||joystick.down)y++;
     }
+    state.player.gait='idle';
+    state.player.idleClock=(state.player.idleClock || 0)+dt;
     const beforeX=state.player.x,beforeY=state.player.y;
     const mag=Math.hypot(x,y);
     if(mag<0.01) {
@@ -209,7 +211,8 @@
     const nx=state.player.x+x*speed,ny=state.player.y+y*speed;
     if(!collisionAt(nx,state.player.y))state.player.x=nx;
     if(!collisionAt(state.player.x,ny))state.player.y=ny;
-    root.HeroSprites.updateWalk(state.player,beforeX,beforeY,dt,88,speed);
+    if(Math.hypot(state.player.x-beforeX,state.player.y-beforeY)>0.01) state.player.gait=k>1?'run':'walk';
+    root.HeroSprites.updateWalk(state.player,beforeX,beforeY,dt,k>1?102:78,speed);
   }
 
   function animateActors(dt) {
