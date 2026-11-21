@@ -2846,22 +2846,24 @@ import { createAudioEngine } from './audio/sfx.js';
                     ctx.ellipse(2, 3, 11, 13.5, 0, 0, Math.PI * 2);
                     ctx.fill();
 
-                    const bodyColors = {
-                        airsoft_adult: this.isBoss ? '#3f6212' : '#4d7c0f',
-                        unarmed_looter: this.isSpotter ? '#eab308' : '#d97706',
-                        melee_looter: '#9a3412',
-                        hostage_taker: '#7f1d1d',
-                        looter: '#b45309',
-                        blockade_goon: '#991b1b',
-                        syndicate: '#15803d',
-                        security: '#1d4ed8'
-                    };
-                    ctx.fillStyle = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (this.looterLook?.coat || bodyColors[this.faction] || '#b45309');
-                    ctx.beginPath();
-                    ctx.ellipse(-2, 0, 9.5, this.isBoss ? 15.5 : 13, 0, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    if (this.looterLook) drawLooterJacket(ctx, this.looterLook);
+                    if (this.looterLook) {
+                        drawLooterJacket(ctx, this.looterLook, stride);
+                    } else {
+                        const bodyColors = {
+                            airsoft_adult: this.isBoss ? '#3f6212' : '#4d7c0f',
+                            unarmed_looter: this.isSpotter ? '#eab308' : '#d97706',
+                            melee_looter: '#9a3412',
+                            hostage_taker: '#7f1d1d',
+                            looter: '#b45309',
+                            blockade_goon: '#991b1b',
+                            syndicate: '#15803d',
+                            security: '#1d4ed8'
+                        };
+                        ctx.fillStyle = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (bodyColors[this.faction] || '#b45309');
+                        ctx.beginPath();
+                        ctx.ellipse(-2, 0, 9.5, this.isBoss ? 15.5 : 13, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
 
                     if (this.blindTimer > 0) {
                         ctx.fillStyle = this.looterLook?.skin || '#5c3a21';
@@ -2905,10 +2907,12 @@ import { createAudioEngine } from './audio/sfx.js';
                         ctx.fillRect(6, 3, this.faction === 'security' ? 18 : 13, 3.5);
                     }
 
-                    ctx.fillStyle = this.faction === 'airsoft_adult' ? '#d4a373' : '#5c3a21';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, this.isBoss ? 7.8 : 6.4, 0, Math.PI * 2);
-                    ctx.fill();
+                    if (!this.looterLook) {
+                        ctx.fillStyle = this.faction === 'airsoft_adult' ? '#d4a373' : '#5c3a21';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, this.isBoss ? 7.8 : 6.4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
 
                     if (this.looterLook) {
                         drawLooterHead(ctx, this.looterLook);
