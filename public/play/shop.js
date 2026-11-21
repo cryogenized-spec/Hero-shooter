@@ -396,6 +396,7 @@
     showDialogue(worker.name,'My name is '+worker.name+'. Mrs. Chen said there may be a payslip for me.',choices);
   }
   function talkActor(actor) {
+    if(actor.meta.sprite==='ismail')return showDialogue('Ismail','I’m checking the shelf stock before the next delivery.',[['Thanks, Ismail.',closeDialogue]]);
     if(actor.name==='Mrs. Chen')return talkMother();
     if(actor.type==='worker')return handPayslip(actor);
     if(actor.type==='family-son' && state.delivered.length===4 && !state.ownerReturned) {
