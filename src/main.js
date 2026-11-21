@@ -1,3 +1,4 @@
+import { drawArmedC } from './armed-c.js';
 import { falls, drawRestingBody, registerWound, woundPhase } from './wounds.js';
 import { assignLooterGear, looterLooks, drawLooterJacket, drawLooterHead } from './looter-art.js';
 import { setupTitleScreen } from './ui/title-screen.js';
@@ -3719,6 +3720,7 @@ import { createAudioEngine } from './audio/sfx.js';
 
                     const isMoving = Math.hypot(mx, my) > 0.05;
                     const sprinting = isMoving && (keys['shift'] || touchInput.sprint) && this.stamina > 2;
+                    this.sprinting = sprinting;
                     if (sprinting && this.isSneaking) {
                         this.isSneaking = false;
                         updateHUD();
@@ -3988,6 +3990,8 @@ import { createAudioEngine } from './audio/sfx.js';
                         ctx.fill();
                         ctx.restore();
                     }
+
+                    if (drawArmedC(ctx, this, wep)) return;
 
                     ctx.save();
                     ctx.translate(this.x, this.y);
