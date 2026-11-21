@@ -267,7 +267,26 @@
     $('shopSpeaker').textContent=name;
     $('shopDialogue').textContent=line;
     const portrait=$('shopNPCPortrait');
-    portrait.textContent=name==='C'?'C':name.split(/\s+/).map(w=>w[0]).slice(0,2).join('');
+    const monologue=name==='C';
+    $('shopConversation').classList.toggle('is-monologue',monologue);
+    portrait.hidden=monologue;
+    if(!monologue){
+      const portraits={
+        'Mr. Chen':'../assets/portraits/chen-family/mr-chen-portrait-4x5.png',
+        'Mrs. Chen':'../assets/portraits/chen-family/mrs-chen-portrait-4x5.png',
+        'Wei Chen':'../assets/portraits/chen-family/wei-portrait-4x5.png'
+      };
+      const initials=name.split(/\s+/).map(w=>w[0]).slice(0,2).join('');
+      portrait.textContent=initials;
+      if(portraits[name]){
+        const image=document.createElement('img');
+        image.src=portraits[name];
+        image.alt='';
+        image.decoding='async';
+        image.onerror=()=>{if(portrait.firstChild===image)portrait.textContent=initials;};
+        portrait.replaceChildren(image);
+      }
+    }
     $('shopChoices').replaceChildren();
     const choicesToShow=choices&&choices.length?choices:[['All right.',closeDialogue]];
     for(const [label,callback] of choicesToShow) {
@@ -377,6 +396,8 @@
   }
 
   function drawLabel(ctx,str,x,y,scale=1) {
+    // Developer map legends do not belong on the shop floor during gameplay.
+    if(root.HERO_DEBUG_MAP_LABELS!==true)return;
     ctx.save();ctx.font='bold '+Math.round(13*scale)+'px ui-monospace,monospace';
     ctx.textAlign='center';ctx.fillStyle='rgba(238,244,240,0.8)';
     ctx.fillText(str,x,y);ctx.restore();
@@ -420,7 +441,9 @@
     const prop=a.type==='worker' && a.meta.pair==='receiving' ? 'crate' : 'none';
     root.HeroSprites.drawNpc(ctx,a,looks,prop);
     ctx.save();ctx.font='bold 11px system-ui';ctx.textAlign='center';
-    ctx.fillStyle='#f4f5ec';ctx.fillText(a.name,a.x,a.y-29);
+    if(root.HERO_DEBUG_MAP_LABELS===true){
+      ctx.fillStyle='#f4f5ec';ctx.fillText(a.name,a.x,a.y-29);
+    }
     if(a.speechTime>0&&a.speech){
       ctx.font='12px system-ui';const w=ctx.measureText(a.speech).width+16;
       ctx.fillStyle='#dce5d9';ctx.fillRect(a.x-w/2,a.y-68,w,23);
@@ -446,8 +469,10 @@
     for(let y=bounds.y;y<bounds.y+bounds.h;y+=40){ctx.beginPath();ctx.moveTo(bounds.x,y);ctx.lineTo(bounds.x+bounds.w,y);ctx.stroke()}
     if(floor==='shop'){
       ctx.fillStyle='#43484a';ctx.fillRect(250,1710,2090,210);
-      ctx.fillStyle='#e8c48b';ctx.font='bold 38px system-ui';ctx.textAlign='center';ctx.fillText('HOME & MORE',1187,1620);
-      ctx.font='12px ui-monospace';ctx.fillStyle='#e6ddd1';ctx.fillText('HOUSEHOLD · LIGHTS · TOOLS · GENERAL GOODS',1187,1642);
+      if(root.HERO_DEBUG_MAP_LABELS===true){
+        ctx.fillStyle='#e8c48b';ctx.font='bold 38px system-ui';ctx.textAlign='center';ctx.fillText('HOME & MORE',1187,1620);
+        ctx.font='12px ui-monospace';ctx.fillStyle='#e6ddd1';ctx.fillText('HOUSEHOLD · LIGHTS · TOOLS · GENERAL GOODS',1187,1642);
+      }
     } else {
       ctx.fillStyle='#2a4d5a';ctx.fillRect(470,250,520,18);
       ctx.strokeStyle='#afc1c2';for(let x=480;x<990;x+=18){ctx.beginPath();ctx.moveTo(x,251);ctx.lineTo(x,267);ctx.stroke()}
