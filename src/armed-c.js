@@ -1,0 +1,21 @@
+let armedAtlas;
+export function drawArmedC(ctx, actor, weapon) {
+    if (actor.gender !== 'mall' || weapon.id !== 'glock26') return false;
+    if (!armedAtlas) {
+        armedAtlas = new Image();
+        armedAtlas.src = new URL('../play/c-glock-ready.svg', import.meta.url).href;
+    }
+    if (!armedAtlas.complete || !armedAtlas.naturalWidth) return false;
+    const direction = ((Math.round((actor.angle - Math.PI/2) / (Math.PI/4)) % 8) + 8) % 8;
+    const gait = actor.walkBlend < 0.1 ? 0 : actor.sprinting ? 2 : 1;
+    const phase = gait ? actor.walkPhase * 2 / Math.PI : performance.now() * 0.003;
+    const row = gait * 4 + Math.floor(phase) % 4;
+    const kick = 2 * Math.sin(Math.PI * Math.min(1, (actor.slideTime || 0) / 0.105));
+    ctx.save();
+    ctx.translate(Math.round(actor.x - Math.cos(actor.angle)*kick), Math.round(actor.y - Math.sin(actor.angle)*kick));
+    if (actor.isSneaking) ctx.scale(0.88, 0.88);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(armedAtlas, direction*40, row*48, 40, 48, -20, -32, 40, 48);
+    ctx.restore();
+    return true;
+}
