@@ -36,9 +36,46 @@
   let joystick = {left:false,right:false,up:false,down:false};
   let frameNumber = 0;
   const SAVE_KEY='hero-shooter:home-and-more-save-v1';
+  const roomNames={shop:'Sales floor',office:'Mrs. Chen’s office',owner:'Mr. Chen’s office',boardroom:'Boardroom',stairwell:'Mezzanine stairs'};
+  const roomImages={};
+  function roomImage(floor) {
+    if (!roomImages[floor]) {
+      const img=new Image(); img.src='./maps/chen-'+floor+'.svg'; roomImages[floor]=img;
+    }
+    return roomImages[floor];
+  }
+  const entrances={
+    owner:['owner',970,795,-Math.PI/2],shopOwner:['shop',840,292,Math.PI/2],
+    boardroom:['boardroom',408,621,0],officeBoard:['office',1130,621,Math.PI],
+    lower:['stairwell',815,798,-Math.PI/2],upper:['stairwell',690,798,-Math.PI/2],
+    shopStairs:['shop',2068,1510,Math.PI],office:['office',968,785,-Math.PI/2]
+  };
+  function enterRoom(destination) {
+    const [floor,x,y,angle]=entrances[destination];
+    state.floor=floor; Object.assign(state.player,{x,y,angle,walkBlend:0,walkAngle:angle});
+    state.chosen=null;state.rotateIndex=0;
+    if(floor==='office')state.visitedOffice=true;
+    ensureClearPlayerPosition();setNotice(roomNames[floor]);saveProgress();
+  }
+  function drawStairs(ctx) {
+    const upper=state.player.x<750;
+    function flight(x,active) {
+      ctx.fillStyle=active?'#554b46':'#242126';
+      const length=active?398:54;
+      ctx.fillRect(x,425,98,length);
+      for(let y=431;y<425+length;y+=17){
+        ctx.fillStyle=active?'#b19c82':'#363137';ctx.fillRect(x+3,y,92,3);
+        ctx.fillStyle=active?'#39363a':'#201e23';ctx.fillRect(x+3,y+4,92,4);
+      }
+      ctx.fillStyle=active?'#bb9461':'#383035';ctx.fillRect(x,425,3,length);ctx.fillRect(x+95,425,3,length);
+    }
+    flight(766,!upper);flight(640,upper);
+    ctx.fillStyle='#776756';ctx.fillRect(640,355,224,70);
+    ctx.fillStyle='#bfaa88';ctx.fillRect(640,355,224,3);
+  }
   function saveProgress() {
     if (!state || !state.loaded) return;
-    const fields=['floor','assigned','envelopes','delivered','hasWater','waterOffered','visitedOffice','visitedStockroom','elapsed'];
+    const fields=['floor','assigned','envelopes','delivered','hasWater','waterOffered','visitedOffice','visitedStockroom','ownerReturned','elapsed'];
     const data=Object.fromEntries(fields.map(k=>[k,state[k]]));
     data.player={x:state.player.x,y:state.player.y,angle:state.player.angle};
     try { root.localStorage.setItem(SAVE_KEY,JSON.stringify(data)); } catch { /* Offline private mode. */ }
@@ -52,8 +89,8 @@
     if(query.get('resume')!=='1')return;
     try {
       const data=JSON.parse(root.localStorage.getItem(SAVE_KEY));
-      if(!data || (data.floor!=='shop' && data.floor!=='office') || !data.player)return;
-      const entries=['assigned','envelopes','delivered','hasWater','waterOffered','visitedOffice','visitedStockroom','elapsed'];
+      if(!data || !Object.hasOwn(roomNames,data.floor) || !data.player)return;
+      const entries=['assigned','envelopes','delivered','hasWater','waterOffered','visitedOffice','visitedStockroom','ownerReturned','elapsed'];
       for(const k of entries)if(data[k]!==undefined)state[k]=data[k];
       state.floor=data.floor;
       if(Number.isFinite(data.player.x)&&Number.isFinite(data.player.y)){
@@ -145,6 +182,7 @@
     return list.filter(o=>o.meta.floor===(state&&state.floor));
   }
   function collisionAt(x,y) {
+    if(state.floor==='stairwell')return !(x>=655&&x<=849&&y>=370&&y<=813&&(y<=410||x<=723||x>=781));
     const r=15;
     const walls=floorObjects(state.geometry.walls);
     const solidTypes=new Set(['shelf','till','glass-counter','counter','display','pallet','sacks','furniture',
@@ -214,6 +252,7 @@
 
   function animateActors(dt) {
     for(const a of state.actors) {
+      if(a.type==='family-father' && state.ownerReturned && a.meta.floor==='shop'){a.meta.floor='owner';a.x=704;a.y=429;}
       if(a.meta.floor!==state.floor)continue;
       const beforeX=a.x,beforeY=a.y;
       if(a.route.length && a.type==='worker') {
@@ -356,8 +395,12 @@
   function talkActor(actor) {
     if(actor.name==='Mrs. Chen')return talkMother();
     if(actor.type==='worker')return handPayslip(actor);
+    if(actor.type==='family-son' && state.delivered.length===4 && !state.ownerReturned) {
+      return showDialogue('Wei Chen','Dad just called. People are coming through the mall doors. He’s going to his office. I’ll keep my phone on me.',[['Understood.',()=>{state.ownerReturned=true;saveProgress();closeDialogue();}]]);
+    }
+    if(actor.type==='family-father' && state.ownerReturned)return showDialogue('Mr. Chen','Close the door behind you, C. I need the company papers from the safe.',[['All right.',closeDialogue]]);
     if(actor.type==='family-son')return showDialogue('Wei Chen',
-      'Dad has been on the phone since early. We have cleared some of the expensive stock, but there is still a lot left here.',
+      'I’m checking the purchase orders on my phone. I choose what we carry. Mum deals with the manufacturers in China, tracks deliveries and balances the books.',
       [['Is the delivery truck here?',()=>showDialogue('Wei Chen','It came early. The people downstairs are moving what they can. We may stop if things get worse.',[['Understood.',closeDialogue]])],
        ['I will check on your mother.',()=>showDialogue('Wei Chen','She is upstairs in the office, above the tills. You can use the U-turn staircase near the front.',[['I know the way.',closeDialogue]])],
        ['Carry on.',closeDialogue]]);
@@ -375,13 +418,8 @@
       talkActor(o);return;
     }
     switch(o.type) {
-      case 'stairs':
-        state.floor=state.floor==='shop'?'office':'shop';
-        state.player=state.floor==='office'?{x:967,y:775,angle:-Math.PI/2}:{x:2068,y:1510,angle:Math.PI};
-        state.chosen=null;
-        if(state.floor==='office')state.visitedOffice=true;
-        setNotice(state.floor==='office'?'MEZZANINE OFFICE · WINDOWS OVERLOOKING THE SHOP':'L1 SALES FLOOR · HOME & MORE');
-        break;
+      case 'stairs':enterRoom(state.floor==='shop'?'lower':'upper');break;
+      case 'office-door':enterRoom(o.meta.destination);break;
       case 'water':addWater();break;
       case 'payslips':
         showDialogue('C','Four sealed pay envelopes are sitting on the desk. Mrs. Chen is still working.',
@@ -464,7 +502,13 @@
     const cx=state.player.x,cy=state.player.y;
     state.camera={x:cx-w/(2*zoom),y:cy-h/(2*zoom),zoom};
     ctx.scale(zoom,zoom);ctx.translate(-state.camera.x,-state.camera.y);
-    const floor=state.floor, bounds=floor==='shop'?{x:250,y:180,w:2090,h:1500}:{x:330,y:250,w:900,h:640};
+    const floor=state.floor;
+    if(floor==='stairwell'){
+      ctx.fillStyle='#060608';ctx.fillRect(state.camera.x,state.camera.y,w/zoom,h/zoom);
+      drawStairs(ctx);
+    }
+    const bounds=floor==='shop'?{x:250,y:180,w:2090,h:1500}:{x:330,y:250,w:900,h:640};
+    if(floor!=='stairwell'){
     ctx.fillStyle=floor==='shop'?'#383f42':'#3a3736';ctx.fillRect(bounds.x,bounds.y,bounds.w,bounds.h);
     ctx.strokeStyle='rgba(217,220,211,.075)';ctx.lineWidth=1;
     for(let x=bounds.x;x<bounds.x+bounds.w;x+=40){ctx.beginPath();ctx.moveTo(x,bounds.y);ctx.lineTo(x,bounds.y+bounds.h);ctx.stroke()}
@@ -496,6 +540,13 @@
       ctx.strokeStyle='rgba(240,247,234,.75)';ctx.lineWidth=5;
       ctx.beginPath();ctx.moveTo(l.x,l.y);ctx.lineTo(l.x+l.width,l.y);ctx.stroke();
     }
+    if(floor!=='shop'){
+      const art=roomImage(floor);
+      if(art.complete && art.naturalWidth)ctx.drawImage(art,330,250,900,640);
+    } else {
+      drawLabel(ctx,'OWNER’S OFFICE',848,242,.8);
+    }
+    }
     for(const a of state.actors)if(a.meta.floor===floor)drawActor(ctx,a);
     // C uses the authentic procedural olive-flannel figure from Codex PR #8.
     // She keeps her compact pistol concealed during the peaceful opening.
@@ -514,10 +565,10 @@
       drawLabel(ctx,'10 AISLES · CROSS-PASSAGES',1300,760,1);
       drawLabel(ctx,'TILLS & FRONT COUNTER',1850,1440,.9);
       drawLabel(ctx,'UP TO OFFICE',2180,1270,.8);
-    } else drawLabel(ctx,'MRS. CHEN · PAYROLL',795,375,1);
+    }
     ctx.restore();
     if($('shopPrompt'))$('shopPrompt').textContent=current&&!state.dialogue?'[E] '+current.name+'  ·  [TAB] switch':'';
-    if($('shopFloor'))$('shopFloor').textContent=floor==='shop'?'L1 · SALES FLOOR':'L1+ · OFFICE MEZZANINE';
+    if($('shopFloor'))$('shopFloor').textContent=roomNames[floor];
   }
   function frame(dt,context) {
     if(!state)return;
