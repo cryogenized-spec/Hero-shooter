@@ -1,4 +1,6 @@
-import { drawArmedC } from '../src/armed-c.js';
+// Both built Pages (/training/) and repository-root Pages (/public/training/) are supported.
+const sourcePublished=import.meta.url.includes('/public/training/');
+const {drawArmedC}=await import(sourcePublished?'../../src/armed-c.js':'../src/armed-c.js');
 
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
@@ -56,6 +58,7 @@ addEventListener('keydown',e=>{if(movement.includes(e.code)){e.preventDefault();
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 document.querySelector('#reset').onclick=reset;
+document.querySelector('a[href="../"]').href=sourcePublished?'../../':'../';
 function frame(now){
  const dt=Math.min(.05,(now-(last??now))/1000); last=now;
  const held=(a,b)=>Number(keys.has(a)||keys.has(b));
