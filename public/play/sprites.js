@@ -334,7 +334,28 @@ function normalize(actor) {
   if (!Number.isFinite(actor.radius)) actor.radius=14;
   if (!Number.isFinite(actor.woundedSpeedFactor)) actor.woundedSpeedFactor=1;
 }
+let civilianAtlas;
 function drawC(ctx, actor) {
+  if (actor.gait && !actor.weaponVisible && !actor.nvgEquipped && !actor.hasMolleVest && typeof Image !== 'undefined') {
+    if (!civilianAtlas) {
+      civilianAtlas=new Image();
+      civilianAtlas.src=new URL('c-civilian.svg',document.baseURI).href;
+    }
+    if (civilianAtlas.complete && civilianAtlas.naturalWidth) {
+      const idle=actor.gait==='idle';
+      const angle=idle ? (actor.lastTravelFacing ?? actor.angle) : actor.walkAngle;
+      if (!idle) actor.lastTravelFacing=angle;
+      const direction=(Math.round((angle-Math.PI/2)/(Math.PI/4))+8)%8;
+      const gait=idle?0:actor.gait==='run'?2:1;
+      const frame=idle?Math.floor(actor.idleClock*3)%4:Math.floor(actor.walkPhase*2/Math.PI)%4;
+      ctx.save();
+      ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(civilianAtlas,direction*32,(gait*4+frame)*48,32,48,
+        Math.round(actor.x)-16,Math.round(actor.y)-32,32,48);
+      ctx.restore();
+      return;
+    }
+  }
   normalize(actor);
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
   drawMallCFeet(ctx,actor);drawMallCBody(ctx,actor);
