@@ -477,7 +477,10 @@ function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   const isSaafiyaAlias=/^(saafiya|sophia|sofia)(?:\s|$)/i.test(actor.name||'');
   const isSaafiya=['saafiya','sophia','sofia'].includes(selected) ||
     (!explicit && ['assistant','cashier'].includes(selected) && isSaafiyaAlias);
-  if (isSaafiya && drawNpcAtlas(ctx,actor,'saafiya.svg')) return;
+  if (isSaafiya || selected==='saafiya-equipped') {
+    const armed=selected==='saafiya-equipped' || actor.weaponVisible || prop==='pistol';
+    if (drawNpcAtlas(ctx,actor,armed?'saafiya-equipped.svg':'saafiya.svg')) return;
+  }
   if (selected==='family-father' && drawNpcAtlas(ctx,actor,'mr-chen.svg')) return;
   const colors=NPC_SPRITE_COLORS[selected] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
