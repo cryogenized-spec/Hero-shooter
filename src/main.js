@@ -1,4 +1,4 @@
-import { looterLooks, drawLooterJacket, drawLooterHead } from './looter-art.js';
+import { assignLooterGear, looterLooks, drawLooterJacket, drawLooterHead } from './looter-art.js';
 import { setupTitleScreen } from './ui/title-screen.js';
 import { Math2 } from './core/math.js';
 import { createWeapons } from './data/weapons.js';
@@ -2118,6 +2118,7 @@ import { createAudioEngine } from './audio/sfx.js';
 
                     this.isUnarmed = (faction === 'unarmed_looter');
                     this.isMeleeLooter = (faction === 'melee_looter');
+                    this.looterGear = this.looterLook ? assignLooterGear(this) : null;
                     this.isSpotter = this.isUnarmed && Math.random() < 0.42;
                     this.spotterWarnTimer = 0;
                     this.spotterCooldown = 0;
@@ -2847,7 +2848,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     ctx.fill();
 
                     if (this.looterLook) {
-                        drawLooterJacket(ctx, this.looterLook, stride);
+                        drawLooterJacket(ctx, this.looterLook, stride, this);
                     } else {
                         const bodyColors = {
                             airsoft_adult: this.isBoss ? '#3f6212' : '#4d7c0f',
@@ -2865,46 +2866,48 @@ import { createAudioEngine } from './audio/sfx.js';
                         ctx.fill();
                     }
 
-                    if (this.blindTimer > 0) {
-                        ctx.fillStyle = this.looterLook?.skin || '#5c3a21';
-                        ctx.beginPath(); ctx.arc(6, -4, 3, 0, Math.PI * 2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(6, 4, 3, 0, Math.PI * 2); ctx.fill();
-                    } else if (this.isUnarmed) {
-                        if (this.carryingLoot) {
-                            ctx.fillStyle = '#334155';
-                            ctx.fillRect(5, -8.5, 11, 17);
-                            ctx.strokeStyle = '#94a3b8';
-                            ctx.lineWidth = 1;
-                            ctx.strokeRect(5, -8.5, 11, 17);
-                        } else {
+                    if (!this.looterLook) {
+                        if (this.blindTimer > 0) {
                             ctx.fillStyle = this.looterLook?.skin || '#5c3a21';
-                            ctx.beginPath(); ctx.arc(5 - stride * 0.5, -8.5, 2.8, 0, Math.PI * 2); ctx.fill();
-                            ctx.beginPath(); ctx.arc(5 + stride * 0.5, 8.5, 2.8, 0, Math.PI * 2); ctx.fill();
+                            ctx.beginPath(); ctx.arc(6, -4, 3, 0, Math.PI * 2); ctx.fill();
+                            ctx.beginPath(); ctx.arc(6, 4, 3, 0, Math.PI * 2); ctx.fill();
+                        } else if (this.isUnarmed) {
+                            if (this.carryingLoot) {
+                                ctx.fillStyle = '#334155';
+                                ctx.fillRect(5, -8.5, 11, 17);
+                                ctx.strokeStyle = '#94a3b8';
+                                ctx.lineWidth = 1;
+                                ctx.strokeRect(5, -8.5, 11, 17);
+                            } else {
+                                ctx.fillStyle = this.looterLook?.skin || '#5c3a21';
+                                ctx.beginPath(); ctx.arc(5 - stride * 0.5, -8.5, 2.8, 0, Math.PI * 2); ctx.fill();
+                                ctx.beginPath(); ctx.arc(5 + stride * 0.5, 8.5, 2.8, 0, Math.PI * 2); ctx.fill();
+                            }
+                        } else if (this.isMeleeLooter) {
+                            const prySwing = Math.sin(this.animPhase * 1.4) * 0.35;
+                            ctx.save();
+                            ctx.rotate(prySwing);
+                            ctx.fillStyle = '#cbd5e1';
+                            ctx.fillRect(4, 5, 18, 3);
+                            ctx.fillStyle = '#ef4444';
+                            ctx.fillRect(19, 4, 4, 5);
+                            ctx.restore();
+                        } else if (this.faction === 'airsoft_adult') {
+                            ctx.fillStyle = '#1e293b';
+                            ctx.fillRect(5, 3, 18, 3.6);
+                            ctx.fillStyle = '#f97316';
+                            ctx.fillRect(22, 3.1, 2.5, 3.4);
+                        } else if (this.faction === 'blockade_goon') {
+                            ctx.fillStyle = '#78350f';
+                            ctx.fillRect(3, 3, 12, 3.8);
+                            ctx.fillStyle = '#18181b';
+                            ctx.fillRect(14, 3.3, 10, 3);
+                            ctx.fillStyle = '#475569';
+                            ctx.fillRect(10, 6.5, 4, 4);
+                        } else {
+                            ctx.fillStyle = '#0f172a';
+                            ctx.fillRect(6, 3, this.faction === 'security' ? 18 : 13, 3.5);
                         }
-                    } else if (this.isMeleeLooter) {
-                        const prySwing = Math.sin(this.animPhase * 1.4) * 0.35;
-                        ctx.save();
-                        ctx.rotate(prySwing);
-                        ctx.fillStyle = '#cbd5e1';
-                        ctx.fillRect(4, 5, 18, 3);
-                        ctx.fillStyle = '#ef4444';
-                        ctx.fillRect(19, 4, 4, 5);
-                        ctx.restore();
-                    } else if (this.faction === 'airsoft_adult') {
-                        ctx.fillStyle = '#1e293b';
-                        ctx.fillRect(5, 3, 18, 3.6);
-                        ctx.fillStyle = '#f97316';
-                        ctx.fillRect(22, 3.1, 2.5, 3.4);
-                    } else if (this.faction === 'blockade_goon') {
-                        ctx.fillStyle = '#78350f';
-                        ctx.fillRect(3, 3, 12, 3.8);
-                        ctx.fillStyle = '#18181b';
-                        ctx.fillRect(14, 3.3, 10, 3);
-                        ctx.fillStyle = '#475569';
-                        ctx.fillRect(10, 6.5, 4, 4);
-                    } else {
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillRect(6, 3, this.faction === 'security' ? 18 : 13, 3.5);
                     }
 
                     if (!this.looterLook) {
