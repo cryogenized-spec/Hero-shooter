@@ -91,7 +91,7 @@ test('actual Home & More first gameplay frame renders from its committed Tiled m
   input.keys.KeyW=true;
   assert.doesNotThrow(()=>root.HeroShop.frame(0.016,{ctx,width:1100,height:690,input}));
   assert.equal(element('shopLayer').hidden,false);
-  assert.match(element('shopFloor').textContent,/SALES FLOOR/);
+  assert.match(element('shopFloor').textContent,/sales floor/i);
 });
 
 test('lightweight entry starts the Sunday map without loading or selecting a legacy chapter',async()=>{

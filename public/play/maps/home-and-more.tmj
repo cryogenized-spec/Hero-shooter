@@ -10,7 +10,7 @@
   "tiledversion": "1.11.2",
   "version": "1.10",
   "type": "map",
-  "nextobjectid": 103,
+  "nextobjectid": 131,
   "nextlayerid": 7,
   "properties": [
     {
@@ -1638,6 +1638,402 @@
               "value": "office"
             }
           ]
+        },
+        {
+          "id": 103,
+          "name": "owner furnishing 1",
+          "type": "furniture",
+          "x": 622,
+          "y": 445,
+          "width": 246,
+          "height": 102,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "owner"
+            }
+          ]
+        },
+        {
+          "id": 104,
+          "name": "owner furnishing 2",
+          "type": "furniture",
+          "x": 703,
+          "y": 405,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "owner"
+            }
+          ]
+        },
+        {
+          "id": 105,
+          "name": "owner furnishing 3",
+          "type": "furniture",
+          "x": 640,
+          "y": 580,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "owner"
+            }
+          ]
+        },
+        {
+          "id": 106,
+          "name": "owner furnishing 4",
+          "type": "furniture",
+          "x": 786,
+          "y": 584,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "owner"
+            }
+          ]
+        },
+        {
+          "id": 107,
+          "name": "owner furnishing 5",
+          "type": "furniture",
+          "x": 386,
+          "y": 305,
+          "width": 292,
+          "height": 37,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "owner"
+            }
+          ]
+        },
+        {
+          "id": 108,
+          "name": "owner furnishing 6",
+          "type": "furniture",
+          "x": 956,
+          "y": 308,
+          "width": 178,
+          "height": 65,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "owner"
+            }
+          ]
+        },
+        {
+          "id": 109,
+          "name": "owner furnishing 7",
+          "type": "furniture",
+          "x": 393,
+          "y": 652,
+          "width": 175,
+          "height": 50,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "owner"
+            }
+          ]
+        },
+        {
+          "id": 110,
+          "name": "boardroom furnishing 1",
+          "type": "furniture",
+          "x": 539,
+          "y": 448,
+          "width": 484,
+          "height": 193,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 111,
+          "name": "boardroom furnishing 2",
+          "type": "furniture",
+          "x": 620,
+          "y": 293,
+          "width": 320,
+          "height": 69,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 112,
+          "name": "boardroom furnishing 3",
+          "type": "furniture",
+          "x": 393,
+          "y": 709,
+          "width": 149,
+          "height": 37,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 113,
+          "name": "boardroom furnishing 4",
+          "type": "furniture",
+          "x": 567,
+          "y": 408,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 114,
+          "name": "boardroom furnishing 5",
+          "type": "furniture",
+          "x": 663,
+          "y": 408,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 115,
+          "name": "boardroom furnishing 6",
+          "type": "furniture",
+          "x": 759,
+          "y": 408,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 116,
+          "name": "boardroom furnishing 7",
+          "type": "furniture",
+          "x": 855,
+          "y": 408,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 117,
+          "name": "boardroom furnishing 8",
+          "type": "furniture",
+          "x": 951,
+          "y": 408,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 118,
+          "name": "boardroom furnishing 9",
+          "type": "furniture",
+          "x": 567,
+          "y": 654,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 119,
+          "name": "boardroom furnishing 10",
+          "type": "furniture",
+          "x": 663,
+          "y": 654,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 120,
+          "name": "boardroom furnishing 11",
+          "type": "furniture",
+          "x": 759,
+          "y": 654,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 121,
+          "name": "boardroom furnishing 12",
+          "type": "furniture",
+          "x": 855,
+          "y": 654,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 122,
+          "name": "boardroom furnishing 13",
+          "type": "furniture",
+          "x": 951,
+          "y": 654,
+          "width": 28,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 123,
+          "name": "office furnishing 1",
+          "type": "furniture",
+          "x": 997,
+          "y": 404,
+          "width": 140,
+          "height": 90,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "office"
+            }
+          ]
+        },
+        {
+          "id": 130,
+          "name": "Owner’s office entrance",
+          "type": "office-sign",
+          "x": 800,
+          "y": 215,
+          "width": 96,
+          "height": 18,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "shop"
+            }
+          ]
         }
       ]
     },
@@ -1946,6 +2342,144 @@
           "properties": [
             {
               "name": "floor",
+              "type": "string",
+              "value": "office"
+            }
+          ]
+        },
+        {
+          "id": 124,
+          "name": "Mr. Chen’s office",
+          "type": "office-door",
+          "x": 836,
+          "y": 243,
+          "width": 22,
+          "height": 22,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "shop"
+            },
+            {
+              "name": "destination",
+              "type": "string",
+              "value": "owner"
+            }
+          ]
+        },
+        {
+          "id": 125,
+          "name": "Sales floor",
+          "type": "office-door",
+          "x": 970,
+          "y": 838,
+          "width": 22,
+          "height": 22,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "owner"
+            },
+            {
+              "name": "destination",
+              "type": "string",
+              "value": "shopOwner"
+            }
+          ]
+        },
+        {
+          "id": 126,
+          "name": "Boardroom door",
+          "type": "office-door",
+          "x": 1177,
+          "y": 621,
+          "width": 22,
+          "height": 22,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "office"
+            },
+            {
+              "name": "destination",
+              "type": "string",
+              "value": "boardroom"
+            }
+          ]
+        },
+        {
+          "id": 127,
+          "name": "Mrs. Chen’s office",
+          "type": "office-door",
+          "x": 369,
+          "y": 621,
+          "width": 22,
+          "height": 22,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "boardroom"
+            },
+            {
+              "name": "destination",
+              "type": "string",
+              "value": "officeBoard"
+            }
+          ]
+        },
+        {
+          "id": 128,
+          "name": "Door to sales floor",
+          "type": "office-door",
+          "x": 815,
+          "y": 820,
+          "width": 22,
+          "height": 22,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "stairwell"
+            },
+            {
+              "name": "destination",
+              "type": "string",
+              "value": "shopStairs"
+            }
+          ]
+        },
+        {
+          "id": 129,
+          "name": "Mezzanine door",
+          "type": "office-door",
+          "x": 690,
+          "y": 820,
+          "width": 22,
+          "height": 22,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "stairwell"
+            },
+            {
+              "name": "destination",
               "type": "string",
               "value": "office"
             }
