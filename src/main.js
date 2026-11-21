@@ -1914,6 +1914,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.dead = true;
                     createBlood(this.x, this.y, hitAngle, 6);
                     corpses.push(new Corpse(this.x, this.y, hitAngle, this.shirtColor, '#8d5524', false, this.floor, 'civilian'));
+                    if (['seated','expired'].includes(woundPhase(this))) corpses[corpses.length-1].slideTimer=0;
                     if (this.isHostage) {
                         showBanner('HOSTAGE KILLED IN CROSSFIRE!', 2200, true);
                     }
@@ -2359,6 +2360,7 @@ import { createAudioEngine } from './audio/sfx.js';
                             };
                             const bCol = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (bodyColors[this.faction] || '#b45309');
                             corpses.push(new Corpse(this.x, this.y, hitAngle, this.looterLook?.ink.c || bCol, this.looterLook?.skin || '#5c3a21', this.isBoss, this.floor, this.faction));
+                            if (['seated','expired'].includes(woundPhase(this))) corpses[corpses.length-1].slideTimer=0;
                             if (corpses.length > 160) corpses.shift();
                         } else {
                             showBanner(this.isBoss ? 'ADULT SQUAD CAPTAIN: "HIT! GOOD SHOT!"' : 'ADULT PLAYER: "HIT! OUT!"', 1300);
@@ -5307,7 +5309,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 if (!player) return;
                 const isTraining = (mission && mission.campaign === 'training');
                 const isMall = (mission && mission.campaign === 'mall');
-                document.getElementById('hpLabelText').innerText = isTraining ? 'HIT POINTS' : 'HEALTH';
+                document.getElementById('hpLabelText').innerText = isTraining ? 'HIT POINTS' : woundPhase(player)==='seated' ? 'DOWN' : woundPhase(player)==='stumble' ? 'STAGGERING' : 'HEALTH';
                 document.getElementById('armorLabelText').innerText = isTraining ? 'VEST PAD' : 'ARMOR';
 
                 document.getElementById('hpVal').innerText = Math.ceil(player.hp);
