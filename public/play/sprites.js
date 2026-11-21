@@ -167,6 +167,57 @@ function drawMallCFeet(ctx, actor) {
     drawSpriteFootwork(ctx, actor, actor.isSneaking ? 2.6 : 5, -15, 8);
 }
 
+// Hand-pixelled overhead portrait. Rows run from bun to chin, facing down.
+const cPortrait = [
+    '        ...  ',
+    '      ..rrr..',
+    '     .rbacbbr.',
+    '    .rbacbbrrr.',
+    '    .rcbrracbr.',
+    '   .rbrraacrbr.',
+    '    .rrbcbrrr.',
+    '   ..rrrtttrr..',
+    '  .rbbbaaabbbrr.',
+    ' .rbacbbrraabrrr.',
+    '.rracbbrrraabbbrr.',
+    '.rbcbbrrrbbaacbrr.',
+    '.rbbrraabbbbacbrr.',
+    '.rbrraabrrrrabrrr.',
+    '.rr..mmmmmmm..rrr.',
+    '.r.mzzm.mmzzm..rr.',
+    ' .mGggmttmGggm.r.',
+    ' .mggdm..mggdm.r.',
+    ' .r...brrb...rrr.',
+    ' .rsbbffffbbfsr.',
+    '  .sf.dfssf.ds.',
+    '  .sfffsffsfss.',
+    '   .sffhffhss.',
+    '    .sffssfs.',
+    '      .sss.',
+];
+const cInks = {
+    '.': '#20181c', r: '#442526', b: '#743a2c', a: '#ad5735', c: '#dc8650',
+    z: '#989196', t: '#302d36', m: '#47444a', s: '#b87555', f: '#e3a17a', h: '#f6c39a',
+    d: '#183221', g: '#509a45', G: '#c8f883'
+};
+
+// Batch adjacent pixels into strips once, outside the animation loop.
+const cPortraitStrips = cPortrait.flatMap((row, y) =>
+    Array.from(row.matchAll(/([^ ])\1*/g), match => ({
+        x: match.index - 9, y: y - 15, width: match[0].length, ink: cInks[match[1]]
+    }))
+);
+
+function drawCHead(ctx) {
+    ctx.save();
+    ctx.rotate(-Math.PI / 2);
+    for (const strip of cPortraitStrips) {
+        ctx.fillStyle = strip.ink;
+        ctx.fillRect(strip.x, strip.y, strip.width, 1);
+    }
+    ctx.restore();
+}
+
 function drawMallCBody(ctx, actor) {
     ctx.lineJoin = 'round';
     ctx.lineWidth = 1.35;
@@ -209,6 +260,14 @@ function drawMallCBody(ctx, actor) {
     drawSpriteEllipse(ctx, 14, -4, 3.5, 3.5, 0, '#d59b76');
     drawSpriteEllipse(ctx, 14, 4, 3.5, 3.5, 0, '#d59b76');
 
+    // Bound cuffs and fingerless gloves break up the forearm silhouette.
+    for (const side of [-1, 1]) {
+        drawSpriteEllipse(ctx, 8.7, side * 7, 3.8, 2.9, -side * 0.55, '#94705a');
+        drawSpriteEllipse(ctx, 12, side * 5.1, 2.8, 3, -side * 0.55, '#393137');
+        ctx.fillStyle = '#887067';
+        ctx.fillRect(10.8, side * 5.1, 1.4, 1);
+    }
+
     if (actor.weaponVisible) {
         ctx.beginPath();
         ctx.roundRect(12, -3.25, 10.5, 6.5, 1.2);
@@ -224,20 +283,15 @@ function drawMallCBody(ctx, actor) {
 
     }
 
-    // Hair and face are drawn last above the collar.
-    drawSpriteEllipse(ctx, 0.8, 0, 9.4, 9, 0, '#deaa83');
-    ctx.beginPath();
-    ctx.moveTo(6.8, -6.5);
-    ctx.bezierCurveTo(-1, -13, -11, -8.5, -10, 1);
-    ctx.quadraticCurveTo(-9, 7, -4, 8);
-    ctx.lineTo(-5, 1);
-    ctx.lineTo(-1.5, 3);
-    ctx.lineTo(0, -3);
-    ctx.closePath();
-    paintSpritePath(ctx, '#291f24');
-    ctx.fillStyle = '#42292a';
-    ctx.fillRect(6.3, -3, 1.4, 1.5);
-    ctx.fillRect(7.4, 2, 1.4, 1);
+    // A folded, checked scarf frames the head and stays visible at play scale.
+    drawSpriteEllipse(ctx, 1, 0, 9.8, 11.4, 0, '#887565');
+    ctx.fillStyle = '#dfc8ac';
+    for (const side of [-1, 1]) {
+        ctx.fillRect(-4, side * 9, 3, 1.6);
+        ctx.fillRect(1, side * 10, 3, 1.6);
+        ctx.fillRect(5, side * 8, 2, 1.6);
+    }
+    drawCHead(ctx);
 }
 
 
