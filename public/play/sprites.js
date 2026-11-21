@@ -334,24 +334,37 @@ function normalize(actor) {
   if (!Number.isFinite(actor.radius)) actor.radius=14;
   if (!Number.isFinite(actor.woundedSpeedFactor)) actor.woundedSpeedFactor=1;
 }
-let civilianAtlas;
+let civilianAtlas, armedCivilianAtlas;
 function drawC(ctx, actor) {
-  if (actor.gait && !actor.weaponVisible && !actor.nvgEquipped && !actor.hasMolleVest && typeof Image !== 'undefined') {
-    if (!civilianAtlas) {
+  // Both atlases portray C before she acquires the tactical carrier and goggles.
+  // Keep the procedural renderer for other equipped weapons and later gear.
+  const glockReady=actor.weaponVisible && actor.weaponId==='glock26';
+  const atlasEligible=actor.gait && (!actor.weaponVisible || glockReady) &&
+    !actor.nvgEquipped && !actor.hasMolleVest && typeof Image!=='undefined';
+  if (atlasEligible) {
+    if (glockReady && !armedCivilianAtlas) {
+      armedCivilianAtlas=new Image();
+      armedCivilianAtlas.src=new URL('c-glock-ready.svg',document.baseURI).href;
+    } else if (!glockReady && !civilianAtlas) {
       civilianAtlas=new Image();
       civilianAtlas.src=new URL('c-civilian.svg',document.baseURI).href;
     }
-    if (civilianAtlas.complete && civilianAtlas.naturalWidth) {
+    const atlas=glockReady?armedCivilianAtlas:civilianAtlas;
+    if (atlas.complete && atlas.naturalWidth) {
       const idle=actor.gait==='idle';
-      const angle=idle ? (actor.lastTravelFacing ?? actor.angle) : actor.walkAngle;
-      if (!idle) actor.lastTravelFacing=angle;
-      const direction=(Math.round((angle-Math.PI/2)/(Math.PI/4))+8)%8;
+      // Unarmed C faces where she last walked; armed C faces her aim direction.
+      const angle=glockReady ? actor.angle :
+        (idle ? (actor.lastTravelFacing ?? actor.angle) : actor.walkAngle);
+      if (!idle && !glockReady) actor.lastTravelFacing=angle;
+      const direction=((Math.round((angle-Math.PI/2)/(Math.PI/4))%8)+8)%8;
       const gait=idle?0:actor.gait==='run'?2:1;
-      const frame=idle?Math.floor(actor.idleClock*3)%4:Math.floor(actor.walkPhase*2/Math.PI)%4;
+      const phase=idle?(actor.idleClock||0)*3:actor.walkPhase*2/Math.PI;
+      const frame=((Math.floor(phase)%4)+4)%4;
+      const cellWidth=glockReady?40:32;
       ctx.save();
       ctx.imageSmoothingEnabled=false;
-      ctx.drawImage(civilianAtlas,direction*32,(gait*4+frame)*48,32,48,
-        Math.round(actor.x)-16,Math.round(actor.y)-32,32,48);
+      ctx.drawImage(atlas,direction*cellWidth,(gait*4+frame)*48,cellWidth,48,
+        Math.round(actor.x)-cellWidth/2,Math.round(actor.y)-32,cellWidth,48);
       ctx.restore();
       return;
     }
@@ -455,10 +468,17 @@ function drawSaafiya(ctx, actor) {
 
 function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   normalize(actor);
-  if ((appearance==='saafiya' || actor.name==='Saafiya') && drawSaafiya(ctx,actor)) return;
-  const colors=NPC_SPRITE_COLORS[appearance] || NPC_SPRITE_COLORS.assistant;
+  // Tiled actor sprite keys override any generic role-based appearance.
+  const explicit=actor.meta?.sprite || actor.spriteKey || actor.appearanceKey;
+  const selected=String(explicit || appearance).trim().toLowerCase();
+  // "Sophia" is also used for Saafiya in dialogue/voice transcription.
+  const isSaafiyaAlias=/^(saafiya|sophia|sofia)(?:\s|$)/i.test(actor.name||'');
+  const isSaafiya=['saafiya','sophia','sofia'].includes(selected) ||
+    (!explicit && ['assistant','cashier'].includes(selected) && isSaafiyaAlias);
+  if (isSaafiya && drawSaafiya(ctx,actor)) return;
+  const colors=NPC_SPRITE_COLORS[selected] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
-  if (Object.hasOwn(familyArt,appearance)) drawChen(ctx,actor,appearance);
+  if (Object.hasOwn(familyArt,selected)) drawChen(ctx,actor,selected);
   else drawHumanNpc(ctx,actor,colors,'#11181c','standing',prop);
   ctx.restore();
 }
