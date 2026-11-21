@@ -1,6 +1,7 @@
 let armedAtlas;
 export function drawArmedC(ctx, actor, weapon) {
-    if (actor.gender !== 'mall' || weapon.id !== 'glock26') return false;
+    if (actor.gender !== 'mall' || weapon?.id !== 'glock26' ||
+        actor.hasMolleVest || actor.nvgEquipped || typeof Image === 'undefined') return false;
     if (!armedAtlas) {
         armedAtlas = new Image();
         armedAtlas.src = new URL('../play/c-glock-ready.svg', import.meta.url).href;
