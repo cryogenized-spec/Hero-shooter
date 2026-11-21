@@ -444,14 +444,16 @@ function drawChen(ctx,actor,role) {
     ctx.restore();
 }
 
-let saafiyaAtlas;
-function drawSaafiya(ctx, actor) {
+const npcAtlases=new Map();
+function drawNpcAtlas(ctx, actor, filename) {
   if (typeof Image === 'undefined') return false;
-  if (!saafiyaAtlas) {
-    saafiyaAtlas=new Image();
-    saafiyaAtlas.src=new URL('saafiya.svg',document.baseURI).href;
+  let atlas=npcAtlases.get(filename);
+  if (!atlas) {
+    atlas=new Image();
+    atlas.src=new URL(filename,document.baseURI).href;
+    npcAtlases.set(filename,atlas);
   }
-  if (!saafiyaAtlas.complete || !saafiyaAtlas.naturalWidth) return false;
+  if (!atlas.complete || !atlas.naturalWidth) return false;
   const moving=actor.gait ? actor.gait!=='idle' : actor.walkBlend>0.1;
   const angle=moving ? actor.walkAngle : actor.angle;
   const column=((Math.round((angle-Math.PI/2)/(Math.PI/4))%8)+8)%8;
@@ -460,7 +462,7 @@ function drawSaafiya(ctx, actor) {
   const frame=((Math.floor(phase)%4)+4)%4;
   ctx.save();
   ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(saafiyaAtlas,column*32,(gait*4+frame)*48,32,48,
+  ctx.drawImage(atlas,column*32,(gait*4+frame)*48,32,48,
     Math.round(actor.x)-16,Math.round(actor.y)-32,32,48);
   ctx.restore();
   return true;
@@ -475,7 +477,8 @@ function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   const isSaafiyaAlias=/^(saafiya|sophia|sofia)(?:\s|$)/i.test(actor.name||'');
   const isSaafiya=['saafiya','sophia','sofia'].includes(selected) ||
     (!explicit && ['assistant','cashier'].includes(selected) && isSaafiyaAlias);
-  if (isSaafiya && drawSaafiya(ctx,actor)) return;
+  if (isSaafiya && drawNpcAtlas(ctx,actor,'saafiya.svg')) return;
+  if (selected==='family-father' && drawNpcAtlas(ctx,actor,'mr-chen.svg')) return;
   const colors=NPC_SPRITE_COLORS[selected] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
   if (Object.hasOwn(familyArt,selected)) drawChen(ctx,actor,selected);
