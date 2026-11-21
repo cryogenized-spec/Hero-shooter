@@ -1,3 +1,5 @@
+import { falls, drawRestingBody, registerWound, woundPhase } from './wounds.js';
+import { assignLooterGear, looterLooks, drawLooterJacket, drawLooterHead } from './looter-art.js';
 import { setupTitleScreen } from './ui/title-screen.js';
 import { Math2 } from './core/math.js';
 import { createWeapons } from './data/weapons.js';
@@ -1122,6 +1124,8 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.maxLife = 0.42;
                     this.r = 9;
                     this.active = true;
+                    this.startX=x;
+                    this.startY=y;
                     this.hitSet = new Set();
                 }
 
@@ -1412,6 +1416,28 @@ import { createAudioEngine } from './audio/sfx.js';
             // ============================================================================
             // PERSISTENT CORPSES (MULTI-POSE COLLAPSE ON FLOOR)
             // ============================================================================
+            function advanceWound(actor,dt) {
+                if (!actor.wound) return 'mobile';
+                const w=actor.wound;
+                w.age+=dt;
+                const phase=woundPhase(actor);
+                if (phase==='stumble') {
+                    w.dropIn-=dt;
+                    if (w.dropIn<=0) {
+                        w.dropIn=Math2.rand(0.19,0.48);
+                        if (decals.length<520) decals.push(new Decal(actor.x+Math2.rand(-5,5),actor.y+Math2.rand(-5,5),'blood',Math2.rand(0,6.28),Math2.rand(2,4),actor.floor || currentMallFloor));
+                    }
+                }
+                return phase;
+            }
+            function drawSeated(actor,ctx,coat,skin) {
+                if (woundPhase(actor)!=='seated') return false;
+                ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
+                const scale=(actor.r || 14)/14;
+                ctx.scale(scale,scale);
+                drawRestingBody(ctx,null,coat,skin,player!==actor && player && Math2.dist(actor.x,actor.y,player.x,player.y)<80);
+                ctx.restore();return true;
+            }
             class Corpse {
                 constructor(x, y, hitAngle, bodyColor, skinColor, isBoss = false, floor = null, faction = 'looter') {
                     this.x = x;
@@ -1425,7 +1451,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.vx = Math.cos(hitAngle) * Math2.rand(55, 115);
                     this.vy = Math.sin(hitAngle) * Math2.rand(55, 115);
                     this.slideTimer = 0.22;
-                    this.pose = ['sprawl_face', 'side_curl', 'supine', 'twisted'][Math2.randInt(0, 3)];
+                    this.pose = Math2.randInt(0, falls.length-1);
                 }
 
                 update(dt) {
@@ -1464,49 +1490,7 @@ import { createAudioEngine } from './audio/sfx.js';
                         return;
                     }
 
-                    ctx.fillStyle = '#0f172a';
-                    if (this.pose === 'side_curl') {
-                        ctx.fillRect(-16, -5, 13, 4.5);
-                        ctx.fillRect(-13, 1, 11, 4.5);
-                    } else if (this.pose === 'twisted') {
-                        ctx.save();
-                        ctx.rotate(0.28);
-                        ctx.fillRect(-18, -5.5, 14, 4.5);
-                        ctx.restore();
-                        ctx.save();
-                        ctx.rotate(-0.35);
-                        ctx.fillRect(-17, 1.5, 14, 4.5);
-                        ctx.restore();
-                    } else {
-                        ctx.fillRect(-18, -5.2, 14, 4.4);
-                        ctx.fillRect(-18, 1.0, 14, 4.4);
-                    }
-
-                    ctx.fillStyle = this.skinColor;
-                    if (this.pose === 'supine') {
-                        ctx.fillRect(0, -13, 4, 8);
-                        ctx.fillRect(2, 6, 4, 8);
-                    } else if (this.pose === 'side_curl') {
-                        ctx.fillRect(4, -7, 7, 3.6);
-                        ctx.fillRect(2, 3, 6, 3.6);
-                    } else {
-                        ctx.fillRect(3, -12, 4.2, 8);
-                        ctx.fillRect(-2, 6, 4.2, 8);
-                    }
-
-                    ctx.fillStyle = this.bodyColor;
-                    ctx.beginPath();
-                    ctx.ellipse(0, 0, 10.5, 7.2, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-                    ctx.lineWidth = 1.1;
-                    ctx.stroke();
-
-                    ctx.fillStyle = this.skinColor;
-                    ctx.beginPath();
-                    ctx.arc(10.5, this.pose === 'side_curl' ? 2 : 0, 5.6, 0, Math.PI * 2);
-                    ctx.fill();
-
+                    drawRestingBody(ctx,this.pose,this.bodyColor,this.skinColor);
                     ctx.restore();
                 }
             }
@@ -1644,11 +1628,21 @@ import { createAudioEngine } from './audio/sfx.js';
                             const hitX = this.prevX + (nextX - this.prevX) * bestT;
                             const hitY = this.prevY + (nextY - this.prevY) * bestT;
 
+                            const human = ['enemy','civilian','player'].includes(hitKind) && hitTarget.faction!=='dog';
+                            if (human && !this.isAirsoft) {
+                                const close = Math.hypot(hitX-this.startX,hitY-this.startY)<150;
+                                if (this.pierce || (close && !this.isJHP)) {
+                                    const radius=hitTarget.r || 14;
+                                    const dx=Math.cos(this.angle),dy=Math.sin(this.angle);
+                                    createBlood(hitTarget.x+dx*radius,hitTarget.y+dy*radius,this.angle,this.pierce?6:3);
+                                    particles.push(new Particle(hitTarget.x+dx*(radius+3),hitTarget.y+dy*(radius+3),this.angle,'#efb793',2,230,0.09));
+                                }
+                            }
                             if (hitKind === 'player') {
                                 this.x = hitX;
                                 this.y = hitY;
                                 this.active = false;
-                                hitTarget.takeDamage(this.dmg);
+                                hitTarget.takeDamage(this.dmg,!this.isAirsoft);
                                 if (this.isAirsoft) {
                                     sfx.playBBImpact();
                                     createBBHit(this.x, this.y, this.angle);
@@ -1666,9 +1660,9 @@ import { createAudioEngine } from './audio/sfx.js';
                                 this.x = hitX;
                                 this.y = hitY;
                                 this.active = false;
-                                hitTarget.takeDamage(this.dmg, this.angle);
+                                hitTarget.takeDamage(this.dmg, this.angle,!this.isAirsoft);
                             } else if (hitKind === 'enemy') {
-                                hitTarget.takeDamage(this.dmg, this.angle, false, this.isJHP);
+                                hitTarget.takeDamage(this.dmg, this.angle, false, this.isJHP,!this.isAirsoft);
                                 if (this.pierce && this.dmg > 45 && !this.isAirsoft) {
                                     this.hitSet.add(hitTarget);
                                     this.dmg *= 0.72;
@@ -1904,11 +1898,23 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.shirtColor = ['#38bdf8', '#a855f7', '#eab308', '#14b8a6', '#f43f5e'][Math2.randInt(0, 4)];
                 }
 
-                takeDamage(amount, hitAngle = 0) {
+                takeDamage(amount, hitAngle = 0, bullet=false) {
                     if (this.dead) return;
+                    if (bullet) {
+                        this.hp=(this.hp ?? 65)-amount;
+                        if (this.hp>0) {
+                            registerWound(this,this.hp<34);
+                            this.state='fleeing';
+                            this.fleeAngle=hitAngle;
+                            this.panicTimer=3;
+                            createBlood(this.x,this.y,hitAngle,3);
+                            return;
+                        }
+                    }
                     this.dead = true;
                     createBlood(this.x, this.y, hitAngle, 6);
                     corpses.push(new Corpse(this.x, this.y, hitAngle, this.shirtColor, '#8d5524', false, this.floor, 'civilian'));
+                    if (['seated','expired'].includes(woundPhase(this))) corpses[corpses.length-1].slideTimer=0;
                     if (this.isHostage) {
                         showBanner('HOSTAGE KILLED IN CROSSFIRE!', 2200, true);
                     }
@@ -1988,6 +1994,9 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (this.dead) return;
                     if (this.floor && this.floor !== currentMallFloor) return;
 
+                    const phase=advanceWound(this,dt);
+                    if (phase==='expired') { this.takeDamage(100,this.angle); return; }
+                    if (phase==='seated') return;
                     if (this.isHostage && !this.rescued) {
                         let captorAlive = false;
                         for (let i = 0; i < enemies.length; i++) {
@@ -2029,6 +2038,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 draw(ctx) {
                     if (this.dead) return;
                     if (this.floor && this.floor !== currentMallFloor) return;
+                    if (drawSeated(this,ctx,this.shirtColor,'#8d5524')) return;
                     ctx.save();
                     ctx.translate(this.x, this.y);
                     ctx.rotate(this.angle);
@@ -2096,6 +2106,8 @@ import { createAudioEngine } from './audio/sfx.js';
 
             class Enemy {
                 constructor(x, y, faction = 'looter', isBoss = false, floor = null, activity = null) {
+                    this.looterLook = ['looter', 'melee_looter', 'unarmed_looter'].includes(faction) && !isBoss
+                        ? looterLooks[Math.abs(Math.floor(x * 0.37 + y * 0.61)) % looterLooks.length] : null;
                     this.x = x;
                     this.y = y;
                     this.faction = faction;
@@ -2115,6 +2127,7 @@ import { createAudioEngine } from './audio/sfx.js';
 
                     this.isUnarmed = (faction === 'unarmed_looter');
                     this.isMeleeLooter = (faction === 'melee_looter');
+                    this.looterGear = this.looterLook ? assignLooterGear(this) : null;
                     this.isSpotter = this.isUnarmed && Math.random() < 0.42;
                     this.spotterWarnTimer = 0;
                     this.spotterCooldown = 0;
@@ -2236,6 +2249,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
 
                 sayZulu(phrase, dur = 2.4) {
+                    if (this.wound) return;
                     this.barkText = phrase;
                     this.barkTimer = dur;
                 }
@@ -2306,10 +2320,15 @@ import { createAudioEngine } from './audio/sfx.js';
                     }
                 }
 
-                takeDamage(amount, hitAngle = 0, silent = false, isJHP = false) {
+                takeDamage(amount, hitAngle = 0, silent = false, isJHP = false, bullet = false) {
                     if (this.hp <= 0) return;
                     const isAirsoft = (this.faction === 'airsoft_adult');
                     this.hp -= amount;
+                    if (bullet && !isAirsoft && this.hp>0 && this.faction!=='dog') {
+                        registerWound(this,this.hp <= this.maxHp*0.48);
+                        this.barkText=this.wound.cry?'Ah!':'';
+                        this.barkTimer=this.wound.cry?0.7:0;
+                    }
                     if (!silent) {
                         if (isAirsoft) sfx.playBBImpact();
                         else sfx.playHit();
@@ -2340,7 +2359,8 @@ import { createAudioEngine } from './audio/sfx.js';
                                 security: '#1d4ed8'
                             };
                             const bCol = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (bodyColors[this.faction] || '#b45309');
-                            corpses.push(new Corpse(this.x, this.y, hitAngle, bCol, '#5c3a21', this.isBoss, this.floor, this.faction));
+                            corpses.push(new Corpse(this.x, this.y, hitAngle, this.looterLook?.ink.c || bCol, this.looterLook?.skin || '#5c3a21', this.isBoss, this.floor, this.faction));
+                            if (['seated','expired'].includes(woundPhase(this))) corpses[corpses.length-1].slideTimer=0;
                             if (corpses.length > 160) corpses.shift();
                         } else {
                             showBanner(this.isBoss ? 'ADULT SQUAD CAPTAIN: "HIT! GOOD SHOT!"' : 'ADULT PLAYER: "HIT! OUT!"', 1300);
@@ -2483,6 +2503,13 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (this.hp <= 0) return;
                     if (this.floor && this.floor !== currentMallFloor) return;
 
+                    const phase=advanceWound(this,dt);
+                    if (phase==='expired') { this.takeDamage(this.hp,this.angle,true); return; }
+                    if (phase==='seated') return;
+                    if (phase==='stumble') {
+                        this.panicState='wounded_retreat';
+                        this.panicTimer=2;
+                    }
                     if (this.spotterCooldown > 0) this.spotterCooldown -= dt;
                     if (this.dashCooldown > 0) this.dashCooldown -= dt;
                     if (this.dashTimer > 0) this.dashTimer -= dt;
@@ -2550,11 +2577,11 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (this.panicState === 'wounded_retreat') {
                         this.panicTimer -= dt;
                         this.angle = this.fleeAngle;
-                        this.x += Math.cos(this.angle) * (this.speed * 1.18) * dt;
-                        this.y += Math.sin(this.angle) * (this.speed * 1.18) * dt;
+                        this.x += Math.cos(this.angle) * (this.speed * (phase==='stumble'?0.36:1.18)) * dt;
+                        this.y += Math.sin(this.angle) * (this.speed * (phase==='stumble'?0.36:1.18)) * dt;
                         this.animPhase += dt * 13;
 
-                        if (Math.random() < 0.14 && decals.length < 520) {
+                        if (phase!=='stumble' && Math.random() < 0.14 && decals.length < 520) {
                             decals.push(new Decal(this.x, this.y, 'blood', Math2.rand(0, Math.PI * 2), 4, this.floor));
                         }
 
@@ -2819,6 +2846,9 @@ import { createAudioEngine } from './audio/sfx.js';
                     ctx.translate(this.x, this.y);
                     ctx.rotate(this.angle);
 
+                    if (woundPhase(this)==='seated') {
+                        ctx.restore();drawSeated(this,ctx,this.looterLook?.ink.c || '#65564f',this.looterLook?.skin || '#975f45');return;
+                    }
                     if (this.faction === 'dog') {
                         ctx.fillStyle = '#451a03';
                         ctx.beginPath();
@@ -2843,69 +2873,79 @@ import { createAudioEngine } from './audio/sfx.js';
                     ctx.ellipse(2, 3, 11, 13.5, 0, 0, Math.PI * 2);
                     ctx.fill();
 
-                    const bodyColors = {
-                        airsoft_adult: this.isBoss ? '#3f6212' : '#4d7c0f',
-                        unarmed_looter: this.isSpotter ? '#eab308' : '#d97706',
-                        melee_looter: '#9a3412',
-                        hostage_taker: '#7f1d1d',
-                        looter: '#b45309',
-                        blockade_goon: '#991b1b',
-                        syndicate: '#15803d',
-                        security: '#1d4ed8'
-                    };
-                    ctx.fillStyle = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (bodyColors[this.faction] || '#b45309');
-                    ctx.beginPath();
-                    ctx.ellipse(-2, 0, 9.5, this.isBoss ? 15.5 : 13, 0, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    if (this.blindTimer > 0) {
-                        ctx.fillStyle = '#5c3a21';
-                        ctx.beginPath(); ctx.arc(6, -4, 3, 0, Math.PI * 2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(6, 4, 3, 0, Math.PI * 2); ctx.fill();
-                    } else if (this.isUnarmed) {
-                        if (this.carryingLoot) {
-                            ctx.fillStyle = '#334155';
-                            ctx.fillRect(5, -8.5, 11, 17);
-                            ctx.strokeStyle = '#94a3b8';
-                            ctx.lineWidth = 1;
-                            ctx.strokeRect(5, -8.5, 11, 17);
-                        } else {
-                            ctx.fillStyle = '#5c3a21';
-                            ctx.beginPath(); ctx.arc(5 - stride * 0.5, -8.5, 2.8, 0, Math.PI * 2); ctx.fill();
-                            ctx.beginPath(); ctx.arc(5 + stride * 0.5, 8.5, 2.8, 0, Math.PI * 2); ctx.fill();
-                        }
-                    } else if (this.isMeleeLooter) {
-                        const prySwing = Math.sin(this.animPhase * 1.4) * 0.35;
-                        ctx.save();
-                        ctx.rotate(prySwing);
-                        ctx.fillStyle = '#cbd5e1';
-                        ctx.fillRect(4, 5, 18, 3);
-                        ctx.fillStyle = '#ef4444';
-                        ctx.fillRect(19, 4, 4, 5);
-                        ctx.restore();
-                    } else if (this.faction === 'airsoft_adult') {
-                        ctx.fillStyle = '#1e293b';
-                        ctx.fillRect(5, 3, 18, 3.6);
-                        ctx.fillStyle = '#f97316';
-                        ctx.fillRect(22, 3.1, 2.5, 3.4);
-                    } else if (this.faction === 'blockade_goon') {
-                        ctx.fillStyle = '#78350f';
-                        ctx.fillRect(3, 3, 12, 3.8);
-                        ctx.fillStyle = '#18181b';
-                        ctx.fillRect(14, 3.3, 10, 3);
-                        ctx.fillStyle = '#475569';
-                        ctx.fillRect(10, 6.5, 4, 4);
+                    if (this.looterLook) {
+                        drawLooterJacket(ctx, this.looterLook, stride, this);
                     } else {
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillRect(6, 3, this.faction === 'security' ? 18 : 13, 3.5);
+                        const bodyColors = {
+                            airsoft_adult: this.isBoss ? '#3f6212' : '#4d7c0f',
+                            unarmed_looter: this.isSpotter ? '#eab308' : '#d97706',
+                            melee_looter: '#9a3412',
+                            hostage_taker: '#7f1d1d',
+                            looter: '#b45309',
+                            blockade_goon: '#991b1b',
+                            syndicate: '#15803d',
+                            security: '#1d4ed8'
+                        };
+                        ctx.fillStyle = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (bodyColors[this.faction] || '#b45309');
+                        ctx.beginPath();
+                        ctx.ellipse(-2, 0, 9.5, this.isBoss ? 15.5 : 13, 0, 0, Math.PI * 2);
+                        ctx.fill();
                     }
 
-                    ctx.fillStyle = this.faction === 'airsoft_adult' ? '#d4a373' : '#5c3a21';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, this.isBoss ? 7.8 : 6.4, 0, Math.PI * 2);
-                    ctx.fill();
+                    if (!this.looterLook) {
+                        if (this.blindTimer > 0) {
+                            ctx.fillStyle = this.looterLook?.skin || '#5c3a21';
+                            ctx.beginPath(); ctx.arc(6, -4, 3, 0, Math.PI * 2); ctx.fill();
+                            ctx.beginPath(); ctx.arc(6, 4, 3, 0, Math.PI * 2); ctx.fill();
+                        } else if (this.isUnarmed) {
+                            if (this.carryingLoot) {
+                                ctx.fillStyle = '#334155';
+                                ctx.fillRect(5, -8.5, 11, 17);
+                                ctx.strokeStyle = '#94a3b8';
+                                ctx.lineWidth = 1;
+                                ctx.strokeRect(5, -8.5, 11, 17);
+                            } else {
+                                ctx.fillStyle = this.looterLook?.skin || '#5c3a21';
+                                ctx.beginPath(); ctx.arc(5 - stride * 0.5, -8.5, 2.8, 0, Math.PI * 2); ctx.fill();
+                                ctx.beginPath(); ctx.arc(5 + stride * 0.5, 8.5, 2.8, 0, Math.PI * 2); ctx.fill();
+                            }
+                        } else if (this.isMeleeLooter) {
+                            const prySwing = Math.sin(this.animPhase * 1.4) * 0.35;
+                            ctx.save();
+                            ctx.rotate(prySwing);
+                            ctx.fillStyle = '#cbd5e1';
+                            ctx.fillRect(4, 5, 18, 3);
+                            ctx.fillStyle = '#ef4444';
+                            ctx.fillRect(19, 4, 4, 5);
+                            ctx.restore();
+                        } else if (this.faction === 'airsoft_adult') {
+                            ctx.fillStyle = '#1e293b';
+                            ctx.fillRect(5, 3, 18, 3.6);
+                            ctx.fillStyle = '#f97316';
+                            ctx.fillRect(22, 3.1, 2.5, 3.4);
+                        } else if (this.faction === 'blockade_goon') {
+                            ctx.fillStyle = '#78350f';
+                            ctx.fillRect(3, 3, 12, 3.8);
+                            ctx.fillStyle = '#18181b';
+                            ctx.fillRect(14, 3.3, 10, 3);
+                            ctx.fillStyle = '#475569';
+                            ctx.fillRect(10, 6.5, 4, 4);
+                        } else {
+                            ctx.fillStyle = '#0f172a';
+                            ctx.fillRect(6, 3, this.faction === 'security' ? 18 : 13, 3.5);
+                        }
+                    }
 
-                    if (this.faction === 'airsoft_adult') {
+                    if (!this.looterLook) {
+                        ctx.fillStyle = this.faction === 'airsoft_adult' ? '#d4a373' : '#5c3a21';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, this.isBoss ? 7.8 : 6.4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    if (this.looterLook) {
+                        drawLooterHead(ctx, this.looterLook);
+                    } else if (this.faction === 'airsoft_adult') {
                         ctx.fillStyle = '#365314';
                         ctx.beginPath();
                         ctx.arc(-0.5, 0, 8.6, 0, Math.PI * 2);
@@ -3546,7 +3586,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     }
                 }
 
-                takeDamage(amount) {
+                takeDamage(amount, bullet=false) {
                     if (this.hp <= 0) return;
                     if (mission && mission.campaign === 'training') {
                         this.hp = Math.max(0, this.hp - amount);
@@ -3564,6 +3604,7 @@ import { createAudioEngine } from './audio/sfx.js';
                         amount -= absorbed;
                     }
                     this.hp = Math.max(0, this.hp - amount);
+                    if (bullet && this.hp>0) registerWound(this,this.hp<=35);
                     camera.shake = Math.min(16, camera.shake + amount * 0.36);
                     updateHUD();
 
@@ -3574,6 +3615,12 @@ import { createAudioEngine } from './audio/sfx.js';
 
                 update(dt) {
                     if (this.hp <= 0) return;
+
+                    if (this.wound && this.hp>35 && Number.isFinite(this.wound.downAt)) this.wound=null;
+                    const phase=advanceWound(this,dt);
+                    if (phase==='expired') { this.takeDamage(this.hp+this.armor); return; }
+                    if (phase==='seated') { if (!this.downHudShown) { updateHUD(); this.downHudShown=true; } return; }
+                    this.downHudShown=false;
 
                     if (this.hasGoBag && !this.vehicle) {
                         if (this.opticsMode !== 'normal') {
@@ -3676,7 +3723,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (isMoving) {
                         const len = Math.max(1, Math.hypot(mx, my));
                         const stanceMult = this.isSneaking ? 0.54 : (sprinting ? 1.48 : 1.0);
-                        const moveSpeed = this.speed * stanceMult;
+                        const moveSpeed = this.speed * stanceMult * (phase==='stumble'?0.45:1);
                         this.x += (mx / len) * moveSpeed * dt;
                         this.y += (my / len) * moveSpeed * dt;
                         this.walkPhase += dt * (this.isSneaking ? 7.5 : (sprinting ? 17 : 12.5));
@@ -3798,6 +3845,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
 
                 tryFire(wep) {
+                    if (this.hp<=0 || woundPhase(this)==='seated') return;
                     const now = performance.now();
                     if (now - this.lastShot < wep.delay) return;
 
@@ -3890,7 +3938,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 }
 
                 draw(ctx) {
-                    if (this.vehicle) return;
+                    if (this.vehicle || drawSeated(this,ctx,'#596840','#d59b76')) return;
                     const wep = WEAPONS[this.weaponIdx];
 
                     if (this.opticsMode !== 'normal' && this.hasGoBag) {
@@ -5261,7 +5309,7 @@ import { createAudioEngine } from './audio/sfx.js';
                 if (!player) return;
                 const isTraining = (mission && mission.campaign === 'training');
                 const isMall = (mission && mission.campaign === 'mall');
-                document.getElementById('hpLabelText').innerText = isTraining ? 'HIT POINTS' : 'HEALTH';
+                document.getElementById('hpLabelText').innerText = isTraining ? 'HIT POINTS' : woundPhase(player)==='seated' ? 'DOWN' : woundPhase(player)==='stumble' ? 'STAGGERING' : 'HEALTH';
                 document.getElementById('armorLabelText').innerText = isTraining ? 'VEST PAD' : 'ARMOR';
 
                 document.getElementById('hpVal').innerText = Math.ceil(player.hp);

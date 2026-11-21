@@ -167,6 +167,62 @@ function drawMallCFeet(ctx, actor) {
     drawSpriteFootwork(ctx, actor, actor.isSneaking ? 2.6 : 5, -15, 8);
 }
 
+// Hand-pixelled overhead portrait. Rows run from bun to chin, facing down.
+const cPortrait = [
+    '        ...  ',
+    '      ..rrr..',
+    '     .rbacbbr.',
+    '    .rbacbbrrr.',
+    '    .rcbrracbr.',
+    '   .rbrraacrbr.',
+    '    .rrbcbrrr.',
+    '   ..rrrtttrr..',
+    '  .rbbbaaabbbrr.',
+    ' .rbacbbrraabrrr.',
+    '.rracbbrrraabbbrr.',
+    '.rbcbbrrrbbaacbrr.',
+    '.rbbrraabbbbacbrr.',
+    '.rbrraabrrrrabrrr.',
+    '.rr..mmmmmmm..rrr.',
+    '.r.mzzm.mmzzm..rr.',
+    ' .mGggmttmGggm.r.',
+    ' .mggdm..mggdm.r.',
+    ' .r...brrb...rrr.',
+    ' .rsbbffffbbfsr.',
+    '  .sf.dfssf.ds.',
+    '  .sfffsffsfss.',
+    '   .sffhffhss.',
+    '    .sffssfs.',
+    '      .sss.',
+];
+const cInks = {
+    '.': '#20181c', r: '#442526', b: '#743a2c', a: '#ad5735', c: '#dc8650',
+    z: '#989196', t: '#302d36', m: '#47444a', s: '#b87555', f: '#e3a17a', h: '#f6c39a',
+    d: '#183221', g: '#509a45', G: '#c8f883'
+};
+
+// Batch adjacent pixels into strips once, outside the animation loop.
+const forehead = ['.rbrabcbbrrabbbrr.', '.rrbabbrrrabbrbrr.', ' .rbbrrrabbrfsrr.', ' .rrbbrbbffhfsr.', ' .rsrrbfffhhfsr.'];
+const barePortrait = [...cPortrait.slice(0, 14), ...forehead, ...cPortrait.slice(19)];
+const portraitStrips = rows => rows.flatMap((row, y) =>
+    Array.from(row.matchAll(/([^ ])\1*/g), match => ({
+        x: match.index - 9, y: y - 15, width: match[0].length, ink: cInks[match[1]]
+    }))
+);
+
+const cHeadBare = portraitStrips(barePortrait);
+const cHeadGoggles = portraitStrips(cPortrait);
+
+function drawCHead(ctx, goggles) {
+    ctx.save();
+    ctx.rotate(-Math.PI / 2);
+    for (const strip of (goggles ? cHeadGoggles : cHeadBare)) {
+        ctx.fillStyle = strip.ink;
+        ctx.fillRect(strip.x, strip.y, strip.width, 1);
+    }
+    ctx.restore();
+}
+
 function drawMallCBody(ctx, actor) {
     ctx.lineJoin = 'round';
     ctx.lineWidth = 1.35;
@@ -203,41 +259,43 @@ function drawMallCBody(ctx, actor) {
     }
     ctx.restore();
 
-    // Rolled sleeves and hands frame the pink sidearm.
-    drawSpriteEllipse(ctx, 5, -9, 9, 4, 0.62, '#534238');
-    drawSpriteEllipse(ctx, 5, 9, 9, 4, -0.62, '#534238');
-    drawSpriteEllipse(ctx, 14, -4, 3.5, 3.5, 0, '#d59b76');
-    drawSpriteEllipse(ctx, 14, 4, 3.5, 3.5, 0, '#d59b76');
-
+    for (const side of [-1, 1]) {
+        ctx.save();
+        // Each shoulder is a pivot. Empty hands rest just outside the hips.
+        ctx.translate(1, side * 11);
+        const swing = Math.sin(actor.walkPhase) * actor.walkBlend * 0.18;
+        ctx.rotate(actor.weaponVisible ? -side * 0.56 : side * (2.70 + side * swing));
+        drawSpriteEllipse(ctx, 3.8, 0, 6, 3.5, 0, '#584c43');
+        drawSpriteBox(ctx, 6, -2.6, 4, 5.2, 1, '#b58161');
+        drawSpriteBox(ctx, 9, -2.7, 4.8, 5.4, 1.5, '#393137');
+        drawSpriteBox(ctx, 12, -2, 2.8, 4, 1, '#d99a71');
+        ctx.restore();
+    }
     if (actor.weaponVisible) {
-        ctx.beginPath();
-        ctx.roundRect(12, -3.25, 10.5, 6.5, 1.2);
-    paintSpritePath(ctx, '#283341');
-    ctx.fillStyle = '#f76da9';
-    ctx.fillRect(13, 1, 8.5, 1.7);
-    ctx.fillStyle = '#778390';
-    ctx.fillRect(16, -2.3, 4, 0.8);
-    if (actor.flashlightOn) {
-        ctx.fillStyle = '#fef08a';
-        ctx.fillRect(21, -1, 2, 2);
+        drawSpriteBox(ctx, 11, -2.5, 6.5, 5.6, 1.6, '#302830');
+        drawSpriteBox(ctx, 13.2, -2.3, 12.2, 4.6, 0.8, '#ae4369');
+        ctx.fillStyle = '#f48bad';
+        ctx.fillRect(14, -1.8, 10.2, 1);
+        ctx.fillStyle = '#443844';
+        ctx.fillRect(18, -0.7, 3.4, 1.6);
+        ctx.fillRect(15, 0, 0.7, 1.6);
+        ctx.fillRect(16.4, 0, 0.7, 1.6);
+        drawSpriteBox(ctx, 24.6, -1.9, 1.7, 3.8, 0.4, '#403b43');
+        if (actor.flashlightOn) {
+            ctx.fillStyle = '#ffefaf';
+            ctx.fillRect(25, 1.2, 1.8, 1);
+        }
     }
 
+    // A folded, checked scarf frames the head and stays visible at play scale.
+    drawSpriteEllipse(ctx, 1, 0, 9.8, 11.4, 0, '#887565');
+    ctx.fillStyle = '#dfc8ac';
+    for (const side of [-1, 1]) {
+        ctx.fillRect(-4, side * 9, 3, 1.6);
+        ctx.fillRect(1, side * 10, 3, 1.6);
+        ctx.fillRect(5, side * 8, 2, 1.6);
     }
-
-    // Hair and face are drawn last above the collar.
-    drawSpriteEllipse(ctx, 0.8, 0, 9.4, 9, 0, '#deaa83');
-    ctx.beginPath();
-    ctx.moveTo(6.8, -6.5);
-    ctx.bezierCurveTo(-1, -13, -11, -8.5, -10, 1);
-    ctx.quadraticCurveTo(-9, 7, -4, 8);
-    ctx.lineTo(-5, 1);
-    ctx.lineTo(-1.5, 3);
-    ctx.lineTo(0, -3);
-    ctx.closePath();
-    paintSpritePath(ctx, '#291f24');
-    ctx.fillStyle = '#42292a';
-    ctx.fillRect(6.3, -3, 1.4, 1.5);
-    ctx.fillRect(7.4, 2, 1.4, 1);
+    drawCHead(ctx, actor.nvgEquipped);
 }
 
 
@@ -282,11 +340,82 @@ function drawC(ctx, actor) {
   drawMallCFeet(ctx,actor);drawMallCBody(ctx,actor);
   ctx.restore();
 }
+// South-facing pixel layers. The same unit grid is used by C.
+const chenInks = { k:'#242024', h:'#30282b', m:'#493a3b', H:'#695454',
+    g:'#92817a', s:'#bd825b', S:'#dfa77a', b:'#56433e', w:'#e7d1ac',
+    t:'#9b805b', G:'#c6a269', l:'#393640' };
+const chenBase = [
+ '    kkkkkkkkkkkk', '  kkccCCccccccCCkk', ' kcCcccccccccccccck',
+ ' kcCcccccccccccccck', ' kcccccccccccccccck', '  kdccccccccccccdk',
+ '   kddddddddddddk', '    kkkkkkkkkkkk'
+];
+const chenSleeve = ['  kkk',' kCCck','kCccck','kcccck','kcccdk',' kdddk',' kSSsk','  kssk','   kk'];
+const chenBoot = [' kkkk','klllbk','kblbbk','kbbblk',' kkllk','  kkk'];
+const chenHeads = {
+ 'family-father': [
+ '     kkkkkkk','   kkhmmHHmhkk','  khmHHmmhhmmhk',' khgmmhhhmHHmhkk',
+ ' khgmmhmmHHmmhhk','kghhmhhmHHmmhhhk','kgghhmmHmmhhmhhk',
+ ' kggmhhmhmmmhhk',' kgmsSSSSSSsmhk','  ksGGGbGGGssk','   kGsbGsGbGk','    ksSSsssk','      kkkk'],
+ 'family-mother': [
+ '     kkkkkkk','   kkhhmHHmhkk','  khmmHmmmhmhhk',' khmHHmmhhhmmhhk',
+ ' khmHmmhhhmHmmhk',' khmhmhhhmmHmmhk','GkhmmhmmmHmmhhhk',' kkhmmHHmmhSSshk',
+ '  khhhhmmmSSSsk','  khhsSSSSSSssk','   kGssSSSSssk','     ksssSssk','       kkkk'],
+ 'family-son': [
+ '    kk kkkkk','  kkhhkhmmhhkk',' khmHmmmhhHHhhk','khmHHmmhmmHmmhhk',
+ 'khHmmmhmmHmhmmhk','khmmhhmmHhmmhmhhk',' khhmmhhhmmhhmhk',
+ ' khhhhshhmhshhsk','  khhsSShsSSssk','   kssSSSSSSsk','    ksSSSSssk','      kkkkk']
+};
+const chenClothes = {
+ 'family-father': { c:'#66533e', C:'#887456', d:'#413439',
+   trim:['tctctctctctctc','ctctctctctctct','tctctctctctctc','cclllcccclllcc'] },
+ 'family-mother': { c:'#783f45', C:'#a26459', d:'#573238',
+   trim:['G     G    G',' G   G    G','  G G    G','   G   GGGG'] },
+ 'family-son': { c:'#696247', C:'#908462', d:'#494536',
+   trim:['tttt       tt','ddd       ddd','    ww  ww','     wwww'] }
+};
+const longHair = [' kkkkkkkkkk','khmmhhhhmmhk','khHmhhhhmHhk','khHmmhhhmHhk','khHmmhhhmHhk','khhmhhhhmmhk',' khmhhhhmhk',' khhmhhhmmk','  khhkhhhk','   kk kkk'];
+function chenPixels(rows) {
+    return rows.flatMap((row,y) => Array.from(row.matchAll(/([^ ])\1*/g),
+        match => [match.index,y,match[0].length,match[1]]));
+}
+const familyArt = Object.fromEntries(Object.entries(chenClothes).map(([role,clothes]) =>
+    [role,{ ink:{...chenInks,...clothes}, head:chenPixels(chenHeads[role]), trim:chenPixels(clothes.trim) }]));
+const familyBody = chenPixels(chenBase), familyArm = chenPixels(chenSleeve);
+const familyFoot = chenPixels(chenBoot), familyHair = chenPixels(longHair);
+function drawFamilyPixels(ctx,pixels,ink,x,y,mirror=false) {
+    for (const [col,row,width,key] of pixels) {
+        ctx.fillStyle = ink[key];
+        ctx.fillRect(x+(mirror ? -col-width : col),y+row,width,1);
+    }
+}
+function drawChen(ctx,actor,role) {
+    const art = familyArt[role], ink = art.ink;
+    const phase = Math.sin(actor.walkPhase)*actor.walkBlend;
+    ctx.save();
+    ctx.rotate(-Math.PI/2);
+    ctx.scale(actor.radius/14,actor.radius/14);
+    drawSpriteEllipse(ctx,0,-3,14,16,0,'#090d1659',null);
+    const along = Math.cos(actor.walkAngle-actor.angle)*phase;
+    const across = Math.sin(actor.walkAngle-actor.angle)*phase;
+    for (const side of [-1,1]) {
+        drawFamilyPixels(ctx,familyFoot,ink,side*(6+across*2)-3,-13+side*along*4);
+    }
+    drawFamilyPixels(ctx,familyBody,ink,-10,-10);
+    drawFamilyPixels(ctx,art.trim,ink,-7,-8);
+    for (const side of [-1,1]) {
+        drawFamilyPixels(ctx,familyArm,ink,side*14,-7+side*phase*1.6,side===1);
+    }
+    if (role==='family-mother') drawFamilyPixels(ctx,familyHair,ink,-6,-15);
+    drawFamilyPixels(ctx,art.head,ink,-8,-6);
+    ctx.restore();
+}
+
 function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   normalize(actor);
   const colors=NPC_SPRITE_COLORS[appearance] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
-  drawHumanNpc(ctx,actor,colors,'#11181c','standing',prop);
+  if (Object.hasOwn(familyArt,appearance)) drawChen(ctx,actor,appearance);
+  else drawHumanNpc(ctx,actor,colors,'#11181c','standing',prop);
   ctx.restore();
 }
 function drawDog(ctx, actor) {
