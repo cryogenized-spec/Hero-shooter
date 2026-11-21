@@ -61,3 +61,25 @@ test('start and continue have durable in-shop save state',async()=>{
   assert.match(shop,/query\.get\('resume'\)/);
   assert.match(shop,/saveProgress\(\)/);
 });
+
+test('Chen family portraits appear on the right in the 4:5 dialogue slot',async()=>{
+  const shop=await read('public/play/shop.js');
+  const html=await read('public/play/index.html');
+  const css=await read('public/play/styles.css');
+  for(const name of ['mr-chen','mrs-chen','wei']){
+    const path='chen-family/'+name+'-portrait-4x5.png';
+    assert.ok(shop.includes(path),'Missing portrait mapping for '+name);
+    await assert.doesNotReject(readFile(new URL('../public/assets/portraits/'+path,import.meta.url)));
+  }
+  assert.match(html,/id="shopNPCPortrait"/);
+  assert.match(html,/class="shop-c-portrait"/);
+  assert.match(shop,/portrait\.hidden=monologue/);
+  assert.match(shop,/portrait\.replaceChildren\(image\)/);
+  assert.match(css,/\.shop-npc-portrait \{[^}]*aspect-ratio:4\/5/);
+  assert.match(css,/\.shop-dialogue\.is-monologue/);
+});
+test('developer legends are opt-in rather than printed on the map',async()=>{
+  const shop=await read('public/play/shop.js');
+  assert.match(shop,/HERO_DEBUG_MAP_LABELS!==true\)return/);
+  assert.match(shop,/HERO_DEBUG_MAP_LABELS===true\)\{[^]*?HOUSEHOLD/);
+});
