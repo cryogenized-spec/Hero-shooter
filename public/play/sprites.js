@@ -410,8 +410,30 @@ function drawChen(ctx,actor,role) {
     ctx.restore();
 }
 
+let saafiyaAtlas;
+function drawSaafiya(ctx, actor) {
+  if (!saafiyaAtlas) {
+    saafiyaAtlas=new Image();
+    saafiyaAtlas.src=new URL('saafiya.svg',document.baseURI).href;
+  }
+  if (!saafiyaAtlas.complete || !saafiyaAtlas.naturalWidth) return false;
+  const moving=actor.gait ? actor.gait!=='idle' : actor.walkBlend>0.1;
+  const angle=moving ? actor.walkAngle : actor.angle;
+  const column=((Math.round((angle-Math.PI/2)/(Math.PI/4))%8)+8)%8;
+  const gait=moving ? (actor.gait==='run' || actor.isSprinting ? 2 : 1) : 0;
+  const phase=moving ? actor.walkPhase*2/Math.PI : (actor.idleClock ?? performance.now()/1000)*3;
+  const frame=((Math.floor(phase)%4)+4)%4;
+  ctx.save();
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(saafiyaAtlas,column*32,(gait*4+frame)*48,32,48,
+    Math.round(actor.x)-16,Math.round(actor.y)-32,32,48);
+  ctx.restore();
+  return true;
+}
+
 function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   normalize(actor);
+  if ((appearance==='saafiya' || actor.name==='Saafiya') && drawSaafiya(ctx,actor)) return;
   const colors=NPC_SPRITE_COLORS[appearance] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
   if (Object.hasOwn(familyArt,appearance)) drawChen(ctx,actor,appearance);
