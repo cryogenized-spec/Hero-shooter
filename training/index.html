@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hero Shooter — Training range</title>
+  <meta name="robots" content="noindex">
+  <!-- Source-based GitHub Pages fallback. The dist/ build serves /training/
+       directly and deliberately does not copy this file. -->
+  <style>
+    body{font:16px/1.6 system-ui,sans-serif;background:#181413;color:#ffebce;
+      display:grid;place-items:center;min-height:100vh;margin:0;padding:24px;text-align:center}
+    a{color:#ffca68}
+  </style>
+</head>
+<body>
+  <main>
+    <p>Opening scrapyard training…</p>
+    <p><a id="trainingLink" href="../public/training/index.html">Enter training range</a></p>
+  </main>
+  <script>
+    const destination=new URL('../public/training/index.html',window.location.href);
+    destination.search=window.location.search;
+    destination.hash=window.location.hash;
+    document.getElementById('trainingLink').href=destination.href;
+    window.location.replace(destination.href);
+  </script>
+</body>
+</html>
