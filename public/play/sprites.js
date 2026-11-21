@@ -340,11 +340,82 @@ function drawC(ctx, actor) {
   drawMallCFeet(ctx,actor);drawMallCBody(ctx,actor);
   ctx.restore();
 }
+// South-facing pixel layers. The same unit grid is used by C.
+const chenInks = { k:'#242024', h:'#30282b', m:'#493a3b', H:'#695454',
+    g:'#92817a', s:'#bd825b', S:'#dfa77a', b:'#56433e', w:'#e7d1ac',
+    t:'#9b805b', G:'#c6a269', l:'#393640' };
+const chenBase = [
+ '    kkkkkkkkkkkk', '  kkccCCccccccCCkk', ' kcCcccccccccccccck',
+ ' kcCcccccccccccccck', ' kcccccccccccccccck', '  kdccccccccccccdk',
+ '   kddddddddddddk', '    kkkkkkkkkkkk'
+];
+const chenSleeve = ['  kkk',' kCCck','kCccck','kcccck','kcccdk',' kdddk',' kSSsk','  kssk','   kk'];
+const chenBoot = [' kkkk','klllbk','kblbbk','kbbblk',' kkllk','  kkk'];
+const chenHeads = {
+ 'family-father': [
+ '     kkkkkkk','   kkhmmHHmhkk','  khmHHmmhhmmhk',' khgmmhhhmHHmhkk',
+ ' khgmmhmmHHmmhhk','kghhmhhmHHmmhhhk','kgghhmmHmmhhmhhk',
+ ' kggmhhmhmmmhhk',' kgmsSSSSSSsmhk','  ksGGGbGGGssk','   kGsbGsGbGk','    ksSSsssk','      kkkk'],
+ 'family-mother': [
+ '     kkkkkkk','   kkhhmHHmhkk','  khmmHmmmhmhhk',' khmHHmmhhhmmhhk',
+ ' khmHmmhhhmHmmhk',' khmhmhhhmmHmmhk','GkhmmhmmmHmmhhhk',' kkhmmHHmmhSSshk',
+ '  khhhhmmmSSSsk','  khhsSSSSSSssk','   kGssSSSSssk','     ksssSssk','       kkkk'],
+ 'family-son': [
+ '    kk kkkkk','  kkhhkhmmhhkk',' khmHmmmhhHHhhk','khmHHmmhmmHmmhhk',
+ 'khHmmmhmmHmhmmhk','khmmhhmmHhmmhmhhk',' khhmmhhhmmhhmhk',
+ ' khhhhshhmhshhsk','  khhsSShsSSssk','   kssSSSSSSsk','    ksSSSSssk','      kkkkk']
+};
+const chenClothes = {
+ 'family-father': { c:'#66533e', C:'#887456', d:'#413439',
+   trim:['tctctctctctctc','ctctctctctctct','tctctctctctctc','cclllcccclllcc'] },
+ 'family-mother': { c:'#783f45', C:'#a26459', d:'#573238',
+   trim:['G     G    G',' G   G    G','  G G    G','   G   GGGG'] },
+ 'family-son': { c:'#696247', C:'#908462', d:'#494536',
+   trim:['tttt       tt','ddd       ddd','    ww  ww','     wwww'] }
+};
+const longHair = [' kkkkkkkkkk','khmmhhhhmmhk','khHmhhhhmHhk','khHmmhhhmHhk','khHmmhhhmHhk','khhmhhhhmmhk',' khmhhhhmhk',' khhmhhhmmk','  khhkhhhk','   kk kkk'];
+function chenPixels(rows) {
+    return rows.flatMap((row,y) => Array.from(row.matchAll(/([^ ])\1*/g),
+        match => [match.index,y,match[0].length,match[1]]));
+}
+const familyArt = Object.fromEntries(Object.entries(chenClothes).map(([role,clothes]) =>
+    [role,{ ink:{...chenInks,...clothes}, head:chenPixels(chenHeads[role]), trim:chenPixels(clothes.trim) }]));
+const familyBody = chenPixels(chenBase), familyArm = chenPixels(chenSleeve);
+const familyFoot = chenPixels(chenBoot), familyHair = chenPixels(longHair);
+function drawFamilyPixels(ctx,pixels,ink,x,y,mirror=false) {
+    for (const [col,row,width,key] of pixels) {
+        ctx.fillStyle = ink[key];
+        ctx.fillRect(x+(mirror ? -col-width : col),y+row,width,1);
+    }
+}
+function drawChen(ctx,actor,role) {
+    const art = familyArt[role], ink = art.ink;
+    const phase = Math.sin(actor.walkPhase)*actor.walkBlend;
+    ctx.save();
+    ctx.rotate(-Math.PI/2);
+    ctx.scale(actor.radius/14,actor.radius/14);
+    drawSpriteEllipse(ctx,0,-3,14,16,0,'#090d1659',null);
+    const along = Math.cos(actor.walkAngle-actor.angle)*phase;
+    const across = Math.sin(actor.walkAngle-actor.angle)*phase;
+    for (const side of [-1,1]) {
+        drawFamilyPixels(ctx,familyFoot,ink,side*(6+across*2)-3,-13+side*along*4);
+    }
+    drawFamilyPixels(ctx,familyBody,ink,-10,-10);
+    drawFamilyPixels(ctx,art.trim,ink,-7,-8);
+    for (const side of [-1,1]) {
+        drawFamilyPixels(ctx,familyArm,ink,side*14,-7+side*phase*1.6,side===1);
+    }
+    if (role==='family-mother') drawFamilyPixels(ctx,familyHair,ink,-6,-15);
+    drawFamilyPixels(ctx,art.head,ink,-8,-6);
+    ctx.restore();
+}
+
 function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   normalize(actor);
   const colors=NPC_SPRITE_COLORS[appearance] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
-  drawHumanNpc(ctx,actor,colors,'#11181c','standing',prop);
+  if (Object.hasOwn(familyArt,appearance)) drawChen(ctx,actor,appearance);
+  else drawHumanNpc(ctx,actor,colors,'#11181c','standing',prop);
   ctx.restore();
 }
 function drawDog(ctx, actor) {
