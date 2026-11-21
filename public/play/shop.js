@@ -197,17 +197,19 @@
     const beforeX=state.player.x,beforeY=state.player.y;
     const mag=Math.hypot(x,y);
     if(mag<0.01) {
-      root.HeroSprites.updateWalk(state.player,beforeX,beforeY,dt,146,18);
+      root.HeroSprites.updateWalk(state.player,beforeX,beforeY,dt,88,18);
       return;
     }
     x/=mag;y/=mag;
-    state.player.angle=Math.atan2(y,x);
+    const delta=Math.atan2(y,x)-state.player.angle;
+    const turn=Math.atan2(Math.sin(delta),Math.cos(delta))*(1-Math.exp(-16*dt));
+    state.player.angle+=clamp(turn,-9*dt,9*dt);
     const k=(input&&input.keys&&(input.keys.ShiftLeft||input.keys.ShiftRight))?1.36:1;
     const speed=250*k*dt;
     const nx=state.player.x+x*speed,ny=state.player.y+y*speed;
     if(!collisionAt(nx,state.player.y))state.player.x=nx;
     if(!collisionAt(state.player.x,ny))state.player.y=ny;
-    root.HeroSprites.updateWalk(state.player,beforeX,beforeY,dt,146,speed);
+    root.HeroSprites.updateWalk(state.player,beforeX,beforeY,dt,88,speed);
   }
 
   function animateActors(dt) {

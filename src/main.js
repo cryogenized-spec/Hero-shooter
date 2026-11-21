@@ -1041,10 +1041,16 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (this.floor && this.floor !== currentMallFloor) return;
                     ctx.save();
                     ctx.globalAlpha = Math.min(1, this.life);
-                    ctx.translate(this.x, this.y);
+                    const flight = 1 - Math.max(0, this.slideTimer) / 0.25;
+                    const lift = 5 * Math.sin(Math.PI * flight);
+                    ctx.fillStyle = '#413838';
+                    ctx.fillRect(this.x-1,this.y+1,3,1);
+                    ctx.translate(this.x, this.y-lift);
                     ctx.rotate(this.angle);
-                    ctx.fillStyle = '#facc15';
+                    ctx.fillStyle = '#b88c45';
                     ctx.fillRect(-2.5, -1, 5, 2);
+                    ctx.fillStyle = '#f7dc8d';
+                    ctx.fillRect(-2, -1, 2, 1);
                     ctx.restore();
                 }
             }
@@ -3249,6 +3255,9 @@ import { createAudioEngine } from './audio/sfx.js';
                     this.hasCrowbar = false;
                     this.isSneaking = false;
                     this.walkPhase = 0;
+                    this.walkBlend = 0;
+                    this.travelAngle = 0;
+                    this.slideTime = 0;
                     this.opticCharge = (archetype !== 'mall') ? 100 : 0;
                     this.powerBankMah = (archetype !== 'mall') ? 10000 : 0;
                     this.powerBankMaxMah = 10000;
@@ -3617,6 +3626,7 @@ import { createAudioEngine } from './audio/sfx.js';
                     if (this.hp <= 0) return;
 
                     if (this.wound && this.hp>35 && Number.isFinite(this.wound.downAt)) this.wound=null;
+                    this.slideTime = Math.max(0, this.slideTime - dt);
                     const phase=advanceWound(this,dt);
                     if (phase==='expired') { this.takeDamage(this.hp+this.armor); return; }
                     if (phase==='seated') { if (!this.downHudShown) { updateHUD(); this.downHudShown=true; } return; }
@@ -3720,13 +3730,14 @@ import { createAudioEngine } from './audio/sfx.js';
                         this.stamina = Math.min(100, this.stamina + 22 * dt);
                     }
 
+                    const startX = this.x, startY = this.y;
                     if (isMoving) {
                         const len = Math.max(1, Math.hypot(mx, my));
                         const stanceMult = this.isSneaking ? 0.54 : (sprinting ? 1.48 : 1.0);
                         const moveSpeed = this.speed * stanceMult * (phase==='stumble'?0.45:1);
                         this.x += (mx / len) * moveSpeed * dt;
                         this.y += (my / len) * moveSpeed * dt;
-                        this.walkPhase += dt * (this.isSneaking ? 7.5 : (sprinting ? 17 : 12.5));
+
                     }
 
                     this.x = Math2.clamp(this.x, 30, WORLD_SIZE - 30);
@@ -3740,15 +3751,20 @@ import { createAudioEngine } from './audio/sfx.js';
                         circleRectResolve(this, { x: tr.x - tr.trunkR, y: tr.y - tr.trunkR, w: tr.trunkR * 2, h: tr.trunkR * 2 });
                     }
 
-                    if (isMobileDevice) {
-                        if (touchInput.aimActive) {
-                            this.angle = touchInput.aimAngle;
-                        } else if (isMoving) {
-                            this.angle = Math.atan2(my, mx);
-                        }
-                    } else {
-                        this.angle = Math2.angle(this.x, this.y, mouse.worldX, mouse.worldY);
+                    const dx = this.x - startX, dy = this.y - startY;
+                    const travel = Math.hypot(dx, dy);
+                    if (travel > 0.01) {
+                        this.travelAngle = Math.atan2(dy, dx);
+                        this.walkPhase += travel * 2 * Math.PI / (this.isSneaking ? 58 : sprinting ? 96 : 80);
                     }
+                    this.walkBlend += ((travel > 0.01 ? 1 : 0) - this.walkBlend) * (1 - Math.exp(-16 * dt));
+                    let desired = this.angle;
+                    if (!isMobileDevice) desired = Math2.angle(this.x, this.y, mouse.worldX, mouse.worldY);
+                    else if (touchInput.aimActive) desired = touchInput.aimAngle;
+                    else if (isMoving) desired = Math.atan2(my, mx);
+                    const delta = Math.atan2(Math.sin(desired-this.angle), Math.cos(desired-this.angle));
+                    const turnLimit = 9 * dt;
+                    this.angle += Math2.clamp(delta * (1-Math.exp(-16*dt)), -turnLimit, turnLimit);
 
                     const wep = WEAPONS[this.weaponIdx];
                     const wantsFire = isMobileDevice
@@ -3893,6 +3909,8 @@ import { createAudioEngine } from './audio/sfx.js';
                         return;
                     }
 
+                    const pistol = wep.id === 'glock26' || wep.id === 'glock';
+                    if (pistol) this.slideTime = 0.095;
                     const isJHP = (wep.id === 'glock26' && wep.ammoLoad === 'jhp');
                     const effectiveRecoil = isJHP ? 5.5 : wep.recoil;
                     const effectiveDmg = isJHP ? 68 : wep.dmg;
@@ -3919,7 +3937,11 @@ import { createAudioEngine } from './audio/sfx.js';
 
                     if (!wep.isAirsoft) {
                         const fl = (mission && mission.campaign === 'mall') ? currentMallFloor : null;
-                        shells.push(new Shell(this.x + Math.cos(this.angle + 1.3) * 10, this.y + Math.sin(this.angle + 1.3) * 10, this.angle + Math.PI / 2 + Math2.rand(-0.3, 0.3), fl));
+                        const forward = pistol ? 13 : Math.cos(1.3)*10;
+                        const side = pistol ? 5 : Math.sin(1.3)*10;
+                        const c = Math.cos(this.angle), s = Math.sin(this.angle);
+                        shells.push(new Shell(this.x+c*forward-s*side, this.y+s*forward+c*side,
+                            this.angle + Math.PI/2 + Math2.rand(-0.3,0.3), fl));
                         if (shells.length > 160) shells.shift();
 
                         const flashCount = isJHP ? 12 : (wep.id === 'ruger' ? 9 : 5);
@@ -3979,10 +4001,16 @@ import { createAudioEngine } from './audio/sfx.js';
                     const isFemale = (this.gender === 'female');
                     const isSniper = (this.gender === 'sniper');
 
-                    const stride = Math.sin(this.walkPhase) * (this.isSneaking ? 2.4 : 4.5);
-                    ctx.fillStyle = '#090d16';
-                    ctx.fillRect(-3 + stride, -6.2, 5.5, 3.0);
-                    ctx.fillRect(-3 - stride, 3.2, 5.5, 3.0);
+                    const stride = Math.sin(this.walkPhase) * this.walkBlend * (this.isSneaking ? 3.5 : 7);
+                    const relative = this.travelAngle - this.angle;
+                    for (const side of [-1, 1]) {
+                        const footX = -9 + side * stride * Math.cos(relative);
+                        const footY = side * 7 + side * stride * Math.sin(relative);
+                        ctx.fillStyle = '#292730';
+                        ctx.fillRect(footX-4, footY-2, 8, 4);
+                        ctx.fillStyle = '#73675c';
+                        ctx.fillRect(footX+1, footY-2, 2, 3);
+                    }
 
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
                     ctx.beginPath();
@@ -4029,7 +4057,15 @@ import { createAudioEngine } from './audio/sfx.js';
                         ctx.fillRect(-5, -9, 10, 18);
                     }
 
-                    if (wep.id === 'glock26' || wep.id === 'airsoft_pistol') {
+                    if (wep.id === 'glock26' || wep.id === 'glock') {
+                        const recoil = 3.6 * Math.sin(Math.PI * Math.sqrt(this.slideTime / 0.105));
+                        ctx.fillStyle = '#302933';
+                        ctx.fillRect(5, 2, 13, 5);
+                        ctx.fillStyle = wep.id === 'glock26' ? '#d96191' : '#85818a';
+                        ctx.fillRect(6-recoil, 2, 13, 3.5);
+                        ctx.fillStyle = '#393540';
+                        ctx.fillRect(12-recoil, 3.5, 3, 2);
+                    } else if (wep.id === 'airsoft_pistol') {
                         ctx.fillStyle = '#ec4899';
                         ctx.fillRect(5, 2.2, 12, 4.2);
                         ctx.fillStyle = '#1e293b';
