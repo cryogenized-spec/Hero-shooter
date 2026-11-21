@@ -412,6 +412,7 @@ function drawChen(ctx,actor,role) {
 
 let saafiyaAtlas;
 function drawSaafiya(ctx, actor) {
+  if (typeof Image === 'undefined') return false;
   if (!saafiyaAtlas) {
     saafiyaAtlas=new Image();
     saafiyaAtlas.src=new URL('saafiya.svg',document.baseURI).href;
