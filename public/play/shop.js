@@ -48,7 +48,7 @@
     owner:['owner',970,795,-Math.PI/2],shopOwner:['shop',840,292,Math.PI/2],
     boardroom:['boardroom',408,621,0],officeBoard:['office',1130,621,Math.PI],
     lower:['stairwell',815,798,-Math.PI/2],upper:['stairwell',690,798,-Math.PI/2],
-    shopStairs:['shop',2068,1510,Math.PI],office:['office',968,785,-Math.PI/2]
+    shopStairs:['shop',2068,1450,Math.PI],office:['office',968,785,-Math.PI/2]
   };
   function enterRoom(destination) {
     const [floor,x,y,angle]=entrances[destination];
