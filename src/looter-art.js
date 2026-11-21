@@ -70,7 +70,49 @@ function stamp(ctx, pixels, ink, x, y, mirror = false) {
   ctx.fillRect(x + (mirror ? -dx-width : dx), y+dy, width, 1);
  }
 }
-export function drawLooterJacket(ctx, look, stride = 0) {
+// Props are drafted along +Y, anchored at the gripping hand.
+const propInk = {o:'#24222a', m:'#545765', M:'#9ba0a5', W:'#ded4b8',
+ b:'#794a34', B:'#ae7950', t:'#514838', T:'#807657', r:'#995541', R:'#ca8062'};
+const props = {
+ compact: [' ommo',' oMmo','  mmo','  mMo','  mmo','  ooo'],
+ service: [' obmo',' ommo',' oMmo','  MMm','  mMm','  mMm','  mmo','  ooo'],
+ twoTone: [' obbo',' ommo',' oMmo','  oMM','  mWM','  mWM','  mMM','  ooo'],
+ revolver: [' bb',' obb',' ommmo',' oMmMo','  mMmo','   Mmo','   Mmo','   ooo'],
+ knife: [' b',' b','ooo',' MMo',' MMo',' MM',' M',' M'],
+ cleaver: [' b',' b',' b','oMMMo',' MMWo',' MMWo',' MMMo',' oooo'],
+ cudgel: [' b',' b',' B',' B',' Bb',' Bb','oBBo','oBbo',' oo'],
+ spear: [' b',' B',' B',' B',' B',' B',' B',' B',' B',' B',' B',' B',' m',' M',' M',' M',' M',' M',' M',' M',' M'],
+ cricket: [' b',' b',' b',' b','oBo','oBBo','oBBo','oBBo','oBBo','oBBo',' oo'],
+ baseball: [' b',' b',' B',' B',' Bb',' Bb',' Bb',' BBb',' BBb',' oBo'],
+ hockey: [' b',' b',' B',' B',' B',' B',' B',' B',' Bo','  BBo','   BBo'],
+ sling: ['  b','  B','  B',' b b',' B B','W   W',' WWW '],
+ brick: ['ooooo','oRRRro','orrrro',' oooo'],
+ crate: ['oooooooooooooo','oTTTTTTTTTTTTo','ottttWWtttttto','ottttWWtttttto','otttttttttttto','otttttttttttto','oooooooooooooo']
+};
+const pack = compile(['  oooooooo',' otTTTTTtto','otTtttttttto','otTtttttttto','otmmmmmmmmto','otTtttttWtto',' otttttttto','  oooooooo']);
+const held = Object.fromEntries(Object.entries(props).map(([name,rows]) => [name,compile(rows)]));
+const sidearms = ['compact','service','twoTone','revolver'];
+const melee = ['knife','cleaver','cudgel','spear','cricket','baseball','hockey'];
+
+export function assignLooterGear(actor) {
+ const roll = list => list[Math.floor(Math.random()*list.length)];
+ const item = actor.isUnarmed ? roll([null,null,'sling','brick']) :
+     roll(actor.isMeleeLooter ? melee : sidearms);
+ return {item, backpack:Math.random()<0.7};
+}
+
+function drawArms(ctx, look, pose, stride) {
+ for (const side of [-1,1]) {
+  ctx.save();
+  ctx.translate(side*10,pose === 'rest' ? -4 : 0);
+  const angle = pose === 'raised' ? side*0.74 : pose === 'carry' ? side*0.32 :
+      side*(2.8 + side*stride*0.035);
+  ctx.rotate(angle);
+  stamp(ctx,look.arm,look.ink,side===1 ? 3 : -3,0,side===1);
+  ctx.restore();
+ }
+}
+export function drawLooterJacket(ctx, look, stride = 0, actor = {}) {
  ctx.save();
  ctx.rotate(-Math.PI/2);
  const step = Math.round(stride);
@@ -79,8 +121,14 @@ export function drawLooterJacket(ctx, look, stride = 0) {
  stamp(ctx,body,look.ink,-10,-11);
  stamp(ctx,body,look.ink,-10,-7);
  stamp(ctx,look.detail,look.ink,-9,-10);
- stamp(ctx,look.arm,look.ink,-14,-5);
- stamp(ctx,look.arm,look.ink,14,-5,true);
+ const gear = actor.looterGear || {};
+ const ready = actor.lkpTimer > 0 && actor.panicState === 'normal' && !actor.isUnarmed;
+ const item = actor.blindTimer > 0 ? null : actor.carryingLoot ? 'crate' :
+     ready || actor.isUnarmed ? gear.item : null;
+ if (gear.backpack) stamp(ctx,pack,propInk,-6,-16);
+ const pose = item === 'crate' ? 'carry' : item || actor.blindTimer > 0 ? 'raised' : 'rest';
+ drawArms(ctx,look,pose,stride);
+ if (item) stamp(ctx,held[item],propInk,item === 'crate' ? -7 : 4,6);
  ctx.restore();
 }
 export function drawLooterHead(ctx, look) {
