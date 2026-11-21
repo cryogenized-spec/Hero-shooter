@@ -1,3 +1,4 @@
+import { looterLooks, drawLooterJacket, drawLooterHead } from './looter-art.js';
 import { setupTitleScreen } from './ui/title-screen.js';
 import { Math2 } from './core/math.js';
 import { createWeapons } from './data/weapons.js';
@@ -2096,6 +2097,8 @@ import { createAudioEngine } from './audio/sfx.js';
 
             class Enemy {
                 constructor(x, y, faction = 'looter', isBoss = false, floor = null, activity = null) {
+                    this.looterLook = ['looter', 'melee_looter', 'unarmed_looter'].includes(faction) && !isBoss
+                        ? looterLooks[Math.abs(Math.floor(x * 0.37 + y * 0.61)) % looterLooks.length] : null;
                     this.x = x;
                     this.y = y;
                     this.faction = faction;
@@ -2853,13 +2856,15 @@ import { createAudioEngine } from './audio/sfx.js';
                         syndicate: '#15803d',
                         security: '#1d4ed8'
                     };
-                    ctx.fillStyle = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (bodyColors[this.faction] || '#b45309');
+                    ctx.fillStyle = (this.isBoss && this.faction !== 'airsoft_adult') ? '#7f1d1d' : (this.looterLook?.coat || bodyColors[this.faction] || '#b45309');
                     ctx.beginPath();
                     ctx.ellipse(-2, 0, 9.5, this.isBoss ? 15.5 : 13, 0, 0, Math.PI * 2);
                     ctx.fill();
 
+                    if (this.looterLook) drawLooterJacket(ctx, this.looterLook);
+
                     if (this.blindTimer > 0) {
-                        ctx.fillStyle = '#5c3a21';
+                        ctx.fillStyle = this.looterLook?.skin || '#5c3a21';
                         ctx.beginPath(); ctx.arc(6, -4, 3, 0, Math.PI * 2); ctx.fill();
                         ctx.beginPath(); ctx.arc(6, 4, 3, 0, Math.PI * 2); ctx.fill();
                     } else if (this.isUnarmed) {
@@ -2870,7 +2875,7 @@ import { createAudioEngine } from './audio/sfx.js';
                             ctx.lineWidth = 1;
                             ctx.strokeRect(5, -8.5, 11, 17);
                         } else {
-                            ctx.fillStyle = '#5c3a21';
+                            ctx.fillStyle = this.looterLook?.skin || '#5c3a21';
                             ctx.beginPath(); ctx.arc(5 - stride * 0.5, -8.5, 2.8, 0, Math.PI * 2); ctx.fill();
                             ctx.beginPath(); ctx.arc(5 + stride * 0.5, 8.5, 2.8, 0, Math.PI * 2); ctx.fill();
                         }
@@ -2905,7 +2910,9 @@ import { createAudioEngine } from './audio/sfx.js';
                     ctx.arc(0, 0, this.isBoss ? 7.8 : 6.4, 0, Math.PI * 2);
                     ctx.fill();
 
-                    if (this.faction === 'airsoft_adult') {
+                    if (this.looterLook) {
+                        drawLooterHead(ctx, this.looterLook);
+                    } else if (this.faction === 'airsoft_adult') {
                         ctx.fillStyle = '#365314';
                         ctx.beginPath();
                         ctx.arc(-0.5, 0, 8.6, 0, Math.PI * 2);
