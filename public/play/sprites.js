@@ -202,16 +202,21 @@ const cInks = {
 };
 
 // Batch adjacent pixels into strips once, outside the animation loop.
-const cPortraitStrips = cPortrait.flatMap((row, y) =>
+const forehead = ['.rbrabcbbrrabbbrr.', '.rrbabbrrrabbrbrr.', ' .rbbrrrabbrfsrr.', ' .rrbbrbbffhfsr.', ' .rsrrbfffhhfsr.'];
+const barePortrait = [...cPortrait.slice(0, 14), ...forehead, ...cPortrait.slice(19)];
+const portraitStrips = rows => rows.flatMap((row, y) =>
     Array.from(row.matchAll(/([^ ])\1*/g), match => ({
         x: match.index - 9, y: y - 15, width: match[0].length, ink: cInks[match[1]]
     }))
 );
 
-function drawCHead(ctx) {
+const cHeadBare = portraitStrips(barePortrait);
+const cHeadGoggles = portraitStrips(cPortrait);
+
+function drawCHead(ctx, goggles) {
     ctx.save();
     ctx.rotate(-Math.PI / 2);
-    for (const strip of cPortraitStrips) {
+    for (const strip of (goggles ? cHeadGoggles : cHeadBare)) {
         ctx.fillStyle = strip.ink;
         ctx.fillRect(strip.x, strip.y, strip.width, 1);
     }
@@ -254,33 +259,32 @@ function drawMallCBody(ctx, actor) {
     }
     ctx.restore();
 
-    // Rolled sleeves and hands frame the pink sidearm.
-    drawSpriteEllipse(ctx, 5, -9, 9, 4, 0.62, '#534238');
-    drawSpriteEllipse(ctx, 5, 9, 9, 4, -0.62, '#534238');
-    drawSpriteEllipse(ctx, 14, -4, 3.5, 3.5, 0, '#d59b76');
-    drawSpriteEllipse(ctx, 14, 4, 3.5, 3.5, 0, '#d59b76');
-
-    // Bound cuffs and fingerless gloves break up the forearm silhouette.
     for (const side of [-1, 1]) {
-        drawSpriteEllipse(ctx, 8.7, side * 7, 3.8, 2.9, -side * 0.55, '#94705a');
-        drawSpriteEllipse(ctx, 12, side * 5.1, 2.8, 3, -side * 0.55, '#393137');
-        ctx.fillStyle = '#887067';
-        ctx.fillRect(10.8, side * 5.1, 1.4, 1);
+        ctx.save();
+        // Each shoulder is a pivot. Empty hands rest just outside the hips.
+        ctx.translate(1, side * 11);
+        const swing = Math.sin(actor.walkPhase) * actor.walkBlend * 0.18;
+        ctx.rotate(actor.weaponVisible ? -side * 0.56 : side * (2.70 + side * swing));
+        drawSpriteEllipse(ctx, 3.8, 0, 6, 3.5, 0, '#584c43');
+        drawSpriteBox(ctx, 6, -2.6, 4, 5.2, 1, '#b58161');
+        drawSpriteBox(ctx, 9, -2.7, 4.8, 5.4, 1.5, '#393137');
+        drawSpriteBox(ctx, 12, -2, 2.8, 4, 1, '#d99a71');
+        ctx.restore();
     }
-
     if (actor.weaponVisible) {
-        ctx.beginPath();
-        ctx.roundRect(12, -3.25, 10.5, 6.5, 1.2);
-    paintSpritePath(ctx, '#283341');
-    ctx.fillStyle = '#f76da9';
-    ctx.fillRect(13, 1, 8.5, 1.7);
-    ctx.fillStyle = '#778390';
-    ctx.fillRect(16, -2.3, 4, 0.8);
-    if (actor.flashlightOn) {
-        ctx.fillStyle = '#fef08a';
-        ctx.fillRect(21, -1, 2, 2);
-    }
-
+        drawSpriteBox(ctx, 11, -2.5, 6.5, 5.6, 1.6, '#302830');
+        drawSpriteBox(ctx, 13.2, -2.3, 12.2, 4.6, 0.8, '#ae4369');
+        ctx.fillStyle = '#f48bad';
+        ctx.fillRect(14, -1.8, 10.2, 1);
+        ctx.fillStyle = '#443844';
+        ctx.fillRect(18, -0.7, 3.4, 1.6);
+        ctx.fillRect(15, 0, 0.7, 1.6);
+        ctx.fillRect(16.4, 0, 0.7, 1.6);
+        drawSpriteBox(ctx, 24.6, -1.9, 1.7, 3.8, 0.4, '#403b43');
+        if (actor.flashlightOn) {
+            ctx.fillStyle = '#ffefaf';
+            ctx.fillRect(25, 1.2, 1.8, 1);
+        }
     }
 
     // A folded, checked scarf frames the head and stays visible at play scale.
@@ -291,7 +295,7 @@ function drawMallCBody(ctx, actor) {
         ctx.fillRect(1, side * 10, 3, 1.6);
         ctx.fillRect(5, side * 8, 2, 1.6);
     }
-    drawCHead(ctx);
+    drawCHead(ctx, actor.nvgEquipped);
 }
 
 
