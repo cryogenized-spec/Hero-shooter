@@ -21,7 +21,7 @@ test('Poly Haven 3D enrichment is sourced and preserves the authored scrapyard l
   assert.match(source,/scene\.add_geometry\(/);
   assert.match(source,/scene\.graph\.update\(/);
   assert.match(source,/planned_placements/);
-  assert.match(readme,/current Canvas-2D scene/);
+  assert.match(readme,/separate Canvas-2D scene/);
   assert.match(workflow,/upload-artifact@v4/);
   assert.match(workflow,/if: github\.event_name == 'push'/);
 });
