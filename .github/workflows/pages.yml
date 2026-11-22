@@ -37,6 +37,11 @@ jobs:
           npm run check
           npm test
           npm run build
+      - name: Publish a stable /sophia/ URL as well as the site root
+        run: |
+          mkdir -p dist/sophia
+          cp dist/index.html dist/sophia/index.html
+          cp -R dist/src dist/play dist/sophia/
       - name: Ensure Sophia and the VTK arena are in the built website
         run: |
           test -s dist/index.html
@@ -45,6 +50,10 @@ jobs:
           test -s dist/play/assets/procedural/scrapyard/scrapyard_arena.glb
           test -s dist/play/assets/procedural/scrapyard/arena_navgrid.json
           test -s dist/play/assets/procedural/scrapyard/arena_layout.json
+          test -s dist/sophia/index.html
+          test -s dist/sophia/src/sophia-demo.js
+          test -s dist/sophia/play/assets/procedural/sophia/sophia_v33_articulated.glb
+          test -s dist/sophia/play/assets/procedural/scrapyard/scrapyard_arena.glb
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload static website
