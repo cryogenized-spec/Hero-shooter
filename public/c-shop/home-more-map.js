@@ -132,18 +132,19 @@ function map(api){
  segment(221,39,889,[[318,350],[411,460],[551,605],[672,699],[710,741],[786,830]]);
  segment(279,365,888,[[414,474]]);
  door('receiving','Receiving door',221,318,16,32,'the stockholding bay');
+ label('STAFF ONLY',307,430,'#624551',11);
  door('staffAccess','Staff-only door',278,415,17,58,'the service corridor');
  // Stairs lead to separate upper family room, not Mrs Chen's L1 office.
  rect(42,374,177,123,'#786773');
  for(let i=0;i<8;i++)rect(53+i*19,388,17,88,'#ae9188');
- rect(53,479,149,5,'#ddba89');label('STAIRS TO UPPER ROOM',54,436,'#ffe0b5',12);
+ rect(53,479,149,5,'#ddba89');label('STAIRS TO UPPER ROOM',59,436,'#ffe0b5',12);
  door('stairs','Stairwell door',221,412,16,47,'the upper family gathering room');
  spot('Mezzanine stairs',121,451,58,'Stairs to the private upper family gathering room (not the office).');
  // Mrs Chen's own L1 office in left back-office wing.
  rect(40,510,181,153,'#b08c85');
  rect(65,537,114,41,'#80615c');rect(87,540,39,26,'#43394b');rect(90,543,33,20,'#9bb5b0');
  rect(160,595,27,31,'#5b485a');plant(178,550);
- label('MRS CHEN · ADMIN',47,531,'#ffe5c9',12);
+ label('MRS CHEN · ADMIN',59,531,'#ffe5c9',12);
  wall(39,502,186,11);wall(39,655,186,10);wall(39,504,12,162);
  door('office','Mrs Chen office door',221,551,16,54,'her private administration office');
  spot('Mrs. Chen',112,595,56,'Mrs Chen is completing the family business payroll.');
@@ -154,13 +155,15 @@ function map(api){
   circle(99,y,12,'#e3dad6');circle(99,y,7,'#aaa1a6');
   rect(152,y-11,35,21,'#cbbcb2');rect(157,y-7,26,13,'#f0e4d7');
  }
+ label('WC 1',60,686,'#f7e3c9',11);
  door('toilet1','WC 1 door',221,674,16,26,'WC 1');
+ label('WC 2',60,727,'#f7e3c9',11);
  door('toilet2','WC 2 door',221,714,16,26,'WC 2');
  // Staff kitchen/canteen has its OWN door from the corridor.
  rect(40,757,180,134,'#c6a18f');rect(50,790,42,78,'#495667');rect(56,793,30,65,'#7293b7');
  circle(149,837,30,'#83606a');circle(149,837,26,'#ddb7a1');
  circle(108,835,12,'#5b455a');circle(190,835,12,'#5b455a');
- label('STAFF CANTEEN',45,777,'#ffe1ba',12);plant(191,785);
+ label('STAFF CANTEEN',57,777,'#ffe1ba',12);plant(191,785);
  wall(39,750,187,10);wall(39,892,187,8);wall(39,751,12,145);
  door('staffRoom','Staff room door',221,786,16,43,'the staff canteen');
  for(const x of [382,615,835,1061,1268,1479])light(x,188);
