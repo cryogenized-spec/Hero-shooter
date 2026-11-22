@@ -7,11 +7,8 @@ const browser=await chromium.launch({
  headless:true,
  args:['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--disable-gpu-sandbox']
 });
-const config=[
-  ['front','gothic_dress'],['threequarter','gothic_dress'],
-  ['profile','gothic_dress'],['back','gothic_dress'],
-  ['threequarter','practical']
-];
+// Earlier appearance QA completed separately; focus this run on the linked gait.
+const config=[]
 try{
  for(const [view,outfit] of config){
    const page=await browser.newPage({viewport:{width:1600,height:1000},deviceScaleFactor:1});
