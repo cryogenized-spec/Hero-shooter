@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#251b26">
+<title>Hero Shooter — C | Golden Dragon | Sandton Mall L1</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#1b1924;color:#f6e6df}
+#stage{position:fixed;inset:0;overflow:hidden}
+#stage canvas{width:100%;height:100%;display:block;touch-action:none;outline:0}
+#loading{position:fixed;z-index:12;inset:0;display:grid;place-items:center;background:#1b1824;color:#f7d8a3;text-align:center;font-weight:700;padding:25px}
+#loading[hidden]{display:none}
+#hud{position:fixed;top:15px;left:15px;z-index:5;width:min(365px,calc(100vw - 30px));padding:16px;background:#171a24ec;border:1px solid #ce9d6675;border-radius:13px;box-shadow:0 12px 35px #0008;backdrop-filter:blur(12px)}
+#hud[hidden]{display:none}
+.kicker{font:700 10px ui-monospace,monospace;letter-spacing:.18em;color:#dbaa68}
+h1{font-size:20px;margin:5px 0 7px;line-height:1.15}
+#hud p{font:12px/1.6 system-ui;color:#c8c3cc;margin:0 0 12px}
+#hud .keys{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px;border-block:1px solid #c28c5942;padding:11px 0;font:11px ui-monospace,monospace;color:#d4d1d4}
+#hud .keys strong{color:#f8d6a3}
+.row{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+button,a.button{cursor:pointer;border:1px solid #8d7465;background:#39313a;color:#f4e4d2;border-radius:7px;padding:8px 10px;font:600 11px system-ui;text-decoration:none;text-align:center}
+button:hover,a.button:hover{background:#645063}button.active{background:#75475a;border-color:#e5b5ad}
+#status{margin-top:11px;font:11px/1.5 ui-monospace,monospace;color:#f3cda4;min-height:18px}
+#prompt{position:fixed;z-index:4;bottom:22px;left:50%;transform:translateX(-50%);font:700 12px ui-monospace,monospace;background:#191a22de;border:1px solid #ffffff30;border-radius:9px;padding:10px 17px;pointer-events:none;white-space:nowrap;box-shadow:0 6px 24px #0006}
+#prompt.available{border-color:#facb8d;color:#ffe6bd}
+#stats{position:fixed;z-index:3;bottom:15px;right:16px;font:11px ui-monospace,monospace;color:#d7c4bd;background:#141a22c9;border:1px solid #ffffff22;padding:8px 10px;border-radius:8px}
+#portrait{position:fixed;z-index:3;right:15px;top:15px;width:190px;border:1px solid #b58c686b;border-radius:11px;overflow:hidden;background:#201825f0;box-shadow:0 10px 30px #0008}
+#portrait img{display:block;width:100%;aspect-ratio:2/3;object-fit:cover}
+#portrait .name{padding:8px 10px;font:700 11px ui-monospace,monospace;letter-spacing:.07em;color:#d9b88b}
+#dialogue{position:fixed;z-index:10;left:50%;bottom:65px;transform:translateX(-50%);width:min(670px,calc(100vw - 25px));background:#181922f5;border:1px solid #dfaa70;border-radius:12px;padding:20px 22px;box-shadow:0 18px 60px #000c}
+#dialogue[hidden]{display:none}
+#dialogueName{font:800 12px ui-monospace,monospace;color:#e8b377;letter-spacing:.12em}
+#dialogueText{font:15px/1.6 system-ui;margin:10px 0 16px;color:#f4e6dd}
+#dialogueActions{display:flex;justify-content:flex-end;gap:8px}
+#notice{position:fixed;z-index:6;left:50%;top:15px;transform:translateX(-50%);padding:11px 18px;border:1px solid #cba36b;color:#edd5ba;background:#1b1b27ee;border-radius:9px;max-width:min(600px,calc(100vw - 32px));font:12px/1.5 system-ui;opacity:0;pointer-events:none;transition:opacity .2s}
+#notice.show{opacity:1}
+#mobile{position:fixed;z-index:7;bottom:max(12px,env(safe-area-inset-bottom));left:12px;right:12px;justify-content:space-between;display:none;pointer-events:none}
+.pad{display:grid;grid-template:repeat(3,48px)/repeat(3,48px);gap:4px;pointer-events:auto}
+.pad [data-key=w]{grid-column:2}.pad [data-key=a]{grid-column:1;grid-row:2}
+.pad [data-key=s]{grid-column:2;grid-row:2}.pad [data-key=d]{grid-column:3;grid-row:2}
+.pad button{font-size:18px;padding:0;touch-action:none}
+.mobileActions{display:grid;align-content:end;gap:6px;pointer-events:auto}
+.mobileActions button{min-width:82px;min-height:43px;touch-action:none}
+@media(max-width:850px){#portrait{width:120px;right:9px;top:9px}#portrait .name{font-size:9px}}
+@media(max-width:650px),(pointer:coarse){
+ #hud{left:9px;top:9px;width:min(285px,calc(100vw - 18px));padding:10px}
+ #hud h1{font-size:15px}#hud p,#hud .keys{display:none}#portrait{display:none}
+ #mobile{display:flex}#prompt{bottom:170px;max-width:90vw;text-align:center;font-size:10px;white-space:normal}
+ #stats{bottom:167px}#dialogue{bottom:175px}
+}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+</head>
+<body>
+<main id="stage" aria-label="Playable 3D Golden Dragon shop with C and Mr Chen"></main>
+<div id="loading" role="status">Loading C and Golden Dragon — Sandton Mall, Level 1…</div>
+<section id="hud" aria-label="Mall test level controls">
+  <div class="kicker">HERO SHOOTER / CHAPTER 1 · 07:00</div>
+  <h1>C · Golden Dragon</h1>
+  <p>The mall has gone dark. Explore Mr. Chen's Chinese shop, speak to him at the counter, and step out into the Level 1 concourse. A separate playable scene, not a replacement for C's scrapyard.</p>
+  <div class="keys">
+    <span><strong>WASD</strong> Walk</span><span><strong>Shift</strong> Sprint</span>
+    <span><strong>E</strong> Interact</span><span><strong>Space</strong> Jump</span>
+    <span><strong>Hold RMB</strong> Orbit</span><span><strong>Wheel</strong> Zoom</span>
+    <span><strong>V</strong> Camera</span><span><strong>R</strong> Restart</span>
+    <span><strong>1 / 2</strong> Equipment pose</span><span><strong>H</strong> Hide HUD</span>
+  </div>
+  <div class="row"><button id="interactBtn">Interact [E]</button><button id="viewBtn">Camera [V]</button><button id="resetBtn">Restart [R]</button><a class="button" href="../c/">C's scrapyard</a></div>
+  <div id="gunPose">Equipment: at side</div>
+  <div id="status" role="status">Starting the level…</div>
+</section>
+<aside id="portrait" aria-label="C's reference portrait">
+  <img src="./assets/c_portrait.webp" alt="C wearing auburn ponytail with floral headband, scarf, dark tactical vest and cargo trousers" onerror="this.style.display='none'">
+  <div class="name">C · LEVEL 1 / GOLDEN DRAGON</div>
+</aside>
+<div id="notice"></div>
+<div id="prompt" role="status">Find Mr. Chen inside the shop</div>
+<div id="stats"><span id="fps">— FPS</span> · STATIC 3D LEVEL</div>
+<section id="dialogue" role="dialog" aria-modal="true" aria-label="Mr Chen's dialogue" hidden>
+  <div id="dialogueName">MR. CHEN</div><p id="dialogueText"></p>
+  <div id="dialogueActions"><button id="dialogueClose">Close</button><button id="dialogueNext">Continue</button></div>
+</section>
+<div id="mobile">
+  <div class="pad"><button data-key="w">↑</button><button data-key="a">←</button><button data-key="s">↓</button><button data-key="d">→</button></div>
+  <div class="mobileActions"><button id="mobileInteract">INTERACT</button><button id="mobileView">CAMERA</button><button id="mobileReset">RESET</button></div>
+</div>
+<script type="module" src="./mall-scene.js"></script>
+</body>
+</html>
