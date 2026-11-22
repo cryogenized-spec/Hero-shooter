@@ -25,7 +25,11 @@
     stairs:['#5c646c','#cbd1d4'],
     window:['#284f67','#80a9bb'],
     'pallet-jack':['#b8864b','#e9b566'],
-    water:['#548895','#c1f3fb']
+    water:['#548895','#c1f3fb'],
+    locker:['#4e5965','#bdc2cb'],
+    workbench:['#806144','#e1b789'],
+    toilet:['#9c9ba2','#e3e0e4'],
+    fridge:['#728f9d','#c9dee8']
   };
   const chitChat = [
     'Yebo, ngiyabona.', 'Kulungile, ngiyeza.', 'Ake sibheke.',
@@ -36,7 +40,7 @@
   let joystick = {left:false,right:false,up:false,down:false};
   let frameNumber = 0;
   const SAVE_KEY='hero-shooter:home-and-more-save-v1';
-  const roomNames={shop:'Sales floor',office:'Mrs. Chen’s office',owner:'Mr. Chen’s office',boardroom:'Boardroom',stairwell:'Mezzanine stairs'};
+  const roomNames={shop:'Sales floor',staff:'Staff back office',office:'Mrs. Chen’s office',owner:'Mr. Chen’s office',boardroom:'Boardroom',stairwell:'Mezzanine stairs'};
   const roomImages={};
   function roomImage(floor) {
     if (!roomImages[floor]) {
@@ -48,7 +52,8 @@
     owner:['owner',970,795,-Math.PI/2],shopOwner:['shop',840,292,Math.PI/2],
     boardroom:['boardroom',408,621,0],officeBoard:['office',1130,621,Math.PI],
     lower:['stairwell',815,798,-Math.PI/2],upper:['stairwell',690,798,-Math.PI/2],
-    shopStairs:['shop',2068,1450,Math.PI],office:['office',968,785,-Math.PI/2]
+    shopStairs:['shop',2068,1450,Math.PI],office:['office',968,785,-Math.PI/2],
+    staffEntry:['staff',1780,940,Math.PI],staffReturn:['shop',322,1093,0]
   };
   function enterRoom(destination) {
     const [floor,x,y,angle]=entrances[destination];
@@ -186,7 +191,7 @@
     const r=15;
     const walls=floorObjects(state.geometry.walls);
     const solidTypes=new Set(['shelf','till','glass-counter','counter','display','pallet','sacks','furniture',
-      'desk','lift','table','chairs','cabinet','trolley','pallet-jack']);
+      'desk','lift','table','chairs','cabinet','trolley','pallet-jack','locker','workbench','toilet','fridge']);
     const blockers=walls.concat(floorObjects(state.geometry.fixtures).filter(o=>solidTypes.has(o.type)));
     for(const o of blockers) {
       const nearX=clamp(x,o.x,o.x+o.width),nearY=clamp(y,o.y,o.y+o.height);
@@ -194,6 +199,7 @@
     }
     // Indoors: keep actors inside the intended playable store or upstairs office.
     if(state.floor==='shop') return x<285||x>2300||y<225||y>1709;
+    if(state.floor==='staff') return x<326||x>1870||y<226||y>1072;
     return x<365||x>1190||y<287||y>842;
   }
 
@@ -396,6 +402,9 @@
     showDialogue(worker.name,'My name is '+worker.name+'. Mrs. Chen said there may be a payslip for me.',choices);
   }
   function talkActor(actor) {
+    if(actor.type==='staff-clerk')return showDialogue(actor.name,
+      'I am checking the delivery paperwork and matching labels to the packed orders.',
+      [['Carry on.',closeDialogue]]);
     if(actor.name==='Mrs. Chen')return talkMother();
     if(actor.type==='worker')return handPayslip(actor);
     if(actor.type==='family-son' && state.delivered.length===4 && !state.ownerReturned) {
@@ -417,7 +426,7 @@
     if(!state||!state.loaded)return;
     if(state.dialogue){closeDialogue();return;}
     const o=target();if(!o)return;
-    if(o.type==='worker'||o.type==='family-son'||o.type==='family-father'||o.type==='family-mother'){
+    if(o.type==='worker'||o.type==='family-son'||o.type==='family-father'||o.type==='family-mother'||o.type==='staff-clerk'){
       talkActor(o);return;
     }
     switch(o.type) {
@@ -465,6 +474,20 @@
         ctx.fillStyle=pair[1];ctx.globalAlpha=0.45+(i%2)*0.15;
         ctx.fillRect(o.x+8+i*w,o.y+8,w-6,Math.max(8,o.height-16));
       }ctx.globalAlpha=1;
+    } else if(o.type==='locker'){
+      const n=Math.max(1,Math.round(o.width/35));
+      for(let i=0;i<n;i++){
+        const xx=o.x+(i+1)*o.width/n;
+        ctx.strokeStyle='#b6b5c0';ctx.beginPath();ctx.moveTo(xx,o.y+4);ctx.lineTo(xx,o.y+o.height-4);ctx.stroke();
+        ctx.fillStyle='#e9d5b5';ctx.fillRect(xx-o.width/n*.5,o.y+o.height*.66,3,10);
+      }
+    } else if(o.type==='workbench'){
+      ctx.fillStyle='#a9d2b8';ctx.fillRect(o.x+o.width*.45,o.y+o.height*.2,o.width*.26,o.height*.32);
+      ctx.fillStyle='#dbc29b';ctx.fillRect(o.x+9,o.y+9,35,28);
+      ctx.fillStyle='#d7d4db';ctx.fillRect(o.x+o.width-55,o.y+12,40,25);
+    } else if(o.type==='toilet'){
+      ctx.fillStyle='#ebeaf2';ctx.beginPath();ctx.ellipse(o.x+o.width/2,o.y+o.height/2,o.width*.28,o.height*.31,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#6e6e78';ctx.lineWidth=2;ctx.stroke();
     } else if(o.type==='stairs'){
       for(let j=0;j<8;j++){ctx.strokeStyle='#d9d7d0';ctx.beginPath();ctx.moveTo(o.x+8,o.y+10+j*(o.height-20)/8);ctx.lineTo(o.x+o.width-8,o.y+10+j*(o.height-20)/8);ctx.stroke()}
     } else if(o.type==='till'){drawLabel(ctx,'TILL',o.x+o.width/2,o.y+o.height/2+4,.9)}
@@ -510,9 +533,17 @@
       ctx.fillStyle='#060608';ctx.fillRect(state.camera.x,state.camera.y,w/zoom,h/zoom);
       drawStairs(ctx);
     }
-    const bounds=floor==='shop'?{x:250,y:180,w:2090,h:1500}:{x:330,y:250,w:900,h:640};
+    const bounds=floor==='shop'?{x:250,y:180,w:2090,h:1500}:
+      floor==='staff'?{x:300,y:200,w:1600,h:900}:{x:330,y:250,w:900,h:640};
     if(floor!=='stairwell'){
-    ctx.fillStyle=floor==='shop'?'#383f42':'#3a3736';ctx.fillRect(bounds.x,bounds.y,bounds.w,bounds.h);
+    ctx.fillStyle=floor==='shop'?'#383f42':floor==='staff'?'#65515a':'#3a3736';ctx.fillRect(bounds.x,bounds.y,bounds.w,bounds.h);
+    if(floor==='staff'){
+      ctx.fillStyle='#57515d';ctx.fillRect(326,226,1548,430);
+      ctx.fillStyle='#927567';ctx.fillRect(326,675,1548,399);
+      ctx.fillStyle='#b49678';ctx.fillRect(638,682,547,366);
+      ctx.fillStyle='#75727c';ctx.fillRect(1209,682,261,366);
+      ctx.fillStyle='#796560';ctx.fillRect(1494,682,326,366);
+    }
     ctx.strokeStyle='rgba(217,220,211,.075)';ctx.lineWidth=1;
     for(let x=bounds.x;x<bounds.x+bounds.w;x+=40){ctx.beginPath();ctx.moveTo(x,bounds.y);ctx.lineTo(x,bounds.y+bounds.h);ctx.stroke()}
     for(let y=bounds.y;y<bounds.y+bounds.h;y+=40){ctx.beginPath();ctx.moveTo(bounds.x,y);ctx.lineTo(bounds.x+bounds.w,y);ctx.stroke()}
@@ -522,7 +553,7 @@
         ctx.fillStyle='#e8c48b';ctx.font='bold 38px system-ui';ctx.textAlign='center';ctx.fillText('HOME & MORE',1187,1620);
         ctx.font='12px ui-monospace';ctx.fillStyle='#e6ddd1';ctx.fillText('HOUSEHOLD · LIGHTS · TOOLS · GENERAL GOODS',1187,1642);
       }
-    } else {
+    } else if(floor==='office') {
       ctx.fillStyle='#2a4d5a';ctx.fillRect(470,250,520,18);
       ctx.strokeStyle='#afc1c2';for(let x=480;x<990;x+=18){ctx.beginPath();ctx.moveTo(x,251);ctx.lineTo(x,267);ctx.stroke()}
       drawLabel(ctx,'WINDOWS & BLINDS · SALES FLOOR BELOW',745,330,.95);
@@ -543,10 +574,10 @@
       ctx.strokeStyle='rgba(240,247,234,.75)';ctx.lineWidth=5;
       ctx.beginPath();ctx.moveTo(l.x,l.y);ctx.lineTo(l.x+l.width,l.y);ctx.stroke();
     }
-    if(floor!=='shop'){
+    if(floor!=='shop' && floor!=='staff'){
       const art=roomImage(floor);
       if(art.complete && art.naturalWidth)ctx.drawImage(art,330,250,900,640);
-    } else {
+    } else if(floor==='shop') {
       drawLabel(ctx,'OWNER’S OFFICE',848,242,.8);
     }
     }
