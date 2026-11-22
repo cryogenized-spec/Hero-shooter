@@ -43,8 +43,14 @@ try{
  await page.screenshot({path:'c-mall-screenshots/golden_dragon_shop_overview.png',animations:'disabled'});
  const start=await page.evaluate(()=>window.__goldenDragonTest.state.hero.position.toArray());
  await page.keyboard.down('w');
- await page.waitForTimeout(600);
- await page.keyboard.up('w');
+ // SwiftShader software WebGL and 1600×960 screenshots can briefly stall
+ // requestAnimationFrame; check actual movement rather than fixed wall time.
+ try{
+  await page.waitForFunction(start=>{
+    const p=window.__goldenDragonTest?.state.hero?.position;
+    return p&&Math.hypot(p.x-start[0],p.y-start[1])>.06;
+  },start,{timeout:12000,polling:150});
+ }finally{await page.keyboard.up('w');}
  const end=await page.evaluate(()=>window.__goldenDragonTest.state.hero.position.toArray());
  const walked=Math.hypot(start[0]-end[0],start[1]-end[1]);
  console.log('KEYBOARD MOVEMENT DEBUG',JSON.stringify({start,end,walked}));
