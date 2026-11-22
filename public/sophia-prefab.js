@@ -278,7 +278,7 @@ async function init(){
   const [preset,catalog,reference]=await Promise.all([
     fetch(base+'preset.json').then(r=>{if(!r.ok)throw Error('Missing preset.json');return r.json();}),
     fetch(base+'clothing.json').then(r=>{if(!r.ok)throw Error('Missing CC0 clothing catalog');return r.json();}),
-    fetch(base+'user_sophia_reference.json').then(r=>{if(!r.ok)throw Error('Missing user's linked character preset');return r.json();})
+    fetch(base+'user_sophia_reference.json').then(r=>{if(!r.ok)throw Error('Missing linked character preset');return r.json();})
   ]);
   state.preset=preset;state.catalog=catalog;state.cached=new Map();
   if(referenceMode){
@@ -300,7 +300,7 @@ async function init(){
     new THREE.MeshStandardMaterial({color:'#211923',roughness:.82,side:THREE.DoubleSide}));
   belt.position.set(0,1.00,0);belt.scale.z=.83;
   belt.castShadow=true;belt.visible=false;root.add(belt);state.belt=belt;
-  applyPresetMorphs(body.scene);chooseBodySkin(body.scene,preset.base.skin);
+  applyPresetMorphs(body.scene);chooseBodySkin(body.scene,state.preset.base.skin);
   const skins=collectSkinned(body.scene);
   state.rig=skins.sort((a,b)=>b.geometry.attributes.position.count-a.geometry.attributes.position.count)[0];
   if(!state.rig)throw Error('CC0 body GLB contains no skinned humanoid mesh');
