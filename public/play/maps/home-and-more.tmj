@@ -10,7 +10,7 @@
   "tiledversion": "1.11.2",
   "version": "1.10",
   "type": "map",
-  "nextobjectid": 131,
+  "nextobjectid": 132,
   "nextlayerid": 7,
   "properties": [
     {
@@ -2675,6 +2675,39 @@
               "name": "role",
               "type": "string",
               "value": "payroll"
+            }
+          ]
+        },
+        {
+          "id": 131,
+          "name": "Ismail",
+          "type": "worker",
+          "x": 1100,
+          "y": 1090,
+          "width": 34,
+          "height": 34,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "shop"
+            },
+            {
+              "name": "pair",
+              "type": "string",
+              "value": "shelves"
+            },
+            {
+              "name": "route",
+              "type": "string",
+              "value": "1100,1090;1210,1090;1260,1090;1210,1090"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "ismail"
             }
           ]
         }

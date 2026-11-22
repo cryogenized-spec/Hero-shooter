@@ -36,14 +36,17 @@ test('shops have the requested features and a separate mezzanine office',()=>{
 });
 test('Sunday staff and their routes are represented on the map',()=>{
   const actorNames=layers.Actors.map(o=>o.name);
-  assert.equal(actorNames.length,7);
-  assert.equal(new Set(actorNames).size,7);
+  assert.equal(actorNames.length,8);
+  assert.equal(new Set(actorNames).size,8);
   for(const name of ['Mr. Chen','Mrs. Chen','Wei Chen','Sibusiso Mkhize',
-    'Thandeka Dlamini','Bongani Cele','Mandla Khumalo'])
+    'Thandeka Dlamini','Bongani Cele','Mandla Khumalo','Ismail'])
       assert.ok(actorNames.includes(name),'Missing '+name);
   const workers=layers.Actors.filter(o=>o.type==='worker');
-  assert.equal(workers.length,4);
+  assert.equal(workers.length,5);
   assert.ok(workers.every(o=>String(prop(o,'route')).includes(';')));
+  const ismail=layers.Actors.find(o=>o.name==='Ismail');
+  assert.equal(prop(ismail,'sprite'),'ismail');
+  assert.equal(prop(ismail,'pair'),'shelves');
 });
 test('scene is integrated into the active game, not published as a standalone throwaway demo',async()=>{
   const engine=await text('public/play/game.js');
