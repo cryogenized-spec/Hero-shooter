@@ -1,0 +1,42 @@
+name: Validate C V8.1 sandbox movement
+on:
+  pull_request:
+    paths:
+      - 'c/**'
+      - 'public/c/**'
+      - 'tests/c-armed-sandbox.test.mjs'
+      - '.github/workflows/validate-c-sandbox.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'c/**'
+      - 'public/c/**'
+      - 'tests/c-armed-sandbox.test.mjs'
+      - '.github/workflows/validate-c-sandbox.yml'
+permissions:
+  contents: read
+jobs:
+  c-sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate both C runtime copies and gait source
+        run: |
+          node --check c/c-demo.js
+          node --check c/c-gait.js
+          node --check public/c/c-demo.js
+          node --check public/c/c-gait.js
+          diff -q c/c-demo.js public/c/c-demo.js
+          diff -q c/c-gait.js public/c/c-gait.js
+      - name: Run C sandbox regression tests
+        run: node --test tests/c-armed-sandbox.test.mjs
+      - name: Check static /c/ assets in published layout
+        run: |
+          test -s public/c/assets/C_V8_1_skull_refined_with_vest.glb.gz
+          test -s public/c/assets/C_pink_compact_pistol.glb.gz
+          test -s public/c/index.html
+          test -s public/c/c-gait.js
