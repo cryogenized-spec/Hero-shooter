@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#151922"><title>Hero Shooter — Full-resolution 3D looter stage</title>
+<meta name="theme-color" content="#151922"><title>Hero Shooter — VTK scrapyard 3D sandbox</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#151922;color:#f5e9d9;font:14px system-ui,sans-serif}
 canvas{display:block}#hud{position:fixed;z-index:5;top:16px;left:16px;max-width:min(430px,calc(100vw - 32px));background:rgba(12,15,21,.89);border:1px solid #8b735d;border-radius:12px;padding:16px;backdrop-filter:blur(12px);box-shadow:0 8px 28px #0008}
@@ -19,16 +19,16 @@ kbd{background:#343945;padding:1px 4px;border-radius:3px}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="load">Loading full-resolution 3D character models…</div>
+<div id="load">Loading the 3D scrapyard and character models…</div>
 <div id="hud">
-<h1>HERO SHOOTER / LIVE 3D LOOTERS</h1>
-<p>Real-time WebGL renders the actual articulated VTK models at your display's resolution. No 32 × 48 sprite enlargement.</p>
+<h1>HERO SHOOTER / SCRAPYARD 3D SANDBOX</h1>
+<p>Full 50 × 28 metre VTK scrapyard with original containers, watchtower, wrecks and cover. Real-time WebGL renders articulated looter GLBs at your display resolution.</p>
 <div class="row" id="characters"><button data-id="0" aria-pressed="true">23 · Hoodie</button><button data-id="1">27 · Utility</button><button data-id="2">35 · Denim</button></div>
 <div class="row" id="equipment"><button data-gear="none" aria-pressed="true">Unarmed</button><button data-gear="brick">Brick</button><button data-gear="stone">Stone</button><button data-gear="knife">Knife</button></div>
 <p><kbd>WASD</kbd> move · <kbd>Shift</kbd> run · <kbd>J</kbd> throw · <kbd>K</kbd> knife gesture · drag to orbit · wheel zoom.</p>
 <p id="status" role="status">Preparing character geometry…</p>
 <div class="row"><a class="control" href="./?autostart=1">Back to game</a><a class="control" href="../">Main menu</a></div>
 </div>
-<div id="guide">Real 3D scene · Lighting and shadows · Native pixel resolution</div>
+<div id="guide">VTK scrapyard · Obstacle-grid collision · Full-resolution 3D models</div>
 <script type="module" src="./looters-3d.js"></script>
 </body></html>
