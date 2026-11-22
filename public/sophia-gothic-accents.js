@@ -75,6 +75,20 @@ export function dressWithGothicDetails(model,look='street'){
  // the long-sleeve jacket/skirt and boots remain ready-made CC0 assets.
  const corset=own(add(world,new THREE.Mesh(
   new THREE.CylinderGeometry(.146,.136,.33,40,1,true,-Math.PI/2,Math.PI),corsetMaterial)));
+ let miniSkirt=null;
+ if(look==='street'){
+   const geo=new THREE.CylinderGeometry(.160,.208,.274,48,6,true);
+   const position=geo.attributes.position;
+   for(let i=0;i<position.count;i++){
+     const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
+     const a=Math.atan2(z,x);
+     const pleat=1+.045*Math.sin(a*16)*(1-.8*(y+.137)/.274);
+     position.setX(i,x*pleat);position.setZ(i,z*pleat);
+   }
+   position.needsUpdate=true;geo.computeVertexNormals();
+   const material=new THREE.MeshStandardMaterial({color:0x241420,roughness:.79,side:THREE.DoubleSide});
+   miniSkirt=own(add(world,new THREE.Mesh(geo,material)));
+ }
  const net={},buckles={},shafts={};
  for(const side of ['l','r']){
   const thigh=own(new THREE.LineSegments(diamondNet(.072,.059),netMaterial));
@@ -109,7 +123,8 @@ export function dressWithGothicDetails(model,look='street'){
    bodyStraps[i].position.set(pelvis.x,y,pelvis.z);
    clasp[i].position.set(pelvis.x+.061,y,pelvis.z+.153);
   }
-  hipChains.forEach(c=>c.position.set(pelvis.x,pelvis.y-.055,pelvis.z));
+  hipChains.forEach(c=>c.position.set(pelvis.x,pelvis.y+.015,pelvis.z));
+  if(miniSkirt)miniSkirt.position.set(pelvis.x,pelvis.y-.080,pelvis.z);
   corset.position.set(pelvis.x,pelvis.y+.205,pelvis.z);
   for(const side of ['l','r']){
    const hip=pos['thigh_'+side],knee=pos['calf_'+side],ankle=pos['foot_'+side];
