@@ -1,0 +1,84 @@
+name: Render Wei Chen VTK character and atlas
+
+on:
+  push:
+    branches: [main, feature/wei-chen-vtk-gait]
+    paths:
+      - "tools/render/wei_chen_3d.py"
+      - "tests/wei-chen-vtk-integration.test.mjs"
+      - ".github/workflows/render-wei-chen.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  wei-chen-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install VTK and headless render prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1 libxrender1 libsm6
+          python -m pip install --quiet vtk pillow numpy trimesh scipy
+      - name: Produce Wei's VTK mesh, UV face, and 8x12 gait atlas
+        run: xvfb-run -a python tools/render/wei_chen_3d.py --out /tmp/wei-chen-render
+      - name: Verify GLB and sprite dimensions, then stage published assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import shutil
+          import trimesh
+          source=Path('/tmp/wei-chen-render')
+          dest=Path('public/play/assets/procedural')
+          dest.mkdir(parents=True,exist_ok=True)
+          model=source/'wei_chen_hybrid_vtk_v2.glb'
+          atlas=source/'wei_chen_8dir_12row_atlas.png'
+          face=source/'wei_face_neutral_rgba.png'
+          assert model.stat().st_size>100_000
+          scene=trimesh.load(model,force='scene')
+          assert len(scene.geometry)>0
+          with Image.open(atlas) as im:
+              assert im.size==(256,576),im.size
+              assert im.mode=='RGBA',im.mode
+              assert im.getextrema()[-1][0] == 0,'atlas lost transparency'
+          with Image.open(face) as im:
+              assert im.mode=='RGBA' and im.width>=512
+          for path in (model,atlas,face):
+              shutil.copy2(path,dest/path.name)
+              print('Staged:',dest/path.name,(dest/path.name).stat().st_size)
+          PY
+      - name: Run syntax, game integration and production build tests
+        run: |
+          npm run check
+          npm test
+          npm run build
+      - name: Commit generated binaries back to this branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/play/assets/procedural/wei_chen_hybrid_vtk_v2.glb
+          git add public/play/assets/procedural/wei_chen_8dir_12row_atlas.png
+          git add public/play/assets/procedural/wei_face_neutral_rgba.png
+          if git diff --cached --quiet; then
+            echo 'Wei binaries already current.'
+            exit 0
+          fi
+          git commit -m 'assets: publish VTK Wei Chen GLB and eight-direction gait atlas'
+          for attempt in 1 2 3; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo 'Committed generated assets to ${GITHUB_REF_NAME}.'
+              exit 0
+            fi
+          done
+          exit 1

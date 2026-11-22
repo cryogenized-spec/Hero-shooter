@@ -304,16 +304,18 @@
         a.gait=(Math.floor(state.elapsed/4)%2)===0?'walk':'run';
         a.isSprinting=a.gait==='run';
       }
-      if(a.route.length && (a.type==='worker'||a.type==='motion-demo')) {
+      if(a.route.length && (a.type==='worker'||a.type==='motion-demo'||a.type==='family-son')) {
         const goal=a.route[a.index % a.route.length];
         let dx=goal[0]-a.x,dy=goal[1]-a.y;
         const d=Math.hypot(dx,dy);
         if(d<4) a.index=(a.index+1)%a.route.length;
-        else { const dist=Math.min(d,dt*(a.type==='motion-demo'?(a.gait==='run'?92:48):(a.meta.pair==='receiving'?22:30)));
+        else { const dist=Math.min(d,dt*(a.type==='motion-demo'?(a.gait==='run'?92:48):(a.type==='family-son'?24:(a.meta.pair==='receiving'?22:30))));
           a.x+=dx/d*dist;a.y+=dy/d*dist;a.step+=dt*9;
           a.angle=Math.atan2(dy,dx); }
       }
       root.HeroSprites.updateWalk(a,beforeX,beforeY,dt,a.type==='motion-demo'?(a.gait==='run'?75:105):110,a.type==='motion-demo'?115*dt:40*dt);
+      // A stationary Wei must not keep stepping after reaching a patrol node.
+      if(a.type==='family-son') a.gait=Math.hypot(a.x-beforeX,a.y-beforeY)>0.01?'walk':'idle';
       a.speechDelay-=dt;
       if(a.speechTime>0)a.speechTime-=dt;
       if(a.speechDelay<=0 && a.type==='worker' && !state.dialogue) {
