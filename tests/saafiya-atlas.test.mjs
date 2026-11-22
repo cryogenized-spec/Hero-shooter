@@ -3,10 +3,15 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 
-test('Saafiya atlas is a self-contained 8-direction, 3-gait asset', async()=>{
-  const svg=await readFile(new URL('../public/play/saafiya.svg',import.meta.url),'utf8');
-  assert.match(svg, /width="256" height="576"/);
-  assert.match(svg, /data:image\/png;base64,iVBORw0KGgo/);
+test('Sophia uses the approved procedural v3.3 mesh and chrome 84FS prop',async()=>{
+  const mesh=await readFile(new URL('../tools/render/sophia_saafiya_studio_v3_3_builder.py',import.meta.url),'utf8');
+  const gait=await readFile(new URL('../tools/render/make_sophia_motion.py',import.meta.url),'utf8');
+  assert.match(mesh,/class Studio33/);
+  assert.match(mesh,/make_painted_face/);
+  assert.match(gait,/add_chrome_prop/);
+  assert.match(gait,/POSES=\('lowered','aimed'\)/);
+  assert.match(gait,/GAITS=\('walk','run'\)/);
+  assert.match(gait,/DIRS=\{'S':0,'SW':45,'W':90,'NW':135,'N':180,'NE':225,'E':270,'SE':315\}/);
 });
 
 test('Saafiya selects atlas cells for her NPC identity without changing C',async()=>{
