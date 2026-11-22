@@ -41,7 +41,23 @@ try{
  await page.mouse.move(rect.x+rect.width*.63,rect.y+rect.height*.52);
  await page.mouse.down({button:'right'});
  assert.equal((await get()).equipment.aiming,true);
+ // The guide must start from the visible pistol tip, not C's face/centre.
+ const guideOffset=()=>page.evaluate(()=>{
+  const origin=window.__homeMore2D.aimGuideOrigin();
+  const dx=origin.x-player.x,dy=origin.y-player.y;
+  const c=Math.cos(player.a),s=Math.sin(player.a);
+  return {forward:dx*c+dy*s,side:-dx*s+dy*c};
+ });
+ const standingGuide=await guideOffset();
+ assert.ok(Math.abs(standingGuide.forward-17)<.2,'Standing guide is not at pistol muzzle');
+ assert.ok(Math.abs(standingGuide.side-3)<.2,'Standing guide has incorrect pistol-side offset');
  await page.screenshot({path:output+'/home_more_cosmetic_aim_light.png'});
+ await page.keyboard.press('c');
+ const crouchingGuide=await guideOffset();
+ assert.ok(Math.abs(crouchingGuide.forward-14.62)<.2,'Crouch guide is not aligned with scaled pistol');
+ assert.ok(Math.abs(crouchingGuide.side-2.7)<.2,'Crouch guide side offset is not scaled');
+ await page.keyboard.press('c');
+ checks.push({test:'cosmetic_barrel_anchor',data:{standingGuide,crouchingGuide}});
  await page.mouse.up({button:'right'});
  assert.equal((await get()).equipment.aiming,false);
  await page.keyboard.press('g');
