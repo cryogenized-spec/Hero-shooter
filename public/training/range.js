@@ -1,3 +1,5 @@
+import { TRAINING_ZOOM, followCamera, screenToWorld } from './camera.js';
+
 // Both built Pages (/training/) and repository-root Pages (/public/training/) are supported.
 const sourcePublished=import.meta.url.includes('/public/training/');
 const {drawArmedC, armedFacing}=await import(sourcePublished?'../../src/armed-c.js':'../src/armed-c.js');
@@ -24,6 +26,7 @@ const solids = [[39,96,244,137],[213,254,164,64],[461,206,125,41],[610,245,352,1
  [1070,455,160,55],[1190,352,41,107],[1356,393,99,39],[1319,475,273,119],
  [500,597,228,65],[830,559,58,123],[881,557,214,68],[951,678,232,71],[369,679,135,74]];
 const player = {gender:'mall', angle:0, walkPhase:0, walkBlend:0};
+const camera = {x:0,y:0,zoom:TRAINING_ZOOM};
 const weapon = {id:'glock26'};
 const keys = new Set();
 const broken = new Set();
@@ -86,14 +89,21 @@ function drawShotEffects(dt) {
  }
 }
 function updateScore(){score.value = broken.size + ' / ' + targets.length + ' broken';}
+function updateCamera(dt,instant=false){
+ followCamera(camera,player,dt,canvas.width,canvas.height,
+   yard.naturalWidth||canvas.width,yard.naturalHeight||canvas.height,instant);
+}
 function reset(){
  Object.assign(player,{x:270,y:435,angle:0,walkPhase:0,walkBlend:0,slideTime:0});
  broken.clear(); particles=[]; flash=null; casings.length=0; aim=null; keys.clear(); updateScore();
+ updateCamera(0,true);
 }
 function canStand(x,y){
  return x>115 && x<1570 && y>175 && y<752 &&
   !solids.some(([l,t,w,h])=>x>=l && x<=l+w && y>=t && y<=t+h);
 }
+// Pointer location is kept in canvas-screen pixels. Convert using the CURRENT
+// camera whenever aiming or testing a hit, even while the view is following C.
 function pointer(e){
  const r=canvas.getBoundingClientRect();
  return {x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};
@@ -102,13 +112,14 @@ canvas.onpointermove=e=>{aim=pointer(e);};
 canvas.onpointerdown=e=>{
  if(e.button!==0 || !yard.naturalWidth)return;
  aim=pointer(e);
- player.angle=Math.atan2(aim.y-player.y,aim.x-player.x);
+ const hitPoint=screenToWorld(aim,camera,canvas.width,canvas.height);
+ player.angle=Math.atan2(hitPoint.y-player.y,hitPoint.x-player.x);
  player.slideTime=.105;
  fireEffects();
- const i=targets.findIndex(([x,y,w,h],i)=>!broken.has(i) && aim.x>=x && aim.x<x+w && aim.y>=y && aim.y<y+h);
+ const i=targets.findIndex(([x,y,w,h],i)=>!broken.has(i) && hitPoint.x>=x && hitPoint.x<x+w && hitPoint.y>=y && hitPoint.y<y+h);
  if(i<0)return;
  broken.add(i); updateScore();
- for(let n=0;n<15;n++)particles.push({x:aim.x,y:aim.y,vx:(Math.random()-.5)*170,vy:-50-Math.random()*130,life:.55,color:n%2?'#e1a25a':'#514336'});
+ for(let n=0;n<15;n++)particles.push({x:hitPoint.x,y:hitPoint.y,vx:(Math.random()-.5)*170,vy:-50-Math.random()*130,life:.55,color:n%2?'#e1a25a':'#514336'});
 };
 const movement=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight'];
 addEventListener('keydown',e=>{if(movement.includes(e.code)){e.preventDefault();keys.add(e.code);}});
@@ -129,9 +140,17 @@ function frame(now){
  if(canStand(player.x,player.y+dy*step))player.y+=dy*step;
  const distance=Math.hypot(player.x-ox,player.y-oy);
  player.walkBlend=distance>0?1:0; player.walkPhase+=distance*.095;
- if(aim)player.angle=Math.atan2(aim.y-player.y,aim.x-player.x);
- else if(length)player.angle=Math.atan2(dy,dx);
+ // Ease the camera towards C after resolving movement, before interpreting aim.
+ updateCamera(dt);
+ if(aim){
+  const worldAim=screenToWorld(aim,camera,canvas.width,canvas.height);
+  player.angle=Math.atan2(worldAim.y-player.y,worldAim.x-player.x);
+ }else if(length)player.angle=Math.atan2(dy,dx);
  player.slideTime=Math.max(0,player.slideTime-dt);
+ // All scenery, actors, debris and shot effects remain in world coordinates.
+ ctx.save();
+ ctx.setTransform(camera.zoom,0,0,camera.zoom,
+   canvas.width/2-camera.x*camera.zoom,canvas.height/2-camera.y*camera.zoom);
  ctx.drawImage(yard,0,0);
  for(const i of broken){
   const [x,y,w,h,sx,sy]=targets[i];ctx.drawImage(yard,sx,sy,w,h,x,y,w,h);
@@ -143,6 +162,7 @@ function frame(now){
   ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,3,2);
  }
  particles=particles.filter(p=>p.life>0);
+ ctx.restore();
  requestAnimationFrame(frame);
 }
 reset();
