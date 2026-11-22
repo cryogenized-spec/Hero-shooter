@@ -37,7 +37,7 @@ try{
  await ref.close();
  // Mr Chen dialogue, shutter clue and return objective.
  await page.evaluate(()=>{
-   player.x=1065;player.y=405;
+   player.x=1040;player.y=449;
    window.__goldenDragon2D.interact();
  });
  await page.waitForFunction(()=>!document.getElementById('dialogue').hidden);
@@ -54,7 +54,7 @@ try{
  assert.equal(st.stage,'return');
  for(let i=0;i<2;i++)await page.click('#nextDialogue');
  await page.evaluate(()=>{
-   player.x=1065;player.y=405;window.__goldenDragon2D.interact();
+   player.x=1040;player.y=449;window.__goldenDragon2D.interact();
  });
  st=await page.evaluate(()=>window.__goldenDragon2D.status);
  assert.equal(st.stage,'finished');
