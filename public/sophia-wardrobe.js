@@ -153,8 +153,10 @@ async function init(){
   pose.model.traverse(o=>{
     if(!o.isMesh)return;
     const name=o.name.toLowerCase();
-    const plane=name.includes('cloth_skirt')||name.includes('cloth_dress')?hem:
-      name.includes('cloth_jacket')?jacketHem:null;
+    // The stock knee-length skirt is replaced in the 3D preview by a compact
+    // original pleated overskirt; no source GLB or binding is altered.
+    if(look==='street'&&name.includes('cloth_skirt')){o.visible=false;fittings.push(o.name+' (hidden)');return;}
+    const plane=name.includes('cloth_jacket')?jacketHem:null;
     if(!plane)return;
     o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();
     for(const m of Array.isArray(o.material)?o.material:[o.material]){
