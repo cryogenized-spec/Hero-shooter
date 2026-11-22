@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const read=path=>readFile(new URL('../'+path,import.meta.url),'utf8');
 const atlasUrl=new URL('../public/play/assets/procedural/wei_chen_8dir_12row_atlas.png',import.meta.url);
 
-test('Wei's real VTK model builder and dedicated runtime asset are wired by identity',async()=>{
+test("Wei's real VTK model builder and dedicated runtime asset are wired by identity",async()=>{
   const script=await read('tools/render/wei_chen_3d.py');
   const sprite=await read('public/play/sprites.js');
   assert.match(script,/import vtk/);
@@ -52,7 +52,7 @@ test('family-son uses the canonical eight-direction, three-gait atlas and neutra
   assert.ok(urls[0].endsWith('/assets/procedural/wei_chen_8dir_12row_atlas.png'));
 });
 
-test('Wei's shop walking route stays in the aisle north of the tills',async()=>{
+test("Wei's shop walking route stays in the aisle north of the tills",async()=>{
   const map=JSON.parse(await read('public/play/maps/home-and-more.tmj'));
   const actors=map.layers.find(l=>l.name==='Actors').objects;
   const wei=actors.find(x=>x.name==='Wei Chen');
@@ -73,7 +73,7 @@ test('Wei's shop walking route stays in the aisle north of the tills',async()=>{
   }
 });
 
-test('Wei's generated atlas is a transparent 256x576 PNG (after render workflow)',async t=>{
+test("Wei's generated atlas is a transparent 256x576 PNG (after render workflow)",async t=>{
   let b;
   try { b=await readFile(atlasUrl); }
   catch(e){ if(e.code==='ENOENT')return t.skip('binary is produced by render-wei-chen workflow'); throw e; }
