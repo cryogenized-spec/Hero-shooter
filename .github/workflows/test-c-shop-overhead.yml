@@ -1,7 +1,7 @@
 name: Test C's Pine Ridge overhead Chinese-shop chapter
 on:
   push:
-    branches: [feat/c-golden-dragon-mall-level-20261122]
+    branches: [feat/c-chinese-shop-overhead-20261122]
     paths:
       - 'public/c-shop/**'
       - 'scripts/qa-c-shop-overhead.mjs'
