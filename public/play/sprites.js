@@ -497,6 +497,17 @@ function drawNpcAtlas(ctx, actor, filename, staticIdle=false) {
   return true;
 }
 
+// Real VTK Sunday staff: each key maps to one authored GLB-derived 8-way atlas.
+// Ismail is archived here too, but is not spawned into Sunday wage-delivery
+// continuity until the story/map explicitly introduces him.
+const HOME_MORE_STAFF_ATLASES = Object.freeze({
+  'sibusiso mkhize': 'sibusiso_mkhize_8dir_12row_atlas.png',
+  'thandeka dlamini': 'thandeka_dlamini_8dir_12row_atlas.png',
+  'bongani cele': 'bongani_cele_8dir_12row_atlas.png',
+  'mandla khumalo': 'mandla_khumalo_8dir_12row_atlas.png',
+  'back-office clerk': 'back_office_clerk_8dir_12row_atlas.png',
+  'ismail': 'ismail_vtk_atlas_32x48.png'
+});
 function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   normalize(actor);
   // Tiled actor sprite keys override any generic role-based appearance.
@@ -511,6 +522,13 @@ function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   // Wei's atlas was rendered from the approved VTK hybrid-face model; it uses
   // the same 8 bearings/12 rows as Mr Chen, with idle frame 0 truly at rest.
   if (selected==='family-son' && drawNpcAtlas(ctx,actor,'assets/procedural/wei_chen_8dir_12row_atlas.png',true)) return;
+  const staffName=String(actor.name || '').trim().toLowerCase();
+  const staffAtlas=HOME_MORE_STAFF_ATLASES[staffName] ||
+    (selected==='ismail' ? HOME_MORE_STAFF_ATLASES.ismail : null);
+  // Respect specially keyed override sprites, but keep the Tiled clerk's
+  // existing generic 'assistant' key eligible for the real worker art.
+  if(staffAtlas && (!explicit || ['assistant','cashier','ismail'].includes(selected)) &&
+     drawNpcAtlas(ctx,actor,'assets/procedural/'+staffAtlas,true)) return;
   const colors=NPC_SPRITE_COLORS[selected] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
   if (Object.hasOwn(familyArt,selected)) drawChen(ctx,actor,selected);
