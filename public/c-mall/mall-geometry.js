@@ -116,7 +116,7 @@ export function buildGoldenDragon(scene){
   gla.rotation.x=Math.PI/2;gla.position.set(x,-8.16,1.35);root.add(gla);
   obstacle(x,-8.01,6.55,.15,.18);
  }
- title('GOLDEN DRAGON',7.0,.58,97,0,-8.11,2.78,true);
+ const frontBanner=title('GOLDEN DRAGON',7.0,.58,97,0,-8.11,2.78,true);
  cube(m.gold,5.05,.16,.14,0,-8.05,2.96);
  decorativeLantern(-7.6,-7.48,2.24);decorativeLantern(7.6,-7.48,2.24);
  // Independent shop geometry: Chinese imported-goods aisles.
@@ -180,5 +180,5 @@ export function buildGoldenDragon(scene){
   return true;
  }
  if(!walkable(0,-6.50))throw Error('Golden Dragon spawn blocked');
- return {root,walkable,events,lights,shopSpawn:{x:0,y:-6.50,z:.04},chenSpawn:{x:6.4,y:-3.65,z:0}};
+ return {root,walkable,events,lights,frontBanner,shopSpawn:{x:0,y:-6.50,z:.04},chenSpawn:{x:6.4,y:-3.65,z:0}};
 }
