@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hero Shooter 3D Character Studio"
+  short_description: "Build, repair and audit VTK/Blender character meshes"
+  default_prompt: "Use $hero-3d-character-studio to inspect the approved character artwork and current 3D model, then repair the facial geometry and accessory fit with verified preview renders."
