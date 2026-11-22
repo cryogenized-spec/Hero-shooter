@@ -42,6 +42,29 @@ jobs:
           mkdir -p dist/sophia
           cp dist/index.html dist/sophia/index.html
           cp -R dist/src dist/play dist/sophia/
+      - name: Checkout C V8.1 sandbox from main without replacing Sophia
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: c-main
+          persist-credentials: false
+      - name: Publish independent armed C arena at /c/
+        run: |
+          test -s c-main/public/c/index.html
+          test -s c-main/public/c/c-demo.js
+          test -s c-main/public/c/assets/C_V8_1_skull_refined_with_vest.glb.gz
+          test -s c-main/public/c/assets/C_pink_compact_pistol.glb.gz
+          test -s c-main/public/c/assets/p226-report-0.wav
+          mkdir -p dist/c
+          cp -a c-main/public/c/. dist/c/
+          python - <<'PY'
+          from pathlib import Path
+          for page,href in [(Path("dist/index.html"),"c/"),(Path("dist/sophia/index.html"),"../c/")]:
+              html=page.read_text()
+              link=f'<a href="{href}" style="position:fixed;z-index:9;right:16px;top:15px;padding:8px 12px;background:#18222b;border:1px solid #ffae7b;color:#ffe0bb;border-radius:7px;font:700 12px system-ui;text-decoration:none">C V8.1 ARMED ARENA</a>'
+              html=html.replace("<div id=\"hint\">",link+"<div id=\"hint\">",1)
+              page.write_text(html)
+          PY
       - name: Ensure Sophia and the VTK arena are in the built website
         run: |
           test -s dist/index.html
@@ -52,6 +75,10 @@ jobs:
           test -s dist/play/assets/procedural/scrapyard/arena_layout.json
           test -s dist/sophia/index.html
           test -s dist/sophia/src/sophia-demo.js
+          test -s dist/c/index.html
+          test -s dist/c/c-demo.js
+          test -s dist/c/assets/C_V8_1_skull_refined_with_vest.glb.gz
+          test -s dist/c/assets/C_pink_compact_pistol.glb.gz
           test -s dist/sophia/play/assets/procedural/sophia/sophia_v33_articulated.glb
           test -s dist/sophia/play/assets/procedural/scrapyard/scrapyard_arena.glb
       - name: Configure GitHub Pages
