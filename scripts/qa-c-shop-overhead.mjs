@@ -1,69 +1,95 @@
-import { chromium } from 'playwright';
+import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
-const browser=await chromium.launch({
-  headless:true,
-  args:['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--disable-gpu-sandbox']
-});
-const report={};
-await mkdir('c-shop-screenshots',{recursive:true});
+import {mkdir,writeFile} from 'node:fs/promises';
+const browser=await chromium.launch({headless:true,
+ args:['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--disable-gpu-sandbox']});
+const output='c-shop-screenshots';
+await mkdir(output,{recursive:true});
+const checks=[];
 try{
- const page=await browser.newPage({viewport:{width:1380,height:950},deviceScaleFactor:1});
- const errors=[];
- page.on('pageerror',e=>errors.push('pageerror '+e.message));
- page.on('console',msg=>{if(msg.type()==='error')errors.push('console '+msg.text());});
- await page.goto('http://127.0.0.1:8732/c-shop/',{waitUntil:'domcontentloaded',timeout:45000});
- await page.waitForFunction(()=>Boolean(window.__goldenDragon2D),null,{timeout:30000});
- const initial=await page.evaluate(()=>window.__goldenDragon2D.status);
+ const page=await browser.newPage({viewport:{width:1400,height:960},deviceScaleFactor:1});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ const res=await page.goto('http://127.0.0.1:8732/c-shop/',{waitUntil:'domcontentloaded',timeout:50000});
+ assert.equal(res.status(),200);
+ await page.waitForFunction(()=>Boolean(window.__homeMore2D),null,{timeout:25000});
+ const get=()=>page.evaluate(()=>window.__homeMore2D.status);
+ const initial=await get();
  assert.equal(initial.stage,'find_chen');
- assert.equal(initial.people,2);
- assert.ok(initial.props>=7,'shop fixtures missing');
- assert.ok(initial.blockers>=10,'walkable geometry not generated');
- report.initial=initial;
- // Verify Pine Ridge movement code is actually reused and directional keys
- // change the position on the new map, rather than just rotating in place.
- await page.keyboard.down('d');
- await page.waitForTimeout(420);
- await page.keyboard.up('d');
- const moved=await page.evaluate(()=>window.__goldenDragon2D.status.player);
- assert.ok(moved.x>initial.player.x+10,'Character did not move under D');
- report.movement=moved;
- await page.screenshot({path:'c-shop-screenshots/golden_dragon_shop_overhead.png'});
- // Original reference page must be reachable independently and untouched.
- const ref=await browser.newPage();
- const rr=await ref.goto('http://127.0.0.1:8732/c-shop/pine-ridge-original.html',{timeout:30000});
- assert.equal(rr.status(),200);
- assert.match(await ref.title(),/Pine Ridge/);
- await ref.close();
- // Mr Chen dialogue, shutter clue and return objective.
- await page.evaluate(()=>{
-   player.x=1040;player.y=449;
-   window.__goldenDragon2D.interact();
- });
- await page.waitForFunction(()=>!document.getElementById('dialogue').hidden);
- let st=await page.evaluate(()=>window.__goldenDragon2D.status);
- assert.equal(st.stage,'check_shutter');
- assert.ok(st.dialogue);
- await page.screenshot({path:'c-shop-screenshots/golden_dragon_mr_chen_dialogue.png'});
+ assert.equal(initial.level,'retail');
+ assert.equal(initial.people,3);
+ assert.ok(initial.props>=20,'not enough real Home & More areas');
+ assert.ok(initial.blockers>=35,'approved aisles/walls not collidable');
+ assert.ok(initial.doors.length>=7,'distinct rooms or doors not modelled');
+ assert.equal(initial.equipment.drawn,false,'C must start holstered');
+ checks.push({test:'boot',data:initial});
+ await page.screenshot({path:output+'/home_more_shop_overhead.png',animations:'disabled'});
+ // Real keyboard movement through the exact original Pine Ridge engine.
+ await page.keyboard.down('d');await page.waitForTimeout(430);await page.keyboard.up('d');
+ const afterMove=await get();
+ assert.ok(afterMove.player.x>initial.player.x+8,
+  'C did not move with WASD in approved shop topology '+JSON.stringify(afterMove.player));
+ checks.push({test:'movement',data:afterMove.player});
+ // Holstered by default: toggles are intentionally independent.
+ await page.keyboard.press('f');assert.equal((await get()).equipment.light,false);
+ await page.keyboard.press('g');assert.equal((await get()).equipment.drawn,true);
+ await page.keyboard.press('f');assert.equal((await get()).equipment.light,true);
+ await page.keyboard.press('t');assert.equal((await get()).equipment.strobe,true);
+ await page.keyboard.press('v');assert.equal((await get()).equipment.vision,'nvg');
+ // Cosmetic aiming line appears only while RMB is held with weapon drawn.
+ const rect=await page.locator('canvas').boundingBox();
+ await page.mouse.move(rect.x+rect.width*.63,rect.y+rect.height*.52);
+ await page.mouse.down({button:'right'});
+ assert.equal((await get()).equipment.aiming,true);
+ await page.screenshot({path:output+'/home_more_cosmetic_aim_light.png'});
+ await page.mouse.up({button:'right'});
+ assert.equal((await get()).equipment.aiming,false);
+ await page.keyboard.press('g');
+ const holstered=await get();
+ assert.equal(holstered.equipment.drawn,false);
+ assert.equal(holstered.equipment.light,false);
+ assert.equal(holstered.equipment.strobe,false);
+ checks.push({test:'equipment_state',data:holstered.equipment});
+ // Distinct physical doors: staff access, L1 office, both toilets, staff room.
+ const doors=[
+  ['staffAccess',322,445],['office',252,579],
+  ['toilet1',251,686],['toilet2',250,725],
+  ['staffRoom',252,806],['receiving',253,334],['stairs',251,438]
+ ];
+ for(const [id,x,y] of doors){
+  await page.evaluate(([px,py])=>{player.x=px;player.y=py;window.__homeMore2D.interact()},[x,y]);
+  const entry=(await get()).doors.find(d=>d.id===id);
+  assert.equal(entry?.open,true,'Door not independently operable: '+id);
+ }
+ checks.push({test:'seven_distinct_doors',ids:doors.map(x=>x[0])});
+ // Visit the separate upstairs room: not Mrs Chen's office.
+ await page.evaluate(()=>{player.x=123;player.y=448;window.__homeMore2D.interact()});
+ assert.equal((await get()).level,'upper');
+ await page.screenshot({path:output+'/home_more_upstairs_family_room.png'});
+ await page.evaluate(()=>{player.x=820;player.y=831;window.__homeMore2D.interact()});
+ assert.equal((await get()).level,'retail');
+ // Mr Chen, storefront, return chapter objective.
+ await page.evaluate(()=>{player.x=1230;player.y=837;window.__homeMore2D.interact()});
+ let current=await get();
+ assert.equal(current.stage,'check_shutter');
+ assert.equal(current.dialogue,true);
+ await page.screenshot({path:output+'/home_more_chen_conversation.png'});
  for(let i=0;i<5;i++)await page.click('#nextDialogue');
- assert.equal(await page.evaluate(()=>document.getElementById('dialogue').hidden),true);
- await page.evaluate(()=>{
-   player.x=673;player.y=570;window.__goldenDragon2D.interact();
- });
- st=await page.evaluate(()=>window.__goldenDragon2D.status);
- assert.equal(st.stage,'return');
+ assert.equal((await get()).dialogue,false);
+ await page.evaluate(()=>{player.x=839;player.y=870;window.__homeMore2D.interact()});
+ assert.equal((await get()).stage,'return');
  for(let i=0;i<2;i++)await page.click('#nextDialogue');
- await page.evaluate(()=>{
-   player.x=1040;player.y=449;window.__goldenDragon2D.interact();
- });
- st=await page.evaluate(()=>window.__goldenDragon2D.status);
- assert.equal(st.stage,'finished');
+ await page.evaluate(()=>{player.x=1230;player.y=837;window.__homeMore2D.interact()});
+ assert.equal((await get()).stage,'finished');
  for(let i=0;i<3;i++)await page.click('#nextDialogue');
- await page.screenshot({path:'c-shop-screenshots/golden_dragon_objective_complete.png'});
- assert.equal(errors.length,0,'Browser errors: '+errors.join('\n'));
- report.final=await page.evaluate(()=>window.__goldenDragon2D.status);
- report.errors=errors;
- await writeFile('c-shop-screenshots/qa-report.json',JSON.stringify(report,null,2));
- console.log(JSON.stringify({passed:true,initial:report.initial,final:report.final}));
- await page.close();
+ await page.screenshot({path:output+'/home_more_quest_complete.png'});
+ // The originally supplied prototype is retained verbatim in a separate URL.
+ const original=await browser.newPage();
+ const r=await original.goto('http://127.0.0.1:8732/c-shop/pine-ridge-original.html',{timeout:30000});
+ assert.equal(r.status(),200);assert.match(await original.title(),/Pine Ridge/);
+ await original.close();
+ assert.deepEqual(errors,[],'Console/page errors detected');
+ checks.push({test:'story_completion',data:await get()});
+ await writeFile(output+'/qa-report.json',JSON.stringify({passed:true,checks},null,2));
+ console.log(JSON.stringify({passed:true,checks:checks.map(x=>x.test)}));
 }finally{await browser.close();}
