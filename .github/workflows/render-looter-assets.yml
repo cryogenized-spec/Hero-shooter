@@ -6,13 +6,14 @@ on:
       - 'tools/render/generate_looters.py'
       - 'tools/render/looter_actions_repo.py'
       - 'tools/render/export_articulated_looters.py'
+      - 'tools/render/build_scrapyard_arena.py'
       - '.github/workflows/render-looter-assets.yml'
 permissions:
   contents: write
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,6 +29,9 @@ jobs:
           xvfb-run -a python tools/render/generate_looters.py
           xvfb-run -a python tools/render/looter_actions_repo.py
           python tools/render/export_articulated_looters.py
+      - name: Render VTK scrapyard sandbox from approved source
+        run: |
+          xvfb-run -a python tools/render/build_scrapyard_arena.py --out tools/render/scrapyard_output
       - name: Pack runtime game assets
         run: |
           python - <<'PY'
@@ -50,6 +54,15 @@ jobs:
                   assert im.size==expected,(name,im.size)
                   im.save(out/name,'WEBP',lossless=True,method=6,exact=True)
                   print(ident,name,(out/name).stat().st_size)
+          # The original source exports a real 50×28m GLB (Y up). Keep its
+          # collision/grid metadata alongside it for in-game world bounds.
+          yard=root/'scrapyard_output'
+          yard_out=Path('public/play/assets/procedural/scrapyard')
+          yard_out.mkdir(parents=True,exist_ok=True)
+          for name in ('scrapyard_arena.glb','arena_navgrid.json','arena_layout.json'):
+              assert (yard/name).exists(),f'Missing scrapyard output: {name}'
+              shutil.copyfile(yard/name,yard_out/name)
+          shutil.copyfile(yard/'arena_isometric.png',yard_out/'arena_isometric.png')
           props=dest/'props';props.mkdir(parents=True,exist_ok=True)
           for prop in ('brick','stone','knife'):
               shutil.copyfile(root/'looter_action_output'/'props'/f'{prop}.glb',props/f'{prop}.glb')
@@ -63,7 +76,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/play/assets/procedural/looters/
+          git add public/play/assets/procedural/looters/ public/play/assets/procedural/scrapyard/
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'assets: publish generated male looter sheets and props'
           for attempt in 1 2 3; do
