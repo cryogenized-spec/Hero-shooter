@@ -128,7 +128,9 @@ test('project documents and agent skill explicitly preserve the orientation cont
   const root=await read('AGENTS.md');
   const skill=await read('.agents/skills/hero-sprite-bearings/SKILL.md');
   assert.match(guide,/0°.*East/);
-  assert.match(guide,/South.*Southwest.*West.*Northwest.*North.*Northeast.*East.*Southeast/);
+  const columns=guide.split('\n').filter(line=>/^\|\s*[0-7]\s*\|/.test(line))
+    .map(line=>line.split('|')[2].trim());
+  assert.deepEqual(columns,headings.map(h=>h.name),'Documented columns must match runtime contract');
   assert.match(guide,/\+Y.*down/i);
   assert.match(root,/sprite-bearing-contract\.md/);
   assert.match(root,/hero-sprite-bearings\/SKILL\.md/);
