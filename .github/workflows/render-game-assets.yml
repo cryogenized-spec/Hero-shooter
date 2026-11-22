@@ -67,5 +67,16 @@ jobs:
             echo 'No changed assets.'
           else
             git commit -m 'assets: render deterministic Home & More and Saafiya 3D art'
-            git push origin HEAD:feat/home-more-staff-backoffice
+            # Other PR updates may arrive while VTK is rendering. Preserve them.
+            for attempt in 1 2 3; do
+              git fetch origin feat/home-more-staff-backoffice
+              git rebase origin/feat/home-more-staff-backoffice
+              if git push origin HEAD:feat/home-more-staff-backoffice; then
+                echo 'Procedural assets pushed successfully.'
+                exit 0
+              fi
+              echo "Push raced another commit (attempt ${attempt}); retrying."
+            done
+            echo 'Could not publish assets without overwriting concurrent changes.'
+            exit 1
           fi
