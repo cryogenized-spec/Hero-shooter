@@ -7,9 +7,11 @@ const base=JSON.parse(await readFile(target+'/user_sophia_reference.json','utf8'
 const looks=[
  {id:'gothic_street',title:'Gothic Street',outfit:['panties','bra','skirt','jacket','boots'],
   colors:{panties:'000000',bra:'000000',skirt:'26151f',jacket:'201923',boots:'15151b'},
+  secondary:{bra:'100d14',panties:'100d14',jacket:'19121d',boots:'121219'},
   description:'dark skirt, fitted open-front jacket, black boots, dark base layer'},
  {id:'gothic_dress',title:'Gothic Dress',outfit:['panties','bra','dress','boots'],
   colors:{panties:'000000',bra:'000000',dress:'291822',boots:'15151b'},
+  secondary:{bra:'100d14',panties:'100d14',dress:'18131c',boots:'121219'},
   description:'deep wine-black dress and black boots; corset jewellery applied in viewer'}
 ];
 const browser=await chromium.launch({
@@ -36,11 +38,24 @@ try {
   page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
   await page.goto(url,{waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForFunction(()=>window.__ready===true,{timeout:90000});
+  // Override BOTH tint channels. The source's default tan jacket lapels and
+  // pink underwear trims otherwise undermine Sophia's dark gothic palette.
+  await page.evaluate(async data=>{
+   for(const id of data.outfit){
+    await window.__set('clothColor',{
+      id,primary:'#'+data.colors[id],
+      ...(data.secondary[id]?{secondary:'#'+data.secondary[id]}:{})
+    });
+   }
+  },look);
   const settings=await page.evaluate(()=>window.__exportSettings());
   assert.equal(settings.sex,'female');assert.equal(settings.hair,'long01');
   assert.equal(settings.colors.skin.toLowerCase(),base.skin);
   for(const k of look.outfit)assert.ok(settings.outfit.includes(k),'missing '+k+' in '+look.id+' outfit '+settings.outfit);
-  for(const k of look.outfit)assert.equal(settings.clothColors[k]?.primary?.toLowerCase(),'#'+look.colors[k],look.id+' wrong tint '+k);
+  for(const k of look.outfit){
+    assert.equal(settings.clothColors[k]?.primary?.toLowerCase(),'#'+look.colors[k],look.id+' wrong tint '+k);
+    if(look.secondary[k])assert.equal(settings.clothColors[k]?.secondary?.toLowerCase(),'#'+look.secondary[k],look.id+' wrong trim '+k);
+  }
   for(const k of ['breastSize','breastFirmness','breastHeight','breastSpacing','breastProjection'])
    assert.ok(Math.abs(settings.values[k]-base[k])<.001,'changed body '+k);
   await page.screenshot({path:'prefab-screenshots/creator_'+look.id+'.png',animations:'disabled'});
