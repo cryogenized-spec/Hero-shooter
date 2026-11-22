@@ -1,0 +1,141 @@
+{
+  "generator": "VTK 9.7.2",
+  "asset_status": "Unrigged real 3D model and baked 96-frame sprite atlas",
+  "gaits": [
+    "idle",
+    "walk",
+    "run"
+  ],
+  "bearings": [
+    "S",
+    "SW",
+    "W",
+    "NW",
+    "N",
+    "NE",
+    "E",
+    "SE"
+  ],
+  "cell": [
+    32,
+    48
+  ],
+  "total_seconds": 14.52,
+  "characters": [
+    {
+      "character": "Sibusiso Mkhize",
+      "file": "sibusiso_mkhize.glb",
+      "bytes": 757516,
+      "triangles": 39910,
+      "meshes": 18,
+      "bounds": [
+        [
+          -0.3764,
+          -0.2286,
+          0.0066
+        ],
+        [
+          0.3764,
+          0.2151,
+          1.871
+        ]
+      ],
+      "atlas": "sibusiso_mkhize_8dir_12row_atlas.png",
+      "atlas_bytes": 136345,
+      "min_filled_pixels_per_cell": 225,
+      "max_filled_pixels_per_cell": 364
+    },
+    {
+      "character": "Thandeka Dlamini",
+      "file": "thandeka_dlamini.glb",
+      "bytes": 621144,
+      "triangles": 32206,
+      "meshes": 18,
+      "bounds": [
+        [
+          -0.3246,
+          -0.1971,
+          0.0062
+        ],
+        [
+          0.3246,
+          0.1855,
+          1.7566
+        ]
+      ],
+      "atlas": "thandeka_dlamini_8dir_12row_atlas.png",
+      "atlas_bytes": 117093,
+      "min_filled_pixels_per_cell": 183,
+      "max_filled_pixels_per_cell": 289
+    },
+    {
+      "character": "Bongani Cele",
+      "file": "bongani_cele.glb",
+      "bytes": 649560,
+      "triangles": 34162,
+      "meshes": 16,
+      "bounds": [
+        [
+          -0.3902,
+          -0.2369,
+          0.0064
+        ],
+        [
+          0.3902,
+          0.1966,
+          1.7968
+        ]
+      ],
+      "atlas": "bongani_cele_8dir_12row_atlas.png",
+      "atlas_bytes": 132348,
+      "min_filled_pixels_per_cell": 213,
+      "max_filled_pixels_per_cell": 351
+    },
+    {
+      "character": "Mandla Khumalo",
+      "file": "mandla_khumalo.glb",
+      "bytes": 745608,
+      "triangles": 39378,
+      "meshes": 16,
+      "bounds": [
+        [
+          -0.3591,
+          -0.2181,
+          0.0068
+        ],
+        [
+          0.3591,
+          0.181,
+          1.9041
+        ]
+      ],
+      "atlas": "mandla_khumalo_8dir_12row_atlas.png",
+      "atlas_bytes": 133377,
+      "min_filled_pixels_per_cell": 220,
+      "max_filled_pixels_per_cell": 353
+    },
+    {
+      "character": "Back-office clerk",
+      "file": "back_office_clerk.glb",
+      "bytes": 592084,
+      "triangles": 30874,
+      "meshes": 17,
+      "bounds": [
+        [
+          -0.3142,
+          -0.1908,
+          0.006
+        ],
+        [
+          0.3142,
+          0.1657,
+          1.6771
+        ]
+      ],
+      "atlas": "back_office_clerk_8dir_12row_atlas.png",
+      "atlas_bytes": 111194,
+      "min_filled_pixels_per_cell": 173,
+      "max_filled_pixels_per_cell": 266
+    }
+  ]
+}
