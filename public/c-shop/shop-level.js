@@ -126,7 +126,18 @@ function visionOverlay(){
 }
 const originalDrawFighter=drawFighter;
 drawFighter=function(p,hero,fall){
- originalDrawFighter(p,hero,fall);
+ if(hero&&!equipment.drawn){
+  // Source-style unarmed walk/idle: both hands free, no visible pistol.
+  const look=castLooks[p.look],moving=p.motion||0;
+  const bob=Math.round(moving*Math.abs(Math.sin(p.step*Math.PI/4))*1.3);
+  drawBoots(p,look,hero,fall);
+  g.translate(fall*4-bob,0);g.lineCap='round';g.lineJoin='round';
+  drawTorso(look);
+  const handSwing=moving?Math.round(Math.sin(p.step*Math.PI/4)*2):0;
+  drawArm(look,-2,-5,0,-9,5+handSwing,-10);
+  drawArm(look,-2,5,0,9,5-handSwing,10);
+  drawHead(look);
+ }else originalDrawFighter(p,hero,fall);
  if(!hero)return;
  // C's tactical-anime illustration translated into the ORIGINAL tiny overhead
  // sprite language: auburn ponytail, floral band, scarf, webbing, pouches.
