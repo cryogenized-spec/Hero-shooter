@@ -196,7 +196,7 @@
           homeX:1400,homeY:1590,index:0,route:[[1180,1590],[1430,1590]],
           meta:{floor:'shop',sprite:'saafiya'},angle:Math.PI,walkAngle:Math.PI,
           radius:14,speech:'',speechTime:0,speechDelay:999999,step:0,
-          gait:'walk',walkPhase:0,walkBlend:0
+          weaponPose:'lowered',gait:'walk',walkPhase:0,walkBlend:0
         });
       }
       restoreProgress();
@@ -663,6 +663,16 @@
     if(!state||!state.loaded)return;
     if(code==='Escape'){if(state.dialogue)closeDialogue();return;}
     if(state.dialogue)return;
+    // Developer-only preview: P switches Sophia's two chrome-pistol poses.
+    // The existing motion-demo route alternates walk and run every 4 seconds.
+    if(code==='KeyP' && new URLSearchParams(root.location.search).get('saafiyaTest')==='1'){
+      const sophia=state.actors.find(a=>a.type==='motion-demo' && a.meta.sprite==='saafiya');
+      if(sophia){
+        sophia.weaponPose=sophia.weaponPose==='aimed'?'lowered':'aimed';
+        setNotice('Sophia · chrome 84FS · '+sophia.weaponPose.toUpperCase());
+      }
+      return;
+    }
     if(code==='KeyE'||code==='Enter')doInteraction();
     if(code==='Tab')cycleTarget();
   }
