@@ -37,6 +37,7 @@ jobs:
             test -s "prefab-cc0-source/output/$file"
             cp "prefab-cc0-source/output/$file" "$target/$file"
           done
+          cp prefab-cc0-source/output/clothing.json "$target/clothing.json"
           cp prefab-cc0-source/LICENSE-NOTES.md "$target/UPSTREAM_LICENSE-NOTES.md"
           ls -lh "$target/" | tail -15
       - uses: actions/setup-node@v4
