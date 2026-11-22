@@ -128,17 +128,27 @@ function cycleVision(){
  equipment.vision=equipment.vision==='normal'?'nvg':equipment.vision==='nvg'?'thermal':'normal';
  quest.message='View: '+equipment.vision.toUpperCase();quest.messageTime=2;hud();
 }
+// Anchor the visual guide to the rotated muzzle of drawWeaponSprite.
+// The local pistol tip is at (17, 3); animation bob cancels in drawFighter.
+function pistolGuideOrigin(){
+ const a=player.a,recoil=Math.round((player.flash||0)*48);
+ const tuck=reload>0?Math.round(Math.sin(Math.PI*reload/1.05)*6):0;
+ const localX=(17-recoil-tuck)*(crouch?.86:1),localY=3*(crouch?.9:1);
+ return {x:player.x+Math.cos(a)*localX-Math.sin(a)*localY,
+         y:player.y+Math.sin(a)*localX+Math.cos(a)*localY};
+}
 function aimGuide(){
  if(!equipment.drawn||!equipment.aiming||floorName!=='retail'||quest.dialogue)return;
- const a=player.a,ax=player.x+Math.cos(a)*14,ay=player.y+Math.sin(a)*14;
+ const a=player.a,{x:ax,y:ay}=pistolGuideOrigin();
  const bx=ax+Math.cos(a)*430,by=ay+Math.sin(a)*430;
  const fade=g.createLinearGradient(ax,ay,bx,by);
- fade.addColorStop(0,'rgba(212,69,90,.38)');
- fade.addColorStop(.35,'rgba(195,51,79,.22)');
- fade.addColorStop(.8,'rgba(170,45,71,.06)');
+ // Deliberately mostly transparent; no bright beam across the shop.
+ fade.addColorStop(0,'rgba(212,69,90,.11)');
+ fade.addColorStop(.35,'rgba(195,51,79,.055)');
+ fade.addColorStop(.8,'rgba(170,45,71,.014)');
  fade.addColorStop(1,'rgba(170,40,70,0)');
- g.strokeStyle=fade;g.lineWidth=1.1;g.lineCap='round';g.beginPath();
- g.moveTo(ax,ay);g.lineTo(bx,by);g.stroke();
+ g.save();g.strokeStyle=fade;g.lineWidth=.8;g.lineCap='round';g.beginPath();
+ g.moveTo(ax,ay);g.lineTo(bx,by);g.stroke();g.restore();
 }
 function flashlightBeam(){
  if(!equipment.drawn||!equipment.light||floorName!=='retail'||equipment.battery<=0)return;
@@ -424,7 +434,8 @@ function init(){
  shopReset();
  window.__homeMore2D=window.__goldenDragon2D={
    get status(){return {stage:quest.stage,level:floorName,player:{x:player.x,y:player.y},dialogue:!!quest.dialogue,props:props.length,blockers:blocks.length,people:people.length,doors:window.HomeMoreMap.doors.map(d=>({id:d.id,name:d.name,open:d.open})),equipment:{...equipment}}},
-   interact,nearby:nearest,reset:shopReset,goUpstairs,goDownstairs
+   interact,nearby:nearest,reset:shopReset,goUpstairs,goDownstairs,
+   aimGuideOrigin:pistolGuideOrigin
  };
 }
 init();
