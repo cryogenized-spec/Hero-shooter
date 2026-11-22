@@ -44,7 +44,7 @@ const key=light(0xffd9ba,3.0,[-4,8,4]);key.castShadow=true;
 key.shadow.mapSize.set(2048,2048);key.shadow.camera.left=-5;key.shadow.camera.right=5;
 key.shadow.camera.top=5;key.shadow.camera.bottom=-5;key.shadow.normalBias=.03;
 light(0xb1a0d9,1.2,[4,4,-3]);light(0xffffff,.65,[0,6,5]);
-const state={preset:null,root:null,body:null,rig:null,clips:[],mixer:null,parts:[],mode:'gothic_dress',animation:'idle',reference:null,stanceDegrees:2.0,activeClip:null,activeAction:null,legBones:null};
+const state={preset:null,root:null,body:null,rig:null,clips:[],mixer:null,parts:[],mode:'gothic_dress',animation:'idle',reference:null,stanceDegrees:2.0,activeClip:null,activeAction:null,legBones:null,gaitBase:null};
 const tmpAxis=new THREE.Vector3(),tmpQ=new THREE.Quaternion(),tmpP=new THREE.Quaternion(),tmpW=new THREE.Quaternion();
 const tmpL=new THREE.Vector3(),tmpR=new THREE.Vector3();
 function footSeparation(){
@@ -61,8 +61,19 @@ function footSeparation(){
  * Mixer writes the pristine animation each frame; no cumulative drift.
  * Root/world transform and hip width stay unchanged.
  */
-function narrowStepWidth(){
- if(state.animation!=='walk'||!state.legBones||state.stanceDegrees<=0)return;
+function restoreLegs(){
+ if(!state.legBones||!state.gaitBase)return;
+ for(const [name,bone] of Object.entries(state.legBones))
+   bone.quaternion.copy(state.gaitBase[name]);
+ state.root.updateMatrixWorld(true);
+}
+function saveUnmodifiedLegs(){
+ if(!state.legBones)return;
+ state.gaitBase=Object.fromEntries(
+   Object.entries(state.legBones).map(([name,bone])=>[name,bone.quaternion.clone()])
+ );
+}
+function applyStanceCandidate(degrees,flipped){
  const axisWorld=tmpAxis.set(0,0,1).applyQuaternion(state.root.getWorldQuaternion(tmpW)).normalize();
  function rotateWorld(bone,angle){
    bone.parent.getWorldQuaternion(tmpP);
@@ -70,12 +81,33 @@ function narrowStepWidth(){
    bone.quaternion.premultiply(tmpQ.setFromAxisAngle(localAxis,angle));
    bone.updateMatrixWorld(true);
  }
- const theta=THREE.MathUtils.degToRad(state.stanceDegrees);
- for(const [suffix,sign] of [['_l',1],['_r',-1]]){
+ const theta=THREE.MathUtils.degToRad(degrees);
+ for(const [suffix,side] of [['_l',1],['_r',-1]]){
+   const sign=flipped?-side:side;
    rotateWorld(state.legBones['thigh'+suffix],sign*theta*.72);
    rotateWorld(state.legBones['calf'+suffix],sign*theta*.28);
    rotateWorld(state.legBones['foot'+suffix],-sign*theta);
  }
+}
+function narrowStepWidth(){
+ if(state.animation!=='walk'||!state.legBones||state.stanceDegrees<=0)return;
+ const originalGap=footSeparation();
+ if(!(originalGap>0.09))return;
+ let bestGap=originalGap, bestDeg=0,bestFlip=false;
+ // Test the two coordinate-convention signs, then a half-strength candidate;
+ // accept only a genuine reduction that leaves at least 8 cm between ankles.
+ for(const degrees of [state.stanceDegrees,state.stanceDegrees*.5]){
+   for(const flipped of [false,true]){
+     restoreLegs();
+     applyStanceCandidate(degrees,flipped);
+     const gap=footSeparation();
+     if(gap>=.08&&gap<bestGap-.001){
+       bestGap=gap;bestDeg=degrees;bestFlip=flipped;
+     }
+   }
+ }
+ restoreLegs();
+ if(bestDeg>0)applyStanceCandidate(bestDeg,bestFlip);
 }
 function status(str){$('#status').textContent=str;}
 function setCamera(mode){
@@ -339,9 +371,11 @@ let last=performance.now();
 function loop(t){
  const dt=Math.min(.05,(t-last)/1000);last=t;
  if(state.mixer){
+   restoreLegs();
    if(lockedPhase!=null&&state.activeClip&&state.activeAction){
      state.mixer.setTime(lockedPhase*state.activeClip.duration);
    }else state.mixer.update(dt);
+   saveUnmodifiedLegs();
    const before=footSeparation();
    narrowStepWidth();
    const after=footSeparation();
