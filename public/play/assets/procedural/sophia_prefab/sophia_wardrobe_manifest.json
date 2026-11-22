@@ -1,0 +1,202 @@
+{
+  "source": "User linked MakeHuman creator profile; exact same body/skin/hair/rig, outfit variants only",
+  "generatedAt": "2026-11-22",
+  "looks": [
+    {
+      "id": "gothic_street",
+      "title": "Gothic Street",
+      "outfit": [
+        "panties",
+        "bra",
+        "skirt",
+        "jacket",
+        "boots"
+      ],
+      "colors": {
+        "panties": "000000",
+        "bra": "000000",
+        "skirt": "26151f",
+        "jacket": "201923",
+        "boots": "15151b"
+      },
+      "secondary": {
+        "bra": "100d14",
+        "panties": "100d14",
+        "jacket": "19121d",
+        "boots": "121219"
+      },
+      "description": "dark skirt, fitted open-front jacket, black boots, dark base layer",
+      "sourceURL": "https://dionysus.dk/webxr/charactercreator/?lang=en&sex=female&cp=0.119%2C1.198%2C3.432%2C-0.107%2C1.003%2C-0.005&breastSize=0.79&breastFirmness=0.54&breastHeight=0.88&breastSpacing=-0.58&breastProjection=0.46&skin=63452c&hair=long01&outfit=panties%2Cbra%2Cskirt%2Cjacket%2Cboots&underwear=0&col=panties%3A000000%2Cbra%3A000000%2Cskirt%3A26151f%2Cjacket%3A201923%2Cboots%3A15151b&clip=walk&speed=0.65&look=off",
+      "settings": {
+        "format": "charactercreator.character",
+        "version": 1,
+        "sex": "female",
+        "values": {
+          "age": 0,
+          "height": 0,
+          "weight": 0,
+          "muscle": 0,
+          "proportions": 0,
+          "noseWidth": 0,
+          "noseLength": 0,
+          "noseHeight": 0,
+          "jawWidth": 0,
+          "chin": 0,
+          "cheekbones": 0,
+          "eyeSize": 0,
+          "eyeSpacing": 0,
+          "eyeTilt": 0,
+          "lips": 0,
+          "mouthWidth": 0,
+          "earSize": 0,
+          "forehead": 0,
+          "breastSize": 0.79,
+          "breastFirmness": 0.54,
+          "breastHeight": 0.88,
+          "breastSpacing": -0.58,
+          "breastProjection": 0.46
+        },
+        "colors": {
+          "skin": "#63452c",
+          "eyeColor": "#4a2f19",
+          "hairColor": "#3b2a1e",
+          "browColor": "#3b2a1e"
+        },
+        "hair": "long01",
+        "outfit": [
+          "panties",
+          "bra",
+          "skirt",
+          "jacket",
+          "boots"
+        ],
+        "clothColors": {
+          "panties": {
+            "primary": "#000000",
+            "secondary": "#100d14"
+          },
+          "bra": {
+            "primary": "#000000",
+            "secondary": "#100d14"
+          },
+          "skirt": {
+            "primary": "#26151f"
+          },
+          "jacket": {
+            "primary": "#201923",
+            "secondary": "#19121d"
+          },
+          "boots": {
+            "primary": "#15151b",
+            "secondary": "#121219"
+          }
+        }
+      },
+      "bytes": 4084064,
+      "animations": [
+        "idle",
+        "walk",
+        "run"
+      ],
+      "meshes": 12,
+      "materials": 14,
+      "skinnedSkeletons": 1,
+      "errors": []
+    },
+    {
+      "id": "gothic_dress",
+      "title": "Gothic Dress",
+      "outfit": [
+        "panties",
+        "bra",
+        "dress",
+        "boots"
+      ],
+      "colors": {
+        "panties": "000000",
+        "bra": "000000",
+        "dress": "291822",
+        "boots": "15151b"
+      },
+      "secondary": {
+        "bra": "100d14",
+        "panties": "100d14",
+        "dress": "18131c",
+        "boots": "121219"
+      },
+      "description": "deep wine-black dress and black boots; corset jewellery applied in viewer",
+      "sourceURL": "https://dionysus.dk/webxr/charactercreator/?lang=en&sex=female&cp=0.119%2C1.198%2C3.432%2C-0.107%2C1.003%2C-0.005&breastSize=0.79&breastFirmness=0.54&breastHeight=0.88&breastSpacing=-0.58&breastProjection=0.46&skin=63452c&hair=long01&outfit=panties%2Cbra%2Cdress%2Cboots&underwear=0&col=panties%3A000000%2Cbra%3A000000%2Cdress%3A291822%2Cboots%3A15151b&clip=walk&speed=0.65&look=off",
+      "settings": {
+        "format": "charactercreator.character",
+        "version": 1,
+        "sex": "female",
+        "values": {
+          "age": 0,
+          "height": 0,
+          "weight": 0,
+          "muscle": 0,
+          "proportions": 0,
+          "noseWidth": 0,
+          "noseLength": 0,
+          "noseHeight": 0,
+          "jawWidth": 0,
+          "chin": 0,
+          "cheekbones": 0,
+          "eyeSize": 0,
+          "eyeSpacing": 0,
+          "eyeTilt": 0,
+          "lips": 0,
+          "mouthWidth": 0,
+          "earSize": 0,
+          "forehead": 0,
+          "breastSize": 0.79,
+          "breastFirmness": 0.54,
+          "breastHeight": 0.88,
+          "breastSpacing": -0.58,
+          "breastProjection": 0.46
+        },
+        "colors": {
+          "skin": "#63452c",
+          "eyeColor": "#4a2f19",
+          "hairColor": "#3b2a1e",
+          "browColor": "#3b2a1e"
+        },
+        "hair": "long01",
+        "outfit": [
+          "panties",
+          "bra",
+          "dress",
+          "boots"
+        ],
+        "clothColors": {
+          "panties": {
+            "primary": "#000000",
+            "secondary": "#100d14"
+          },
+          "bra": {
+            "primary": "#000000",
+            "secondary": "#100d14"
+          },
+          "dress": {
+            "primary": "#291822",
+            "secondary": "#18131c"
+          },
+          "boots": {
+            "primary": "#15151b",
+            "secondary": "#121219"
+          }
+        }
+      },
+      "bytes": 3980760,
+      "animations": [
+        "idle",
+        "walk",
+        "run"
+      ],
+      "meshes": 10,
+      "materials": 12,
+      "skinnedSkeletons": 1,
+      "errors": []
+    }
+  ]
+}

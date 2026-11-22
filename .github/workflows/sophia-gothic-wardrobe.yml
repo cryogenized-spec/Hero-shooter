@@ -1,0 +1,52 @@
+name: Render Sophia gothic prefab wardrobe
+on:
+  push:
+    branches: [feat/sophia-gothic-wardrobe-20261122]
+    paths:
+      - 'scripts/export_sophia_wardrobe.mjs'
+      - '.github/workflows/sophia-gothic-wardrobe.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  wardrobe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser used by original character creator
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Export two clothing variants from original creator
+        run: |
+          node --check scripts/export_sophia_wardrobe.mjs
+          node scripts/export_sophia_wardrobe.mjs
+      - name: Verify actual skinned character exports
+        run: |
+          test -s public/play/assets/procedural/sophia_prefab/sophia_gothic_street.glb
+          test -s public/play/assets/procedural/sophia_prefab/sophia_gothic_dress.glb
+          test -s public/play/assets/procedural/sophia_prefab/sophia_wardrobe_manifest.json
+      - name: Upload raw creator screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: sophia-gothic-creator-screenshots
+          path: prefab-screenshots/creator_*.png
+          retention-days: 30
+      - name: Save generated 3D wardrobe assets and manifest to feature branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/play/assets/procedural/sophia_prefab/sophia_gothic_*.glb
+          git add public/play/assets/procedural/sophia_prefab/sophia_wardrobe_manifest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'assets: export gothic Sophia clothes on exact MakeHuman rig and face'
+          for attempt in 1 2 3; do
+            git fetch origin "$GITHUB_REF_NAME"
+            git rebase "origin/$GITHUB_REF_NAME"
+            if git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+          done
+          exit 1
