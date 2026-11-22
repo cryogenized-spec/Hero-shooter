@@ -468,3 +468,8 @@ body.shop-mode .shop-identity, body.shop-mode .shop-objective {display:none;}
   .shop-mobile-actions {display:flex;flex-direction:column; gap:5px;}
   .shop-mobile-actions button {min-width:78px;min-height:39px;font:700 11px system-ui;}
 }
+
+/* Review-only realtime VTK/WebGL stage; keeps the original shop gameplay intact. */
+.shop-actions .shop-stage-3d { pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;background:#273b32;color:#e5f8e8;border:1px solid #90b69a;border-radius:8px;padding:9px 12px;text-decoration:none;font:700 11px ui-monospace,monospace;white-space:nowrap; }
+.shop-actions .shop-stage-3d:hover,.shop-actions .shop-stage-3d:focus-visible {background:#355843;outline:2px solid #9aceac;outline-offset:2px;}
+@media (max-width:640px){.shop-actions .shop-stage-3d{padding:8px 7px;font-size:9px;}}
