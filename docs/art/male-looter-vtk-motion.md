@@ -29,3 +29,36 @@ npm run check && npm test && npm run build
 ```
 
 The generated GLBs are static/unrigged and the 2D PNG/WebP animations are offline render sequences. Integration with combat timing, hit registration, navigation and projectile physics is **not** included here. Keep the existing game renderer in place until new files and loading transitions are verified; do not replace C's sprites or the current game without review.
+
+
+## Full-resolution 3D WebGL stage (November 22 update)
+
+The original 32×48 native atlases are a performance fallback and **not** the
+renderer used by `public/play/looters-3d.html`. The stage can be reached via
+the **3D LOOTERS** link in the live Home & More interface. The 3D stage
+loads `looter_23_articulated.glb`, `looter_27_articulated.glb` and
+`looter_35_articulated.glb` via Three.js GLTFLoader.
+
+The independent exporter `tools/render/export_articulated_looters.py`
+preserves named `thigh_l/r`, `shin_l/r`, `foot_l/r` and `arm_l/r`
+nodes from the original VTK assemblies. The browser uses a simple 60% stance,
+40% swing two-bone IK solver that rotates those nodes each frame. The three
+models retain separate foot and arm movement, not a baked 2D slideshow.
+Gear is loaded from independent GLBs and attached to the moving right-hand
+group. The stage supports real-time movement and camera orbit and is rendered
+at the browser viewport's actual pixel resolution (DPR capped at 2).
+
+The three skin material palettes were adjusted as an explicit character-art
+revision: 23 `#704732`, 27 `#623F2D`, 35 `#76503A`, each with
+separate highlight and shadow tones. This is a choice for these fictional
+characters, not a claim about how any ethnic group must look.
+
+**Scope**: This is a new *playable 3D character test stage* within the Hero
+Shooter web game, not a conversion of its existing 2D map, all NPCs, collision,
+or gameplay physics. The original Home & More game continues to use Canvas 2D.
+The 3D test stage is a native real-time WebGL renderer, not a 3D screenshot or
+pixel atlas. In-game combat damage and projectile collision remain outside
+this review stage. External Three.js ES modules require network access.
+
+Use `npm run check && npm test && npm run build` and verify the WebGL stage
+in a real browser with the deployed preview URL before merging.
