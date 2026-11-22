@@ -41,3 +41,24 @@ test('generation workflow exports new articulated files and runs existing checks
  assert.match(workflow,/npm test/);
  assert.match(workflow,/npm run build/);
 });
+
+
+test('scrapyard GLB is authoritative sandbox environment with the right up-axis',async()=>{
+ const source=await read('public/play/looters-3d.js');
+ assert.match(source,/scrapyard_arena\.glb/);
+ assert.match(source,/arena_navgrid\.json/);
+ assert.match(source,/arena_layout\.json/);
+ assert.match(source,/arenaRoot\.rotation\.x=Math\.PI\/2/);
+ assert.match(source,/moveOnGrid/);
+ assert.match(source,/isWalkable/);
+ assert.match(source,/south_gate/);
+ assert.doesNotMatch(source,/cargo container',x,y,z/);
+ const gen=await read('tools/render/build_scrapyard_arena.py');
+ assert.match(gen,/def make_navigation_grid/);
+ assert.match(gen,/def export_scene/);
+ assert.match(gen,/50/);
+ const workflow=await read('.github/workflows/render-looter-assets.yml');
+ assert.match(workflow,/build_scrapyard_arena\.py/);
+ assert.match(workflow,/scrapyard_arena\.glb/);
+ assert.match(workflow,/arena_navgrid\.json/);
+});
