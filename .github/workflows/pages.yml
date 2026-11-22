@@ -82,6 +82,27 @@ jobs:
           test -s "$dest/index.html"
           test -s "$dest/sophia-shared-walk.js"
           test -s "$dest/play/assets/procedural/sophia_prefab/sophia_from_shared_settings.glb"
+      - name: Checkout Sophia's gothic clothes review branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/sophia-gothic-wardrobe-20261122
+          path: sophia-outfits-src
+          persist-credentials: false
+      - name: Publish interactive gothic wardrobe at /sophia-outfit/
+        run: |
+          source=sophia-outfits-src/public
+          dest=dist/sophia-outfit
+          mkdir -p "$dest/play/assets/procedural/sophia_prefab"
+          cp "$source/sophia-wardrobe.html" "$dest/index.html"
+          cp "$source/sophia-wardrobe.js" "$dest/sophia-wardrobe.js"
+          cp "$source/sophia-gothic-accents.js" "$dest/sophia-gothic-accents.js"
+          cp "$source/play/assets/procedural/sophia_prefab/sophia_gothic_street.glb" "$dest/play/assets/procedural/sophia_prefab/"
+          cp "$source/play/assets/procedural/sophia_prefab/sophia_gothic_dress.glb" "$dest/play/assets/procedural/sophia_prefab/"
+          test -s "$dest/index.html"
+          test -s "$dest/sophia-wardrobe.js"
+          test -s "$dest/sophia-gothic-accents.js"
+          test -s "$dest/play/assets/procedural/sophia_prefab/sophia_gothic_street.glb"
+          test -s "$dest/play/assets/procedural/sophia_prefab/sophia_gothic_dress.glb"
       - name: Ensure Sophia and the VTK arena are in the built website
         run: |
           test -s dist/index.html
