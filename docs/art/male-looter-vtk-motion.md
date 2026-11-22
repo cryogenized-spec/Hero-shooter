@@ -62,3 +62,34 @@ this review stage. External Three.js ES modules require network access.
 
 Use `npm run check && npm test && npm run build` and verify the WebGL stage
 in a real browser with the deployed preview URL before merging.
+
+
+## VTK scrapyard sandbox integration
+
+Source-of-truth scene: the approved **Pine Ridge scrapyard** created on
+2026-11-22 from the overhead scrapyard artwork. Its deterministic Python
+generator was preserved as \`tools/render/build_scrapyard_arena.py\`.
+The GitHub Actions workflow renders and publishes:
+
+- \`public/play/assets/procedural/scrapyard/scrapyard_arena.glb\` — genuine
+  50 m × 28 m 3D world, central raised container, stairs, watchtower, perimeter
+  fence, wrecks, targets, concrete cover, barrels, crates and junk
+- \`arena_layout.json\` — obstacle definitions and authored spawn points
+- \`arena_navgrid.json\` — 100 × 56 grid at 0.5 m per cell, obstacles inflated
+  for a nominal 0.35 m character radius
+- \`arena_isometric.png\` — source-geometry review image
+
+The stage \`/play/looters-3d.html\` now imports this GLB **instead of**
+the temporary grey proxy yard. The GLB uses **Y-up** (X east, Z south);
+the articulated character stage uses **Z-up**. Rotating the imported arena
+root +90° around world X preserves x=east and reprojects the old south-Z
+onto the stage's north-Y. No 32×48 sprite scaling is used.
+
+The three male looters spawn at x=−1.6/0/+1.6 m, y=−11.8 m near
+the south gate, validated as walkable. Move attempts are checked against
+the authoring navgrid with blocked-axis sliding. Ground-level collision
+is conservative; vertical stair and raised-platform travel, mesh-level
+collision, proper AI navmesh and projectile/knife hit detection are not yet
+implemented. **This is the character and environment sandbox**, not the
+final full game conversion. Avoid replacing the original Canvas 2D campaign
+maps and scripts until the wider 3D engine transition is ready.
