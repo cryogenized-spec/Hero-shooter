@@ -1,21 +1,16 @@
-# Hero Shooter — instructions for coding agents
+# Hero Shooter — 3D sandbox coding and artwork contract
 
-## Mandatory sprite-bearing convention
+## Active playable application
+The homepage \`index.html\` launches Sophia's real-time Three.js/WebGL scrapyard demo from \`src/sophia-demo.js\`. The old Canvas 2D campaign game and directional sprite files have been deliberately removed in this feature branch. Do not quietly reintroduce the 2D title, stages, NPC drawing code, or 32 × 48 sprite atlases.
 
-Whenever a task creates, edits, indexes, prompts for, reviews, or renders a character sprite atlas, read **[the bearing contract](docs/art/sprite-bearing-contract.md)** and use the repository skill at **[.agents/skills/hero-sprite-bearings/SKILL.md](.agents/skills/hero-sprite-bearings/SKILL.md)**.
+## Coordinate system and collision
+The authored scrapyard uses +X east, +Y north, +Z up. The scrapyard GLB is Y-up and requires a +90° world-X rotation when imported into the Z-up character stage. The original \`arena_navgrid.json\` has 0.5 m tiles, grid 100 × 56; always check ground-level motion against it. The south-gate spawn is (0, -11.8, 0.1). Do not claim the raised container or watchtower is walkable until vertical collision is implemented.
 
-- Game screen coordinates: **+X is right, +Y is down**; `0° = East (→)`; positive angles rotate **clockwise** on screen.
-- Eight atlas columns **left to right, zero-based**: **0 South ↓, 1 Southwest ↙, 2 West ←, 3 Northwest ↖, 4 North ↑, 5 Northeast ↗, 6 East →, 7 Southeast ↘**.
-- **South shows the character's front. North shows the back. East faces screen-right; West faces screen-left.** A camera-facing portrait is not the same as a character facing north.
-- Rows: idle 0–3, walk 4–7, run 8–11. A stopped character uses a neutral, **non-walking** idle pose; see PR #36 for the idle-state fix.
-- Never silently change this indexing, use a Cartesian Y-up compass, rotate the sheet 90°, transpose directions, or mirror equipment-bearing art. Use an explicit direction-labelled preview before accepting generated sprite artwork.
-- Preserve `actor.angle` (aim/appearance heading) and `actor.walkAngle` (movement heading) as distinct concepts; verify which one a renderer uses before changing animation behaviour.
-- Run `npm run check`, `npm test`, and `npm run build` for sprite-related changes; in particular preserve `tests/sprite-bearing-contract.test.mjs`.
+## Sophia character
+The approved source of truth is \`tools/render/sophia_saafiya_studio_v3_3_builder.py\` plus the prior v3.2 builder. The generated \`sophia_v33_articulated.glb\` retains one UV-painted 2048px face, 1.72m character scale and rigid group pivots: body, left_leg/right_leg, left_boot/right_boot, left_arm/right_arm. Procedural rigid articulation is **not** a skin-weighted rig. Do not flatten her to a pixel sheet. Review the installed .agents/skills/hero-3d-character-studio/SKILL.md before character geometry edits.
 
-## 3D character modelling and geometry QA
+## Rendering and interactions
+Use real-time 3D WebGL for the hero, characters and arena. Keep the rendering resolution native to the viewport (device pixel ratio may be capped for memory/performance). Keep stop-idle feet neutral and make the camera follow without teleporting during normal movement. The three looter GLBs are currently NPC test figures; interactions do not include weapon damage.
 
-When creating, editing, repairing, exporting, inspecting, or rendering a real 3D character mesh for Hero Shooter, use **[.agents/skills/hero-3d-character-studio/SKILL.md](.agents/skills/hero-3d-character-studio/SKILL.md)**. The corresponding private ChatGPT plugin is `hero-shooter-3d-studio` and is packaged from the canonical skill with `python tools/package-hero-3d-plugin.py`.
-
-- Treat approved artwork as the visual source of truth and preserve earlier model versions. For C, consult the skill's `references/character-contract.md` before changing appearance.
-- Repair detached-looking face and accessory surfaces deliberately (nose/lips/headband), verify multiple views and do not claim a model is rigged without rigging tests.
-- Use the separate **hero-sprite-bearings** skill when producing 2D directional sprite atlases; a 3D front-view and a sprite's facing direction are not interchangeable.
+## Verification
+Run \`npm run check\`, \`npm test\`, and \`npm run build\`; use GitHub Actions to generate any missing GLB before claiming the downloadable demo is ready. Use browser QA when a connected browser is available. Preserve Git history to recover the retired 2D game if needed.

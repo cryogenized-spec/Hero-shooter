@@ -1,0 +1,59 @@
+name: Build Sophia 3D scrapyard demo assets
+on:
+  push:
+    branches:
+      - feat/sophia-scrapyard-3d-playable-20261122
+    paths:
+      - 'tools/render/export_sophia_articulated.py'
+      - 'tools/render/sophia_saafiya_studio_v3_3_builder.py'
+      - 'tools/render/sophia_saafiya_v3_2_studio.py'
+      - '.github/workflows/build-sophia-scrapyard.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deterministic VTK requirements
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1 libxrender1 libsm6
+          python -m pip install --quiet numpy trimesh pillow vtk
+      - name: Rebuild approved Sophia v3.3 articulated 3D asset
+        run: |
+          python tools/render/export_sophia_articulated.py
+          mkdir -p public/play/assets/procedural/sophia
+          cp tools/render/sophia_articulated/sophia_v33_articulated.glb public/play/assets/procedural/sophia/
+          cp tools/render/sophia_articulated/sophia_v33_articulation_audit.json public/play/assets/procedural/sophia/
+      - name: Check generated asset and rebuilt site
+        run: |
+          npm run check
+          npm test
+          npm run build
+          test -s dist/play/assets/procedural/sophia/sophia_v33_articulated.glb
+          test -s dist/play/assets/procedural/scrapyard/scrapyard_arena.glb
+      - name: Package playable website for GitHub download
+        uses: actions/upload-artifact@v4
+        with:
+          name: hero-shooter-sophia-scrapyard-3d
+          path: dist/
+          retention-days: 30
+      - name: Commit the generated 3D GLB
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/play/assets/procedural/sophia/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'assets: publish articulated painted-face Sophia v3.3 GLB'
+          for attempt in 1 2 3 4; do
+            git fetch origin "$GITHUB_REF_NAME"
+            git rebase "origin/$GITHUB_REF_NAME"
+            if git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+          done
+          exit 1

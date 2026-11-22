@@ -1,9 +1,10 @@
-name: Build, test and publish Hero Shooter
+name: Publish Sophia 3D Game on GitHub Pages (after merge)
 
+# Until the feature PR merges, the live Pages website is published from
+# main's Pages workflow. This file only runs when the 3D game reaches main,
+# which matches the repository's GitHub Pages deployment branch policy.
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -13,8 +14,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  group: github-pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -24,26 +25,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm run check
-      - run: npm test
-      - run: npm run build
+      - run: |
+          npm run check
+          npm test
+          npm run build
+      - name: Check static 3D files
+        run: |
+          test -s dist/index.html
+          test -s dist/src/sophia-demo.js
+          test -s dist/play/assets/procedural/sophia/sophia_v33_articulated.glb
+          test -s dist/play/assets/procedural/scrapyard/scrapyard_arena.glb
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
         with:
           path: dist
-
   deploy:
-    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
     steps:
-      # GitHub Pages must be enabled once under Settings -> Pages ->
-      # Build and deployment -> Source: GitHub Actions.
-      # The automatic GITHUB_TOKEN cannot perform initial enablement.
-      - name: Verify GitHub Pages configuration
-        uses: actions/configure-pages@v5
       - id: deployment
         uses: actions/deploy-pages@v4
