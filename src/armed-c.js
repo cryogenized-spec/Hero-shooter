@@ -1,4 +1,8 @@
 let armedAtlas;
+export function armedFacing(angle) {
+    return ((Math.round((angle - Math.PI/2) / (Math.PI/4)) % 8) + 8) % 8;
+}
+
 export function drawArmedC(ctx, actor, weapon) {
     if (actor.gender !== 'mall' || weapon?.id !== 'glock26' ||
         actor.hasMolleVest || actor.nvgEquipped || typeof Image === 'undefined') return false;
@@ -11,9 +15,9 @@ export function drawArmedC(ctx, actor, weapon) {
             '../play/c-glock-ready.svg', import.meta.url).href;
     }
     if (!armedAtlas.complete || !armedAtlas.naturalWidth) return false;
-    const direction = ((Math.round((actor.angle - Math.PI/2) / (Math.PI/4)) % 8) + 8) % 8;
+    const direction = armedFacing(actor.angle);
     const gait = actor.walkBlend < 0.1 ? 0 : actor.sprinting ? 2 : 1;
-    const phase = gait ? actor.walkPhase * 2 / Math.PI : performance.now() * 0.003;
+    const phase = gait ? actor.walkPhase * 2 / Math.PI : 0;
     const row = gait * 4 + Math.floor(phase) % 4;
     const kick = 2 * Math.sin(Math.PI * Math.min(1, (actor.slideTime || 0) / 0.105));
     ctx.save();
