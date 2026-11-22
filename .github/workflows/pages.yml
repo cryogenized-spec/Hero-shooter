@@ -1,9 +1,11 @@
-name: Deploy Sophia 3D Scrapyard to GitHub Pages
+name: Publish Sophia 3D Game on GitHub Pages (after merge)
 
+# Until the feature PR merges, the live Pages website is published from
+# main's Pages workflow. This file only runs when the 3D game reaches main,
+# which matches the repository's GitHub Pages deployment branch policy.
 on:
   push:
-    branches:
-      - feat/sophia-scrapyard-3d-playable-20261122
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: github-pages-sophia
+  group: github-pages
   cancel-in-progress: false
 
 jobs:
@@ -23,31 +25,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate the playable 3D project
-        run: |
+      - run: |
           npm run check
           npm test
           npm run build
-      - name: Confirm all models are part of the Pages output
+      - name: Check static 3D files
         run: |
           test -s dist/index.html
           test -s dist/src/sophia-demo.js
           test -s dist/play/assets/procedural/sophia/sophia_v33_articulated.glb
           test -s dist/play/assets/procedural/scrapyard/scrapyard_arena.glb
-          test -s dist/play/assets/procedural/scrapyard/arena_navgrid.json
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
-      - name: Upload the entire playable website
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
   deploy:
-    environment:
-      name: sophia-pages-sandbox
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy static Sophia sandbox
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4
