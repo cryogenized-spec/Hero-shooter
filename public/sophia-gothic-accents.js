@@ -118,7 +118,7 @@ export function dressWithGothicDetails(model,look='street'){
    for(let i=0;i<3;i++){
     const p=ab(knee,ankle,.43+i*.16);
     const set=buckles[side][i];set.ring.position.copy(p);
-    set.ring.quaternion.setFromUnitVectors(UP,ankle.clone().sub(knee).normalize());
+    set.ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),ankle.clone().sub(knee).normalize());
     set.plate.position.copy(p);set.plate.position.z+=.078;
    }
   }
