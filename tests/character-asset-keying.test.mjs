@@ -58,8 +58,8 @@ test('Saafiya and Sophia name variants resolve to their own NPC atlas',async()=>
   }
   assert.equal(h.draws.length,4);
   assert.equal(h.urls.length,1);
-  assert.ok(h.urls[0].endsWith('/saafiya.svg'));
-  assert.ok(h.draws.every(d=>d[3]===32&&d[4]===48));
+  assert.ok(h.urls[0].endsWith('/assets/procedural/saafiya_walk_8way_8frame_atlas.webp'));
+  assert.ok(h.draws.every(d=>d[3]===176&&d[4]===224));
   // A stable explicit Tiled identity must work regardless of an actor's displayed name.
   h.root.HeroSprites.drawNpc(h.ctx,{...npc,name:'Character 5',meta:{sprite:'saafiya'}},'assistant');
   assert.equal(h.draws.length,5);
