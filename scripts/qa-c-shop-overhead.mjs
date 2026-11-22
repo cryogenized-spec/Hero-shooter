@@ -62,6 +62,42 @@ try{
   assert.equal(entry?.open,true,'Door not independently operable: '+id);
  }
  checks.push({test:'seven_distinct_doors',ids:doors.map(x=>x[0])});
+
+ // Check that all six L1 destination areas connect through *walkable* space,
+ // not merely through decorative drawing or teleport-only interaction tests.
+ const connectivity=await page.evaluate(()=>{
+  const spacing=8,width=Math.ceil(W/spacing),height=Math.ceil(H/spacing);
+  const start=[835,835],targets={
+   receiving:[118,247],office:[113,584],wc1:[116,688],
+   wc2:[116,727],staffRoom:[145,831],stairRoom:[122,449]
+  };
+  const index=(x,y)=>Math.round(y/spacing)*width+Math.round(x/spacing);
+  const visited=new Uint8Array(width*height);
+  const sx=Math.round(start[0]/spacing),sy=Math.round(start[1]/spacing);
+  const stack=[sy*width+sx];visited[stack[0]]=1;
+  for(let pos=0;pos<stack.length;pos++){
+   const n=stack[pos],x=n%width,y=Math.floor(n/width);
+   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const nx=x+dx,ny=y+dy,ni=ny*width+nx;
+    if(nx<1||ny<1||nx>=width-1||ny>=height-1||visited[ni])continue;
+    if(solid(nx*spacing,ny*spacing,7))continue;
+    visited[ni]=1;stack.push(ni);
+   }
+  }
+  return {reachable:Object.fromEntries(Object.entries(targets)
+   .map(([name,[x,y]])=>[name,Boolean(visited[index(x,y)])])),
+   visited:stack.length};
+ });
+ assert.ok(Object.values(connectivity.reachable).every(Boolean),
+   'Room circulation broken: '+JSON.stringify(connectivity));
+ checks.push({test:'architectural_circulation',data:connectivity});
+ // Capture a full-resolution topological overview, including the door leaves.
+ const full=await page.evaluate(()=>{
+  const previous=g;g=backdrop;window.HomeMoreMap.paint({rect,label});
+  g=previous;return floor.toDataURL('image/png').split(',')[1];
+ });
+ await writeFile(output+'/home_more_entire_l1_floorplan.png',Buffer.from(full,'base64'));
+
  // Visit the separate upstairs room: not Mrs Chen's office.
  await page.evaluate(()=>{player.x=123;player.y=448;window.__homeMore2D.interact()});
  assert.equal((await get()).level,'upper');
