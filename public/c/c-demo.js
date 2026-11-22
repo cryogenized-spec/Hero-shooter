@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import {gaitSample,legDisplacement} from './c-gait.js';
 
 const $ = id => document.getElementById(id);
 const scene = new THREE.Scene();
@@ -85,7 +86,8 @@ function playShotSound(){
 const state={ready:false,hero:null,visual:null,yard:null,navgrid:null,layout:null,bodyArms:null,
  weaponHolder:null,muzzleLight:null,muzzleFlash:null,pose:'low',poseBlend:1,
  mag:magazineMax,spares:spareMagazineMax,shots:0,reloading:false,fireUntil:0,flashTime:0,
- cameraMode:'follow',walkPhase:0,elapsed:0,jumpHeight:0,jumpVelocity:0,hit:0};
+ cameraMode:'follow',walkPhase:0,locomotion:'idle',legMorphs:[],deformFrame:0,
+ elapsed:0,jumpHeight:0,jumpVelocity:0,hit:0};
 const pressed=new Set(),virtual=new Set();
 const setStatus=msg=>$('status').textContent=msg;
 const clamp=THREE.MathUtils.clamp;
@@ -115,11 +117,12 @@ const shoulderRot=(sign,target)=>{
 };
 function prepareArms(root){
  const node=root.getObjectByName('Quaternius_Soldier_Body_2');
- if(!node?.isMesh)throw new Error('V8.1 arm mesh missing; no substitute body permitted');
+ if(!node?.isMesh)throw new Error('V8.1 body mesh missing; preserving approved model');
  node.geometry=node.geometry.clone();
  const position=node.geometry.getAttribute('position');
  const base=Float32Array.from(position.array);
  const target={};
+ // Preserve the three already-approved upper-body poses.
  for(const [name,hands] of Object.entries(poseHands)){
    const values=Float32Array.from(base);
    const qLeft=shoulderRot(1,hands.left),qRight=shoulderRot(-1,hands.right);
@@ -139,16 +142,87 @@ function prepareArms(root){
    target[name]=values;
  }
  state.bodyArms={node,position,base,target};
+ // V8.1 is not a skinned rig. Derive a repeatable, reversible procedural
+ // leg deformation from its immutable original vertices instead.
+ const motionSample=gaitSample(.25,'run');
+ const parts=[];
+ root.traverse(mesh=>{
+   if(!mesh.isMesh||!mesh.geometry?.getAttribute('position'))return;
+   const originalPosition=mesh.geometry.getAttribute('position');
+   const originalBase=mesh===node?base:Float32Array.from(originalPosition.array);
+   const active=[];
+   for(let i=0;i<originalPosition.count;i++){
+     const k=3*i;
+     const dis=legDisplacement(originalBase[k],originalBase[k+1],originalBase[k+2],motionSample);
+     if(Math.abs(dis[1])+Math.abs(dis[2])>.0002)active.push(i);
+   }
+   if(!active.length)return;
+   if(mesh!==node)mesh.geometry=mesh.geometry.clone();
+   parts.push({
+     mesh,position:mesh.geometry.getAttribute('position'),
+     base:originalBase,indices:Uint32Array.from(active)
+   });
+ });
+ state.legMorphs=parts;
+ if(!parts.length)console.warn('C V8.1 model has no detectable lower-body vertices; gait fallback only.');
 }
-function animateArms(dt){
- const a=state.bodyArms;
- if(!a)return;
- const target=a.target[state.pose];
- const speed=Math.min(1,dt*10);
- for(let i=0;i<a.position.array.length;i++)a.position.array[i]+=(target[i]-a.position.array[i])*speed;
- a.position.needsUpdate=true;
- a.node.geometry.computeVertexNormals();
+
+function animateBody(dt){
+ const arms=state.bodyArms;
+ if(!arms)return;
+ const gait=gaitSample(state.walkPhase,state.locomotion);
+ const speed=Math.min(1,dt*13);
+ const positions=arms.position.array;
+ const target=arms.target[state.pose];
+ // One pass for the three hand/arm states; follow it with the leg offsets.
+ // Adding speed*offset here is equivalent to blending towards the full
+ // arm+leg goal and avoids drift when moving and stopping.
+ for(let i=0;i<positions.length;i++)positions[i]+=(target[i]-positions[i])*speed;
+ arms.position.needsUpdate=true;
+ let touchedBody=false;
+ for(const part of state.legMorphs){
+   const arr=part.position.array,rest=part.base;
+   const isBody=part.mesh===arms.node;
+   for(const index of part.indices){
+     const k=index*3;
+     const [dx,dy,dz]=legDisplacement(rest[k],rest[k+1],rest[k+2],gait);
+     if(isBody){
+       arr[k]+=speed*dx;arr[k+1]+=speed*dy;arr[k+2]+=speed*dz;
+     }else{
+       arr[k]+=(rest[k]+dx-arr[k])*speed;
+       arr[k+1]+=(rest[k+1]+dy-arr[k+1])*speed;
+       arr[k+2]+=(rest[k+2]+dz-arr[k+2])*speed;
+     }
+   }
+   part.position.needsUpdate=true;
+   touchedBody ||= isBody;
+   if(state.deformFrame%3===0)part.mesh.geometry.computeVertexNormals();
+ }
+ if(!touchedBody && state.deformFrame%3===0)arms.node.geometry.computeVertexNormals();
+ state.deformFrame++;
 }
+
+function addCosmeticGripFingers(holder){
+ // Small curved glove/finger meshes hide the rigid straight-finger silhouette
+ // near the prop's grip. Purely visual, not a physical grasp/IK solution.
+ const glove=new THREE.MeshStandardMaterial({color:0x36333b,roughness:.92});
+ const fingertip=new THREE.MeshStandardMaterial({color:0xa57b65,roughness:.89});
+ const palm=new THREE.Mesh(new THREE.SphereGeometry(.036,10,8),glove);
+ palm.position.set(-.047,.064,-.126);palm.scale.set(.85,.76,1.15);holder.add(palm);
+ for(let i=0;i<4;i++){
+   const z=-.095-i*.026;
+   const curve=new THREE.CatmullRomCurve3([
+     new THREE.Vector3(-.044,.080,z+.008),
+     new THREE.Vector3(-.060,.049,z+.002),
+     new THREE.Vector3(-.047,.017,z-.012),
+     new THREE.Vector3(-.023,.014,z-.019)
+   ]);
+   const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,9,.007,5,false),
+      i===3?fingertip:glove);
+   holder.add(mesh);
+ }
+}
+
 function makeMuzzleFlash(){
  const group=new THREE.Group();group.visible=false;
  const yellow=new THREE.MeshBasicMaterial({color:0xfff2bd,transparent:true,opacity:.95,depthWrite:false});
@@ -165,7 +239,16 @@ function setupHero(character,pistol,spawn){
  visual.traverse(n=>{if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});
  prepareArms(visual);
  group.add(visual);
- const weaponHolder=new THREE.Group();weaponHolder.add(pistol.scene);
+ const weaponHolder=new THREE.Group();
+ // The imported GLB sometimes retains a Y-up to Z-up orientation in its
+ // visual hierarchy. Make its long slide axis horizontal before attaching it.
+ const gunVisual=pistol.scene;
+ const bbox=new THREE.Box3().setFromObject(gunVisual);
+ const span=bbox.getSize(new THREE.Vector3());
+ if(span.z>span.y*1.22)gunVisual.rotation.x=-Math.PI/2;
+ gunVisual.rotation.z=0;gunVisual.rotation.y=0;
+ weaponHolder.add(gunVisual);
+ addCosmeticGripFingers(weaponHolder);
  pistol.scene.traverse(n=>{if(n.isMesh){n.castShadow=true;}});
  const muzzleFlash=makeMuzzleFlash();weaponHolder.add(muzzleFlash);
  const muzzleLight=new THREE.PointLight(0xffb45e,0,2.8);muzzleLight.position.set(0,-.22,.01);weaponHolder.add(muzzleLight);
@@ -183,7 +266,9 @@ function updateWeaponPose(dt){
  // The pistol's imported mesh is centred at the grip. Attach at the right wrist.
  h.position.lerp(target,Math.min(1,dt*12));
  h.rotation.x=THREE.MathUtils.lerp(h.rotation.x,p.angle,Math.min(1,dt*12));
- h.rotation.z=THREE.MathUtils.lerp(h.rotation.z,state.pose==='side'?-0.12:0,Math.min(1,dt*12));
+ h.rotation.z=THREE.MathUtils.lerp(h.rotation.z,0,Math.min(1,dt*12));
+ // The prop must stay upright (no lateral roll) in every pose.
+ h.rotation.y=0;
 }
 function muzzleWorld(){
  state.weaponHolder.updateWorldMatrix(true,false);
@@ -287,7 +372,8 @@ function respawn(){
  if(!state.ready)return;
  const spawn=state.layout.spawn_points.find(p=>p.id==='south_gate');
  state.hero.position.set(spawn.x,spawn.y,spawn.z||0);
- state.hero.rotation.z=0;state.jumpHeight=state.jumpVelocity=0;cameraFollow(true);
+ state.hero.rotation.z=0;state.jumpHeight=state.jumpVelocity=0;
+ state.walkPhase=0;state.locomotion='idle';cameraFollow(true);
  setStatus('Returned to south gate');
 }
 function aimFromMouse(e){
@@ -370,22 +456,25 @@ function tick(now){
   const direction=forward.multiplyScalar(f).addScaledVector(right,s);
   const moving=direction.lengthSq()>.00001;
   if(moving){
-   direction.normalize();const run=pressed.has('shift');
+   direction.normalize();const run=pressed.has('shift')||virtual.has('shift');
+   const beforeX=state.hero.position.x,beforeY=state.hero.position.y;
    moveGround(direction.x*dt*(run?3.7:2.3),direction.y*dt*(run?3.7:2.3));
-   state.walkPhase+=dt*(run?2.0:1.25);
+   const actualDistance=Math.hypot(state.hero.position.x-beforeX,state.hero.position.y-beforeY);
+   state.locomotion=actualDistance>.0001?(run?'run':'walk'):'idle';
+   if(state.locomotion!=='idle')state.walkPhase=(state.walkPhase+dt*(run?2.0:1.25))%1;
    if(!state.aimLast||now-state.aimLast>900){
     const yaw=Math.atan2(direction.x,-direction.y);
     state.hero.rotation.z=THREE.MathUtils.lerp(state.hero.rotation.z,yaw,Math.min(1,dt*9));
    }
-  }else state.walkPhase=0;
+  }else{state.walkPhase=0;state.locomotion='idle';}
   if(state.jumpVelocity||state.jumpHeight){
    state.jumpVelocity-=11*dt;state.jumpHeight+=state.jumpVelocity*dt;
    if(state.jumpHeight<0)state.jumpHeight=state.jumpVelocity=0;
   }
-  const bob=moving?.022*(1-Math.cos(state.walkPhase*Math.PI*4)):0;
+  const bob=gaitSample(state.walkPhase,state.locomotion).bob;
   state.visual.position.z=bob+state.jumpHeight;
   state.visual.rotation.z=moving?.01*Math.sin(state.walkPhase*Math.PI*2):0;
-  animateArms(dt);updateWeaponPose(dt);updateEffects(dt);
+  animateBody(dt);updateWeaponPose(dt);updateEffects(dt);
   if(state.cameraMode==='follow'||state.cameraMode==='overhead')cameraFollow();
  }
  orbit.update();renderer.render(scene,camera);
