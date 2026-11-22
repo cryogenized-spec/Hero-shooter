@@ -11,3 +11,11 @@ Whenever a task creates, edits, indexes, prompts for, reviews, or renders a char
 - Never silently change this indexing, use a Cartesian Y-up compass, rotate the sheet 90°, transpose directions, or mirror equipment-bearing art. Use an explicit direction-labelled preview before accepting generated sprite artwork.
 - Preserve `actor.angle` (aim/appearance heading) and `actor.walkAngle` (movement heading) as distinct concepts; verify which one a renderer uses before changing animation behaviour.
 - Run `npm run check`, `npm test`, and `npm run build` for sprite-related changes; in particular preserve `tests/sprite-bearing-contract.test.mjs`.
+
+## 3D character modelling and geometry QA
+
+When creating, editing, repairing, exporting, inspecting, or rendering a real 3D character mesh for Hero Shooter, use **[.agents/skills/hero-3d-character-studio/SKILL.md](.agents/skills/hero-3d-character-studio/SKILL.md)**. The corresponding private ChatGPT plugin is `hero-shooter-3d-studio` and is packaged from the canonical skill with `python tools/package-hero-3d-plugin.py`.
+
+- Treat approved artwork as the visual source of truth and preserve earlier model versions. For C, consult the skill's `references/character-contract.md` before changing appearance.
+- Repair detached-looking face and accessory surfaces deliberately (nose/lips/headband), verify multiple views and do not claim a model is rigged without rigging tests.
+- Use the separate **hero-sprite-bearings** skill when producing 2D directional sprite atlases; a 3D front-view and a sprite's facing direction are not interchangeable.

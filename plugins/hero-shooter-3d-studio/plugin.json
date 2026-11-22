@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "hero-shooter-3d-studio",
+  "version": "0.1.0",
+  "description": "Reusable 3D character modelling, sculpting, mesh auditing and export workflows for Hero Shooter using Blender and Python VTK.",
+  "repository": "https://github.com/cryogenized-spec/Hero-shooter",
+  "homepage": "https://github.com/cryogenized-spec/Hero-shooter/tree/main/.agents/skills/hero-3d-character-studio",
+  "keywords": ["3d", "character", "vtk", "blender", "gltf", "game-art"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Hero Shooter 3D Studio",
+        "shortDescription": "Build and repair 3D game character meshes",
+        "longDescription": "Model, inspect, sculpt and export Hero Shooter characters with consistent artwork references, facial geometry and headband repairs, and repeatable quality checks.",
+        "developerName": "Hero Shooter Project",
+        "category": "Developer Tools",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://github.com/cryogenized-spec/Hero-shooter",
+        "defaultPrompt": [
+          "Use Hero Shooter 3D Studio to repair C's nose and lips and seat her Alice band against the hair while preserving the approved design.",
+          "Audit my GLB character model, then explain the geometry risks and next steps."
+        ]
+      }
+    }
+  }
+}
