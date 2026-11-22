@@ -24,7 +24,7 @@
   "look": "off",
   "gait": {
     "correction": "reduced lateral upper-leg/calf abduction with ankle counter-rotation",
-    "degrees": 3,
+    "degrees": 2,
     "sliderMin": 0,
     "sliderMax": 5,
     "originalAt": 0,
