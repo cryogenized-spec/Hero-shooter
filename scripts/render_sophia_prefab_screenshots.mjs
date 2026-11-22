@@ -39,8 +39,8 @@ try{
  const checks=[];
  const cases=[
    ['original_front','front',0],
-   ['narrow_front','front',3],
-   ['narrow_threequarter','threequarter',3]
+   ['narrow_front','front',2],
+   ['narrow_threequarter','threequarter',2]
  ];
  for(const [name,view,stance] of cases) {
    const page=await browser.newPage({viewport:{width:1600,height:1000},deviceScaleFactor:1});
