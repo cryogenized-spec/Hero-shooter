@@ -46,11 +46,11 @@ const state={preset:null,root:null,body:null,rig:null,clips:[],mixer:null,parts:
 function status(str){$('#status').textContent=str;}
 function setCamera(mode){
  let pos;
- if(mode==='front')pos=[0,1.15,4.75];
- else if(mode==='profile')pos=[4.4,1.3,0];
- else if(mode==='back')pos=[0,1.25,-4.75];
+ if(mode==='front')pos=[0,1.3,3.3];
+ else if(mode==='profile')pos=[3.0,1.25,0];
+ else if(mode==='back')pos=[0,1.3,-3.3];
  else if(mode==='portrait')pos=[0,1.65,2.0];
- else pos=[3.0,1.9,3.7];
+ else pos=[2.45,1.75,2.85];
  camera.position.set(...pos);orbit.target.set(0,mode==='portrait'?1.52:.95,0);
  orbit.update();
 }
@@ -62,6 +62,8 @@ function materialTint(mesh,color,secondary=null){
    // Preserve original CC0 textures, roughness, normals and UVs:
    // tint is just the standard base-color multiplier.
    m.color.set((i&&secondary)||color);
+   const gain=Number(m.userData?.tint?.gain);
+   if(Number.isFinite(gain)&&gain>0&&gain<30)m.color.multiplyScalar(gain);
    if(m.isMeshStandardMaterial){m.roughness=Math.max(.57,m.roughness||.8);}
    m.side=THREE.DoubleSide;
    return m;
@@ -75,9 +77,20 @@ function applyPresetMorphs(root){
    if(Number.isInteger(d.gender_female))w[d.gender_female]=1;
    if(Number.isInteger(d.gender_male))w[d.gender_male]=0;
    // Deliberately subtle morphs; keep the base MakeHuman anatomical forms.
-   if(Number.isInteger(d.weight_min))w[d.weight_min]=.22;
-   if(Number.isInteger(d.muscle_min))w[d.muscle_min]=.10;
-   if(Number.isInteger(d.height_short))w[d.height_short]=.08;
+   if(Number.isInteger(d.weight_min))w[d.weight_min]=.34;
+   if(Number.isInteger(d.muscle_min))w[d.muscle_min]=.08;
+   if(Number.isInteger(d.height_short))w[d.height_short]=.04;
+   // Makeup-free CC0 MakeHuman face sculpt, using existing morph targets:
+   for(const [name,value] of Object.entries({
+     age_child:.09,
+     face_jaw_width_decr:.24,
+     face_chin_decr:.12,
+     face_nose_length_decr:.13,
+     face_nose_width_decr:.1,
+     face_eye_size_incr:.15,
+     face_cheekbones_incr:.10,
+     face_lips_incr:.14
+   }))if(Number.isInteger(d[name]))w[d[name]]=value;
  });
 }
 function mergeRig(part,sourceRig){
@@ -107,9 +120,27 @@ function mergeRig(part,sourceRig){
  return true;
 }
 function hideCoveredBody(){
- // CC0 MakeHuman body is complete. Clothing cover is rendered using
- // garment geometry; do not aggressively delete skin/morph vertices here.
- // Disabling this avoids creating neck/arm holes before the fit is QA-tested.
+ // Source CC0 garment catalog explicitly marks which body zones should be
+ // hidden when covered. Remove ONLY the fully covered body triangles.
+ const catalog=state.catalog;
+ if(!catalog||!state.rig)return;
+ const names=state.mode==='gothic_dress'?['dress','boots']:['shirt','jeans','jacket','boots'];
+ let mask=0;
+ for(const name of names){
+   const item=catalog.items.find(it=>it.id===name);
+   for(const z of item?.hidesBodyZones||[])mask|=(catalog.bodyZones[z]||0);
+ }
+ const geo=state.rig.geometry, zones=geo.attributes._cczone;
+ if(!geo.index||!zones)return;
+ if(!state.originalIndex)state.originalIndex=geo.index.array.slice();
+ const full=state.originalIndex, z=zones.array, kept=[];
+ for(let i=0;i<full.length;i+=3){
+   const a=full[i],b=full[i+1],c=full[i+2];
+   if((z[a]&mask)&&(z[b]&mask)&&(z[c]&mask))continue;
+   kept.push(a,b,c);
+ }
+ geo.setIndex(kept);
+ geo.computeBoundingSphere();
 }
 async function loadAsset(filename){
  const gltf=await loader.loadAsync(base+filename);
@@ -183,8 +214,11 @@ $('#snapshot').addEventListener('click',()=>{
 let initError=null;
 async function init(){
  try{
-  const preset=await fetch(base+'preset.json').then(r=>{if(!r.ok)throw Error('Missing preset.json');return r.json();});
-  state.preset=preset;state.cached=new Map();
+  const [preset,catalog]=await Promise.all([
+    fetch(base+'preset.json').then(r=>{if(!r.ok)throw Error('Missing preset.json');return r.json();}),
+    fetch(base+'clothing.json').then(r=>{if(!r.ok)throw Error('Missing CC0 clothing catalog');return r.json();})
+  ]);
+  state.preset=preset;state.catalog=catalog;state.cached=new Map();
   const [body,hair]=await Promise.all([loadAsset(preset.base.model),loadAsset(preset.look.hair)]);
   const root=new THREE.Group();
   scene.add(root);state.root=root;
