@@ -55,102 +55,74 @@ function lantern(x,y){
  rect(x-9,y+11,18,3,'#ecc68b');
  rect(x-1,y+16,2,9,'#a56b4e');
 }
-function shopMap(){
- blocks.length=0;props.length=0;
- rect(0,0,W,H,'#29242f');
- // Level-one shopping mall concourse, following the source's 2D pixel style.
- rect(0,626,W,274,'#544b58');
- for(let x=0;x<W;x+=32)for(let y=627;y<H;y+=32){
-  rect(x+1,y+1,30,30,(Math.floor(x/32)+Math.floor(y/32))%2?'#685f6b':'#776d79');
-  rect(x+2,y+2,26,1,'#9e9091');
- }
- rect(0,648,W,7,'#3f3541');
- for(const x of [55,166,1210,1321]){
-  rect(x-15,666,30,142,'#403543');
-  rect(x-10,670,20,132,'#82767c');
-  rect(x-15,670,30,6,'#d4b388');
-  rect(x-15,798,30,7,'#c8ad83');
- }
- rect(517,774,366,35,'#39313e');
- label('LEVEL 1  ·  SANDTON MALL',538,797,'#ecd5b2',14);
- // Golden Dragon floor tiles, subtle grout and scuffs.
- rect(140,86,1102,541,'#b4a09c');
- for(let x=147;x<1235;x+=32)for(let y=92;y<624;y+=32){
-  const n=random();
-  rect(x+1,y+1,30,30,n<.29?'#a18f8d':n<.65?'#ab9996':'#b8a5a0');
-  rect(x+3,y+3,24,1,'#d1bdb1');
-  if(n>.94)rect(x+11,y+23,6,2,'#8c7b81');
- }
- // Three walled sides; rear doors, windows, and central open frontage.
- furnishing(122,71,1132,20,'#48333d','#cf9f6d');
- furnishing(122,71,20,570,'#514049','#c69c76');
- furnishing(1234,71,20,570,'#514049','#c69c76');
- furnishing(141,615,423,18,'#513741','#e2b77c');
- furnishing(810,615,444,18,'#513741','#e2b77c');
- rect(565,618,244,4,'#f6d4a5');
- for(let x=151;x<553;x+=36){rect(x,592,28,7,'#6b929b');rect(x+2,592,23,1,'#b4d1c9')}
- for(let x=820;x<1243;x+=36){rect(x,592,28,7,'#6b929b');rect(x+2,592,23,1,'#b4d1c9')}
- // Signboard and Chinese-shop identity.
- rect(463,99,458,47,'#5e2a39');rect(468,104,448,5,'#deb476');
- label('金 龍  ·  GOLDEN DRAGON',482,133,'#ffdf9e',18);
- rect(474,646,443,36,'#572b3c');rect(481,650,428,4,'#ddae71');
- label('GOLDEN DRAGON · CHINESE SHOP',503,673,'#f7d79d',15);
- label('OPEN  /  LEVEL 1',627,701,'#eee0ce',11);
- for(const x of [221,1124])lantern(x,129);
- for(const x of [256,466,666,866,1087])lamp(x,554);
- // Back-left storeroom and stock cartons.
- furnishing(158,173,280,15,'#57434c','#b99c85');
- furnishing(158,173,16,140,'#57434c','#b99c85');
- furnishing(422,173,16,140,'#57434c','#b99c85');
- rect(253,304,100,10,'#c3936b');
- label('STOCKROOM',257,293,'#5a3b42',11);
- for(let i=0;i<18;i++){
-  const px=181+(i%6)*36,py=195+Math.floor(i/6)*31;
-  rect(px,py,29,22,'#927253');rect(px+2,py+2,25,3,'#c4a281');
- }
- spot('Stockroom',298,342,57,'The stockroom is locked. Stacked cartons block the doorway.');
- // Repeated stock shelves: source-style, overhead canvas, not 3D proxies.
- shelf(298,242,60,206);shelf(460,242,60,206);
- shelf(622,242,60,206);shelf(784,242,60,206);
- ['Batteries','Torches','Imports','Porcelain'].forEach((name,i)=>{
-  spot(name,281+i*162,475,65,[
-   'Batteries and battery-operated gadgets sit in neat rows.',
-   'Flashlights, lanterns and household torches.',
-   'Small imported goods and tools, still on their shelves.',
-   'Porcelain and ceramic homewares in padded boxes.'
-  ][i]);
- });
- // Checkout counter, with space for Mr Chen behind the registers.
- furnishing(940,364,235,64,'#775148','#ddae7a');
- rect(949,371,215,9,'#3f3039');
- for(const px of [975,1080]){
-  rect(px,381,36,27,'#29242b');
-  rect(px+3,384,30,16,'#748a89');
-  rect(px+4,404,28,3,'#c4b1a1');
- }
- label('CHECKOUT',1014,422,'#ffe3bd',11);
- rect(945,429,225,12,'#673240');
- label('金 龍  ·  GOLDEN DRAGON',963,439,'#edc392',11);
- lantern(1163,458);
- spot('Checkout counter',1015,440,75,'The registers are offline. An emergency torch is still glowing.');
- // Front merchandising with a path to the stockroom and shop counter.
- furnishing(151,492,109,57,'#5f494c','#cc9e78');
- furnishing(1128,479,101,64,'#6c5350','#d6a47a');
- for(let i=0;i<5;i++)for(let k=0;k<2;k++){
-  productBox(159+i*18,500+k*19,goods[(i+k)%6]);
-  productBox(1137+i*17,486+k*18,goods[(i+k+3)%6]);
- }
- spot('Display windows',1108,565,68,'New imports are displayed facing the shopping-mall passage.');
- // Emergency lights outside the shop and a jammed front shutter.
- rect(575,732,230,11,'#4a383f');
- for(let i=0;i<12;i++)rect(582+i*19,736,12,2,'#b7997f');
- label('SHUTTER  /  POWER OUT',582,724,'#cdb4ae',11);
- spot('Entrance shutter',680,611,88,'The powered entrance shutter is jammed halfway. The concourse is accessible.');
- spot('Mall concourse',692,777,69,'Most shops are deserted; emergency lighting remains on.');
- for(let i=0;i<86;i++){
-  const x=182+random()*1020,y=171+random()*391;
-  rect(x,y,1+random()*2,1,random()>.5?'#a38a89':'#d0b6a6');
- }
+const equipment=window.CShopEquipment={drawn:false,aiming:false,light:false,strobe:false,vision:'normal',battery:100};
+let floorName='retail',shopTime=0;
+const mapArgs=()=>({rect,circle,label,random,blocks,props,spot});
+function shopMap(){window.HomeMoreMap.build(mapArgs());floorName='retail';}
+function goUpstairs(){
+ g=backdrop;g.clearRect(0,0,W,H);window.HomeMoreMap.upper(mapArgs());
+ g=ctx;g.imageSmoothingEnabled=false;floorName='upper';
+ player.x=828;player.y=781;camera();
+ quest.message='Upper family room — return via the stairs';quest.messageTime=3;
+}
+function goDownstairs(){
+ g=backdrop;g.clearRect(0,0,W,H);shopMap();
+ g=ctx;g.imageSmoothingEnabled=false;
+ player.x=254;player.y=438;camera();
+ quest.message='Home & More staff corridor';quest.messageTime=3;
+}
+function toggleEquipment(){
+ equipment.drawn=!equipment.drawn;
+ if(!equipment.drawn){equipment.aiming=false;equipment.light=false;equipment.strobe=false;}
+ quest.message=equipment.drawn?'Pistol drawn — RMB to aim':'Pistol holstered';quest.messageTime=3;hud();
+}
+function toggleLight(){
+ if(!equipment.drawn){quest.message='Draw equipment with G first';quest.messageTime=3;return;}
+ if(equipment.battery<=0)return;
+ equipment.light=!equipment.light;
+ if(!equipment.light)equipment.strobe=false;
+ quest.message=equipment.light?'Equipment light on':'Equipment light off';
+ quest.messageTime=2;hud();
+}
+function toggleStrobe(){
+ if(!equipment.drawn||equipment.battery<=0)return;
+ equipment.strobe=!equipment.strobe;equipment.light=equipment.strobe||equipment.light;
+ quest.message=equipment.strobe?'Strobe active':'Strobe inactive';quest.messageTime=2;hud();
+}
+function cycleVision(){
+ equipment.vision=equipment.vision==='normal'?'nvg':equipment.vision==='nvg'?'thermal':'normal';
+ quest.message='View: '+equipment.vision.toUpperCase();quest.messageTime=2;hud();
+}
+function aimGuide(){
+ if(!equipment.drawn||!equipment.aiming||floorName!=='retail'||quest.dialogue)return;
+ const a=player.a,ax=player.x+Math.cos(a)*14,ay=player.y+Math.sin(a)*14;
+ const bx=ax+Math.cos(a)*430,by=ay+Math.sin(a)*430;
+ const fade=g.createLinearGradient(ax,ay,bx,by);
+ fade.addColorStop(0,'rgba(212,69,90,.38)');
+ fade.addColorStop(.35,'rgba(195,51,79,.22)');
+ fade.addColorStop(.8,'rgba(170,45,71,.06)');
+ fade.addColorStop(1,'rgba(170,40,70,0)');
+ g.strokeStyle=fade;g.lineWidth=1.1;g.lineCap='round';g.beginPath();
+ g.moveTo(ax,ay);g.lineTo(bx,by);g.stroke();
+}
+function flashlightBeam(){
+ if(!equipment.drawn||!equipment.light||floorName!=='retail'||equipment.battery<=0)return;
+ if(equipment.strobe&&Math.floor(shopTime*12)%2)return;
+ const a=player.a,ax=player.x+Math.cos(a)*13,ay=player.y+Math.sin(a)*13,d=320;
+ const bx=ax+Math.cos(a)*d,by=ay+Math.sin(a)*d;
+ const gradient=g.createLinearGradient(ax,ay,bx,by);
+ gradient.addColorStop(0,'rgba(255,247,210,.24)');
+ gradient.addColorStop(.54,'rgba(255,236,194,.11)');
+ gradient.addColorStop(1,'rgba(255,224,173,0)');
+ g.save();g.fillStyle=gradient;g.beginPath();g.moveTo(ax,ay);
+ g.lineTo(ax+Math.cos(a-.34)*d,ay+Math.sin(a-.34)*d);
+ g.quadraticCurveTo(bx,by,ax+Math.cos(a+.34)*d,ay+Math.sin(a+.34)*d);
+ g.closePath();g.fill();g.restore();
+}
+function visionOverlay(){
+ if(equipment.vision==='normal')return;
+ g.save();g.fillStyle=equipment.vision==='nvg'?'rgba(25,88,44,.13)':'rgba(144,46,33,.10)';
+ g.fillRect(0,0,canvas.width,canvas.height);g.restore();
 }
 const originalDrawFighter=drawFighter;
 drawFighter=function(p,hero,fall){
@@ -168,7 +140,7 @@ drawFighter=function(p,hero,fall){
  for(const side of [-1,1]){
   rect(-12,side*3-2,5,4,'#987656');rect(-11,side*3-1,3,2,'#c3a078');
  }
- if(weapon==='beretta'){rect(10,1,6,3,'#bc507d');rect(11,1,5,1,'#f097b6')}
+ if(equipment.drawn&&weapon==='beretta'){rect(10,1,6,3,'#bc507d');rect(11,1,5,1,'#f097b6')}
 };
 castLooks.hero=Object.assign({},castLooks.hero,{
  coat:'#292531',edge:'#8d7166',shade:'#3c313b',boot:'#4b332d',
@@ -176,7 +148,7 @@ castLooks.hero=Object.assign({},castLooks.hero,{
  head:'part',kit:'armour'
 });
 const chen={
- x:1090,y:328,a:-Math.PI/2,hp:1,motion:0,step:0,fall:0,
+ x:1262,y:715,a:-Math.PI/2,hp:1,motion:0,step:0,fall:0,
  role:'civilian',look:'chen',civilian:{
   skin:'#bb8b68',hair:'#322e35',coat:'#4b454b',light:'#988879',
   pants:'#31313c',shoes:'#26262f',cut:'longcoat',head:'part',item:'none'
@@ -184,12 +156,16 @@ const chen={
 };
 chen.civilian.frames=makeCivilianFrames(chen.civilian);
 const clerk={
- x:231,y:566,a:0,hp:1,motion:0,step:0,fall:0,role:'civilian',
+ x:530,y:386,a:0,hp:1,motion:0,step:0,fall:0,role:'civilian',
  civilian:{skin:'#a66b50',hair:'#3a2931',coat:'#436067',light:'#95a8a2',
  pants:'#393640',shoes:'#362931',cut:'vest',head:'part',item:'none'}
 };
 clerk.civilian.frames=makeCivilianFrames(clerk.civilian);
-people.push(chen,clerk);
+const mrsChen={x:112,y:588,a:-Math.PI/2,hp:1,motion:0,step:0,fall:0,role:'civilian',
+ civilian:{skin:'#b08267',hair:'#3b2b38',coat:'#57404c',light:'#b7a29b',pants:'#50434f',
+ shoes:'#292532',cut:'longcoat',head:'part',item:'none'}};
+mrsChen.civilian.frames=makeCivilianFrames(mrsChen.civilian);
+people.push(chen,clerk,mrsChen);
 function closeConversation(){
  quest.dialogue=null;document.getElementById('dialogue').hidden=true;hud();
 }
@@ -214,7 +190,7 @@ function nearest(){
  let found=null,distance=Infinity;
  // At the checkout, the shopkeeper takes precedence over the counter
  // display so an E press can start the conversation from the customer side.
- if(near(player,chen)<158)return {name:'Mr. Chen',x:chen.x,y:chen.y,r:158};
+ if(floorName==='retail'&&near(player,chen)<166)return {name:'Mr. Chen',x:chen.x,y:chen.y,r:166};
  const items=props;
  for(const item of items){
   const d=near(player,item);
@@ -226,6 +202,12 @@ function interact(){
  if(quest.dialogue){continueConversation();return;}
  const item=nearest();
  if(!item){quest.message='Move near Mr. Chen or a shop display';quest.messageTime=3;return;}
+ if(item.name==='Return to L1'){goDownstairs();return;}
+ if(item.name==='Mezzanine stairs'){goUpstairs();return;}
+ const door=window.HomeMoreMap.doors.find(d=>d.name===item.name);
+ if(door){window.HomeMoreMap.open(door.id,blocks);quest.message=door.name+' opened';
+   quest.messageTime=3;return;}
+ if(item.name==='Mrs. Chen'){quest.message='Mrs Chen is preparing the payroll in her L1 office.';quest.messageTime=4;return;}
  if(item.name==='Mr. Chen'){
   if(quest.stage==='find_chen'){
    quest.stage='check_shutter';quest.seenChen=true;
@@ -247,7 +229,7 @@ function interact(){
     'Good. Let us remain near the shop.':'Please check the entrance shutter, C.']]);
  }else{
   quest.message=item.text;quest.messageTime=4.5;
-  if(item.name==='Entrance shutter'&&quest.stage==='check_shutter'){
+  if(item.name==='Main glass doors'&&quest.stage==='check_shutter'){
    quest.stage='return';quest.shutter=true;
    beginConversation([
     ['C','The shutter mechanism has jammed, but the doorway is still accessible.'],
@@ -270,7 +252,7 @@ function drawStoryHUD(){
  g.fillStyle='#ffe2b7';g.font='bold 11px monospace';g.fillText(msg,16,24);
  g.fillStyle='#241f2a';g.fillRect(8,canvas.height-27,178,19);
  g.fillStyle='#e7c59c';g.font='bold 10px monospace';
- g.fillText('C · GOLDEN DRAGON / L1',14,canvas.height-14);
+ g.fillText('C · HOME & MORE / '+(floorName==='retail'?'L1':'UPPER')+' / '+(equipment.drawn?'DRAWN':'HOLSTERED'),14,canvas.height-14);
 }
 function drawStoryActors(){
  for(const p of props){
@@ -280,7 +262,7 @@ function drawStoryActors(){
    if(near(player,p)<p.r){rect(p.x-9,p.y-34,18,14,'#2d2430');label('E',p.x-3,p.y-23,'#ffe1b1',12)}
   }
  }
- for(const person of people){
+ for(const person of (floorName==='retail'?people:[])){
   sprite(person,false);
   if(person===chen){
    rect(person.x-24,person.y-32,49,12,'#352632');
@@ -292,17 +274,20 @@ function setQuestMessage(v){quest.message=v;quest.messageTime=3;}
 function shopReset(){
  weapon='beretta';inventory={beretta:{rounds:8,spares:3}};
  rounds=8;spares=3;reload=cool=grace=taxi=passengers=phase=musicTime=musicStep=0;
- player={x:867,y:446,a:-Math.PI/2,hp:3,step:0,flash:0,look:'hero',motion:0,travel:-Math.PI/2};
+ player={x:834,y:827,a:-Math.PI/2,hp:3,step:0,flash:0,look:'hero',motion:0,travel:-Math.PI/2};
  enemies=[];loot=[];particles=[];fx=[];prints=[];drop=null;
  run=crouch=held=press=confirm=false;keys.clear();
  quest.stage='find_chen';quest.dialogue=null;quest.index=0;
  quest.message='Speak to Mr. Chen by the checkout';quest.messageTime=5;
- quest.shutter=quest.seenChen=quest.finished=false;elapsed=0;
+ quest.shutter=quest.seenChen=quest.finished=false;elapsed=0;shopTime=0;
+ equipment.drawn=false;equipment.aiming=false;equipment.light=false;equipment.strobe=false;
+ equipment.vision='normal';equipment.battery=100;
+ g=backdrop;g.clearRect(0,0,W,H);shopMap();g=ctx;g.imageSmoothingEnabled=false;
  document.getElementById('dialogue').hidden=true;
  camera();hud();
 }
 function shopHud(){
- document.querySelector('output').textContent='CHAPTER 1 · GOLDEN DRAGON · '+objective()+
+ document.querySelector('output').textContent='CHAPTER 1 · HOME & MORE · '+objective()+
   '  |  '+(reload?'RELOADING':rounds+' / '+spares+' SPARE')+
   '  ·  '+(run?'RUN':'WALK')+(crouch?' / CROUCH':'');
 }
