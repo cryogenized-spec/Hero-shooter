@@ -120,6 +120,23 @@ def render_atlas(m,prop,dest):
     assert all((a[y*48:(y+1)*48,x*32:(x+1)*32]>12).sum()>30
                for y in range(8) for x in range(8))
 
+
+def equipped_atlas(m,prop,dest):
+    """96-cell male walk/run/idle sheet with a separate prop attached to hand."""
+    stage=Stage(m,(96,144),'game',True)
+    small=Image.new('RGBA',(256,576))
+    for gait_i,gait in enumerate(('idle','walk','run')):
+        for frame in range(4):
+            for col,(_,yaw,_,_) in enumerate(DIR):
+                m.action(gait,frame/4,prop,yaw)
+                im=stage.grab(True).resize((32,48),Image.Resampling.LANCZOS)
+                small.alpha_composite(im,(col*32,(gait_i*4+frame)*48))
+    stage.close()
+    small.save(dest/(prop+'_equipped_gait_32x48.png'))
+    a=np.asarray(small.getchannel('A'))
+    assert all((a[y*48:(y+1)*48,x*32:(x+1)*32]>12).sum()>30
+               for y in range(12) for x in range(8))
+
 def main():
     export_props()
     for config in CONFIGS:
@@ -127,6 +144,7 @@ def main():
         actor=MaleLooter(config)
         for prop in ('brick','stone','knife'):
             render_atlas(actor,prop,dest)
+            equipped_atlas(actor,prop,dest)
             print(config['id'],prop,flush=True)
     (OUT/'README.md').write_text(
         'Reusable male two-link IK gait in generate_looters.py. '
