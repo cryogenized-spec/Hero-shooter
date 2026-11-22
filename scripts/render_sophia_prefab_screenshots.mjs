@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 const address='http://127.0.0.1:8732/sophia-prefab.html';
 await mkdir('prefab-screenshots',{recursive:true});
@@ -33,4 +33,35 @@ try{
    console.log(JSON.stringify({file,meta,consoleErrors:problems.slice(0,3)}));
    await page.close();
  }
+
+ // Exactly the linked character: no alterations to skin, face, hair, outfit or
+ // speed between the ORIGINAL and narrower gait captures.
+ const checks=[];
+ const cases=[
+   ['original_front','front',0],
+   ['narrow_front','front',3],
+   ['narrow_threequarter','threequarter',3]
+ ];
+ for(const [name,view,stance] of cases) {
+   const page=await browser.newPage({viewport:{width:1600,height:1000},deviceScaleFactor:1});
+   const url=address+'?reference=1&shot='+view+'&motion=walk&phase=0.29&stance='+stance;
+   await page.goto(url,{waitUntil:'networkidle',timeout:60000});
+   await page.waitForFunction(()=>window.__sophiaReady||window.__sophiaError,null,{timeout:55000});
+   const error=await page.evaluate(()=>window.__sophiaError);
+   if(error)throw Error(name+': '+error);
+   await page.waitForFunction(()=>window.__sophiaStanceState?.beforeGapM!=null,{timeout:25000});
+   const metrics=await page.evaluate(()=>window.__sophiaStanceState);
+   if(!Number.isFinite(metrics.beforeGapM)||!Number.isFinite(metrics.afterGapM))
+     throw Error(name+' missing foot-width values '+JSON.stringify(metrics));
+   if(stance && !(metrics.afterGapM < metrics.beforeGapM-0.015))
+     throw Error(name+' foot width not reduced enough '+JSON.stringify(metrics));
+   if(!stance && Math.abs(metrics.afterGapM-metrics.beforeGapM)>0.0001)
+     throw Error(name+' baseline was changed '+JSON.stringify(metrics));
+   const file='prefab-screenshots/sophia_user_walk_'+name+'.png';
+   await page.screenshot({path:file,fullPage:true,animations:'disabled'});
+   console.log(JSON.stringify({file,metrics,url}));
+   checks.push({name,stance,metrics});
+   await page.close();
+ }
+ await writeFile('prefab-screenshots/stance_width_audit.json',JSON.stringify(checks,null,2));
 }finally{await browser.close();}
