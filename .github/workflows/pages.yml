@@ -65,6 +65,23 @@ jobs:
               html=html.replace("<div id=\"hint\">",link+"<div id=\"hint\">",1)
               page.write_text(html)
           PY
+      - name: Checkout the verified original-link Sophia gait comparison
+        uses: actions/checkout@v4
+        with:
+          ref: feat/sophia-makehuman-prefab-20261122
+          path: sophia-preview-src
+          persist-credentials: false
+      - name: Publish exact-link Sophia gait comparison at /sophia-walk/
+        run: |
+          src=sophia-preview-src/public
+          dest=dist/sophia-walk
+          mkdir -p "$dest/play/assets/procedural/sophia_prefab"
+          cp "$src/sophia-shared-walk.html" "$dest/index.html"
+          cp "$src/sophia-shared-walk.js" "$dest/sophia-shared-walk.js"
+          cp "$src/play/assets/procedural/sophia_prefab/sophia_from_shared_settings.glb" "$dest/play/assets/procedural/sophia_prefab/sophia_from_shared_settings.glb"
+          test -s "$dest/index.html"
+          test -s "$dest/sophia-shared-walk.js"
+          test -s "$dest/play/assets/procedural/sophia_prefab/sophia_from_shared_settings.glb"
       - name: Ensure Sophia and the VTK arena are in the built website
         run: |
           test -s dist/index.html
