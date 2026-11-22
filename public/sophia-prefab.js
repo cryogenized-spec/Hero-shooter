@@ -80,16 +80,17 @@ function applyPresetMorphs(root){
    if(Number.isInteger(d.weight_min))w[d.weight_min]=.34;
    if(Number.isInteger(d.muscle_min))w[d.muscle_min]=.08;
    if(Number.isInteger(d.height_short))w[d.height_short]=.04;
+   if(Number.isInteger(d.breast_cup_min))w[d.breast_cup_min]=.28;
    // Makeup-free CC0 MakeHuman face sculpt, using existing morph targets:
    for(const [name,value] of Object.entries({
      age_child:.09,
-     face_jaw_width_decr:.24,
+     face_jaw_width_decr:.34,
      face_chin_decr:.12,
      face_nose_length_decr:.13,
      face_nose_width_decr:.1,
-     face_eye_size_incr:.15,
+     face_eye_size_incr:.24,
      face_cheekbones_incr:.10,
-     face_lips_incr:.14
+     face_lips_incr:.18
    }))if(Number.isInteger(d[name]))w[d[name]]=value;
  });
 }
@@ -167,12 +168,13 @@ function colorGear(part,filename,preset){
  if(filename.includes('shirt'))col=preset.clothes.colors.shirt;
  if(filename.includes('jeans'))col=preset.clothes.colors.jeans;
  if(filename.includes('jacket'))col=preset.clothes.colors.jacket;
- part.traverse(o=>{if(o.isMesh)materialTint(o,col,preset.clothes.colors.dressTrim);});
+ part.traverse(o=>{if(o.isMesh)materialTint(o,col,col);});
 }
 async function showOutfit(mode){
  if(!state.root)return;
  const plan=state.preset.clothes[mode]; if(!plan)return;
  state.mode=mode;
+ if(state.belt)state.belt.visible=mode==='gothic_dress';
  for(const obj of state.parts){state.root.remove(obj);}
  state.parts=[];
  for(const f of plan){
@@ -224,6 +226,12 @@ async function init(){
   scene.add(root);state.root=root;
   state.body=body.scene;
   root.add(body.scene);
+  // A narrow belt hides the small seam between the two prefab dress meshes.
+  // Garment/body/hair meshes remain the upstream CC0 assets.
+  const belt=new THREE.Mesh(new THREE.CylinderGeometry(.195,.21,.095,40,1,true),
+    new THREE.MeshStandardMaterial({color:'#211923',roughness:.82,side:THREE.DoubleSide}));
+  belt.position.set(0,1.00,0);belt.scale.z=.83;
+  belt.castShadow=true;belt.visible=false;root.add(belt);state.belt=belt;
   applyPresetMorphs(body.scene);chooseBodySkin(body.scene,preset.base.skin);
   const skins=collectSkinned(body.scene);
   state.rig=skins.sort((a,b)=>b.geometry.attributes.position.count-a.geometry.attributes.position.count)[0];
