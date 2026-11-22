@@ -61,47 +61,29 @@ function box(name,x,y,z,w,d,h,mat,cast=true){
  item.name=name;item.position.set(x,y,z);item.castShadow=cast;item.receiveShadow=true;
  scene.add(item);return item;
 }
-// A modest training yard gives the GLBs readable scale, shadows and movement
-// while leaving the previously approved map and the Canvas 2D shop untouched.
-box('ground',0,0,-.13,42,31,.24,MAT.floor,false);
-for(let x=-19;x<=19;x+=3){
- const pts=[new THREE.Vector3(x,-14.4,.02),new THREE.Vector3(x+1,-14.4,.02)];
- const mark=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:'#b19460'}));
- scene.add(mark);
+// The approved scrapyard GLB replaces temporary boxes, fences and cover.
+// The original arena uses glTF Y-up; this stage's character IK is Z-up, so
+// rotate the entire GLB +90 degrees around X (x,y,z) -> (x,-z,y).
+const YARD_BASE='./assets/procedural/scrapyard/';
+let arenaRoot=null,navgrid=null,arenaLayout=null;
+function isWalkable(x,y){
+ if(!navgrid)return false; // no movement until collision grid is loaded
+ const cell=navgrid.tile_size_m;
+ const col=Math.floor((x+navgrid.width_cells*cell/2)/cell);
+ const row=Math.floor((navgrid.height_cells*cell/2-y)/cell);
+ return row>=0&&row<navgrid.height_cells&&col>=0&&col<navgrid.width_cells&&
+   navgrid.rows[row]?.charAt(col)==='1';
 }
-for(const x of [-20.5,20.5]){
- for(let y=-15;y<=15;y+=3)box('fence post',x,y,1.15,.085,.085,2.3,MAT.metal);
- box('fence rail',x,0,2.1,.07,30,.07,MAT.metal);
+function moveOnGrid(actor,dx,dy,speed,dt){
+ // The authored navgrid is already inflated by 0.35 metres for actor radius.
+ const x=actor.base.position.x,y=actor.base.position.y;
+ const nx=x+dx*speed*dt,ny=y+dy*speed*dt;
+ if(isWalkable(nx,ny)){actor.base.position.set(nx,ny,0);return true;}
+ // Sliding allows a character to follow concrete walls without clipping.
+ if(isWalkable(nx,y)){actor.base.position.x=nx;return true;}
+ if(isWalkable(x,ny)){actor.base.position.y=ny;return true;}
+ return false;
 }
-for(const y of [-15,15]){
- for(let x=-20;x<=20;x+=3)box('fence post',x,y,1.15,.085,.085,2.3,MAT.metal);
- box('fence rail',0,y,2.1,40,.07,.07,MAT.metal);
-}
-for(const [x,y,z,w,d,h] of [
- [-12,9,.75,5.4,2.6,1.5],[-12,9,2.25,5.4,2.6,1.5],
- [12,10,.75,5.0,2.5,1.5],[11,-9,.8,3.5,1.9,1.6]]) {
- box('cargo container',x,y,z,w,d,h,MAT.orange);
- for(let a=-w/2+.3;a<w/2;a+=.45)box('corrugation',x+a,y-d/2-.035,z,.04,.08,h-.09,MAT.rust);
-}
-for(const [x,y,w,angle] of [[-7,-6,2.9,.2],[7,-4,2.4,-.4],[-5,5,3.1,.7],[6,7,2.7,-.3]]){
- const b=box('concrete cover',x,y,.43,w,.62,.86,MAT.cement);
- b.rotation.z=angle;
-}
-for(const [x,y] of [[-10,2],[10,2],[-8,10],[8,-10]]){
- const drum=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.7,32),MAT.rust);
- drum.rotation.x=Math.PI/2; // cylinder default Y-axis, lay along ground depth
- drum.rotation.x=0;
- drum.position.set(x,y,.35);drum.castShadow=true;drum.receiveShadow=true;
- // Turn upright cylinder so it stands along the world's Z axis.
- drum.rotation.x=Math.PI/2;
- scene.add(drum);
-}
-for(const x of [-13,13]) {
- const p=box('light column',x,-11,2.7,.11,.11,5.4,MAT.metal);
- const light=new THREE.PointLight(0xffb064,34,11,2.1);light.position.set(x,-11,5.0);scene.add(light);
- box('lamp',x,-11,5.36,.65,.35,.16,MAT.yellow);
-}
-
 const ASSET_BASE='./assets/procedural/looters/';
 const configs=[
  {id:'looter_23',age:23,stride:.52,cadence:112,build:'lean'},
@@ -235,16 +217,29 @@ window.addEventListener('resize',()=>{
 
 async function initialize(){
  try{
-  const [a,b,c,brick,stone,knife]=await Promise.all([
+  const [a,b,c,brick,stone,knife,yard,grid,layout]=await Promise.all([
    ...configs.map(cfg=>loadGLB.loadAsync(ASSET_BASE+cfg.id+'/'+cfg.id+'_articulated.glb')),
-   ...['brick','stone','knife'].map(kind=>loadGLB.loadAsync(ASSET_BASE+'props/'+kind+'.glb'))
+   ...['brick','stone','knife'].map(kind=>loadGLB.loadAsync(ASSET_BASE+'props/'+kind+'.glb')),
+   loadGLB.loadAsync(YARD_BASE+'scrapyard_arena.glb'),
+   fetch(YARD_BASE+'arena_navgrid.json').then(res=>{if(!res.ok)throw new Error('Scrapyard navgrid unavailable');return res.json();}),
+   fetch(YARD_BASE+'arena_layout.json').then(res=>{if(!res.ok)throw new Error('Scrapyard layout unavailable');return res.json();})
   ]);
+  navgrid=grid;arenaLayout=layout;
+  if(navgrid.width_cells!==100||navgrid.height_cells!==56||arenaLayout.dimension_m.width_x!==50)
+    throw new Error('Scrapyard geometry and collision grid have mismatched dimensions');
+  arenaRoot=yard.scene;
+  arenaRoot.rotation.x=Math.PI/2;
+  arenaRoot.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=true;}});
+  scene.add(arenaRoot);
   for(const [name,gltf] of [['brick',brick],['stone',stone],['knife',knife]])loadedProps.set(name,gltf.scene);
   for(const [i,source] of [a,b,c].entries()){
    const cfg=configs[i],base=new THREE.Group();
    const model=source.scene;
    base.add(model);
-   base.position.set(-3+i*3,0,0);
+   const gate=arenaLayout.spawn_points.find(s=>s.id==='south_gate');
+   if(!gate)throw new Error('Scrapyard south gate spawn is missing');
+   base.position.set(gate.x+(i-1)*1.6,gate.y,gate.z);
+   if(!isWalkable(base.position.x,base.position.y))throw new Error('Scrapyard looter spawn blocked');
    model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
    const joints={};
    for(const name of ['thigh_l','shin_l','foot_l','thigh_r','shin_r','foot_r','arm_l','arm_r']){
@@ -256,7 +251,8 @@ async function initialize(){
   }
   refreshGear();
   loaderNotice.classList.add('hidden');
-  status.textContent='Three articulated VTK characters loaded. WASD to walk, Shift to run.';
+  camera.position.set(7,-20,10);orbit.target.set(0,-11,1.2);orbit.update();
+  status.textContent='50×28 m VTK scrapyard loaded with three articulated characters and obstacle grid.';
  }catch(error){
   loaderNotice.textContent='3D stage could not load: '+error.message;
   loaderNotice.style.color='#ffc3a4';
@@ -287,8 +283,7 @@ function step(now){
   }
   if(motion!=='idle'){
     const speed=motion==='run'?3.1:1.38;
-    a.base.position.x=clamp(a.base.position.x+dx*speed*dt,-17.5,17.5);
-    a.base.position.y=clamp(a.base.position.y+dy*speed*dt,-12,12);
+    if(!moveOnGrid(a,dx,dy,speed,dt)){motion='idle';}
     a.facing=Math.atan2(dx,-dy);
     a.base.rotation.z=a.facing;
   }
@@ -311,6 +306,13 @@ function step(now){
      ' · full resolution '+renderer.domElement.width+' × '+renderer.domElement.height+
      ' · real 3D geometry';
    lastHud=now;
+ }
+ if(actors.length){
+   // Track the selected character while allowing the orbit camera to rotate.
+   const p=actors[selected].base.position;
+   const target=new THREE.Vector3(p.x,p.y,1.2);
+   const shift=target.sub(orbit.target).multiplyScalar(.09);
+   camera.position.add(shift);orbit.target.add(shift);
  }
  orbit.update();renderer.render(scene,camera);
  requestAnimationFrame(step);
