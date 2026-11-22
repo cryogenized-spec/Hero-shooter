@@ -57,6 +57,40 @@ function lantern(x,y){
 }
 const equipment=window.CShopEquipment={drawn:false,aiming:false,light:false,strobe:false,vision:'normal',battery:100};
 let floorName='retail',shopTime=0;
+/* This repository currently contains CC0 P226 WAV reports, NOT a verified
+ * Glock-26 recording. Use the actual available recorded report as an audio
+ * proxy; retain Pine Ridge's .380 'shot' sample until WAV has decoded.
+ * Never label the P226 WAV as a genuine Glock-26 recording.
+ */
+const originalPlayCue=playCue;
+let recordedReports=[],reportsLoading=null,shotVariant=0;
+function loadRecordedReports(){
+ if(reportsLoading||!audio)return reportsLoading;
+ reportsLoading=Promise.all([0,1,2].map(i=>
+  fetch('../c/assets/p226-report-'+i+'.wav').then(r=>{
+   if(!r.ok)throw Error('P226 CC0 sound '+i+' not available');
+   return r.arrayBuffer();
+  }).then(data=>audio.decodeAudioData(data))
+ )).then(samples=>{
+  recordedReports=samples;
+  equipment.gunshot='P226-recorded-proxy';
+ }).catch(e=>{
+  console.warn('Recorded pistol audio unavailable, retaining Pine Ridge sample:',e.message);
+  equipment.gunshot='PineRidge-380-original';
+ });
+ return reportsLoading;
+}
+playCue=function(name,gain,rate=1,portion=1){
+ if(name==='shot'&&recordedReports.length&&audio&&audio.state==='running'){
+  const src=audio.createBufferSource(),out=audio.createGain();
+  src.buffer=recordedReports[(shotVariant++)%recordedReports.length];
+  src.playbackRate.value=1;
+  out.gain.value=Math.max(0,Math.min(.65,gain));
+  src.connect(out);out.connect(audio.destination);src.start();return;
+ }
+ return originalPlayCue(name,gain,rate,portion);
+};
+
 const mapArgs=()=>({rect,circle,label,random,blocks,props,spot});
 function shopMap(){window.HomeMoreMap.build(mapArgs());floorName='retail';}
 function goUpstairs(){
@@ -73,6 +107,7 @@ function goDownstairs(){
 }
 function toggleEquipment(){
  equipment.drawn=!equipment.drawn;
+ if(equipment.drawn)loadRecordedReports();
  if(!equipment.drawn){equipment.aiming=false;equipment.light=false;equipment.strobe=false;}
  quest.message=equipment.drawn?'Pistol drawn — RMB to aim':'Pistol holstered';quest.messageTime=3;hud();
 }
