@@ -92,6 +92,35 @@ jobs:
           t=t.replace('<a id="back"',link+'<a id="back"',1)
           p.write_text(t)
           PY
+      - name: Checkout the actual Pine Ridge overhead Chinese-shop level
+        uses: actions/checkout@v4
+        with:
+          ref: feat/c-chinese-shop-overhead-20261122
+          path: c-shop-src
+          persist-credentials: false
+      - name: Publish C's original-canvas shop chapter at /c-shop/
+        run: |
+          mkdir -p dist/c-shop
+          cp -a c-shop-src/public/c-shop/. dist/c-shop/
+          node --check dist/c-shop/shop-level.js
+          test -s dist/c-shop/index.html
+          test -s dist/c-shop/pine-ridge-original.html
+          test -s dist/c-shop/c-reference.webp
+          grep -q 'const pcmAssets=' dist/c-shop/index.html
+          grep -q 'W=1380,H=900' dist/c-shop/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          for page,href in [
+              (Path('dist/index.html'),'c-shop/'),
+              (Path('dist/sophia/index.html'),'../c-shop/'),
+              (Path('dist/c/index.html'),'../c-shop/')
+          ]:
+              html=page.read_text()
+              link=f'<a href="{href}" style="position:fixed;z-index:9;right:16px;bottom:15px;padding:9px 12px;background:#372530;border:1px solid #e3b579;color:#ffe1b8;border-radius:7px;font:700 12px system-ui;text-decoration:none">C · CHINESE SHOP (2D)</a>'
+              if '<body>' in html:
+                  html=html.replace('<body>','<body>'+link,1)
+                  page.write_text(html)
+          PY
       - name: Checkout the verified original-link Sophia gait comparison
         uses: actions/checkout@v4
         with:
@@ -146,6 +175,9 @@ jobs:
           test -s dist/c/assets/C_pink_compact_pistol.glb.gz
           test -s dist/sophia/play/assets/procedural/sophia/sophia_v33_articulated.glb
           test -s dist/sophia/play/assets/procedural/scrapyard/scrapyard_arena.glb
+          test -s dist/c-shop/index.html
+          test -s dist/c-shop/shop-level.js
+          test -s dist/c-shop/pine-ridge-original.html
           test -s dist/sophia-outfit/index.html
           test -s dist/sophia-outfit/sophia-gothic-accents.js
           test -s dist/sophia-outfit/play/assets/procedural/sophia_prefab/sophia_gothic_street.glb
