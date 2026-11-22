@@ -1,0 +1,47 @@
+name: QA Sophia gothic wardrobe WebGL
+on:
+  push:
+    branches: [feat/sophia-gothic-wardrobe-20261122]
+    paths:
+      - 'public/sophia-wardrobe.js'
+      - 'public/sophia-wardrobe.html'
+      - 'public/sophia-gothic-accents.js'
+      - 'scripts/qa_sophia_gothic_wardrobe.mjs'
+      - '.github/workflows/qa-sophia-gothic-wardrobe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify generated glTF clothes and viewer source
+        run: |
+          test -s public/play/assets/procedural/sophia_prefab/sophia_gothic_street.glb
+          test -s public/play/assets/procedural/sophia_prefab/sophia_gothic_dress.glb
+          node --check public/sophia-wardrobe.js
+          node --check public/sophia-gothic-accents.js
+          node --check scripts/qa_sophia_gothic_wardrobe.mjs
+          npm run check
+          npm test
+          npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Render and inspect actual 3D garments
+        run: |
+          python3 -m http.server 8732 --directory public >/tmp/sophia-wardrobe-http.log 2>&1 &
+          sleep 2
+          node scripts/qa_sophia_gothic_wardrobe.mjs
+      - name: Upload original full-resolution outfit screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: sophia-gothic-wardrobe-webgl-screenshots
+          path: gothic-screenshots/
+          retention-days: 30
