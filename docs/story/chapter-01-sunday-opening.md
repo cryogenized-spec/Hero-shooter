@@ -4,7 +4,7 @@
 
 ## Core setting
 - Sunday morning at a sizeable family-owned general-merchandise store in the Value Wing on L1 of Pine Ridge Mall.
-- Mr. Chen's fictional shop name is **not yet decided**. "Golden Dragon" is a legacy placeholder; alternatives discussed include "Home & More", "Good Value" and a simple high-street name.
+- Mr. Chen's shop is **Home & More** (approved). The visual design for the L1 sales floor is confirmed in [the approved shop artwork brief](../art/home-and-more-shop-approved.md). "Golden Dragon" is a deprecated placeholder in legacy chapter material.
 - Store contains shelves with varied household goods, electronics, appliances, tills, partial stock pallets, a water dispenser, a private administrative office for Mrs. Chen, a workers' canteen, a secure stockholding room and a rear service access.
 - L1 service corridor and a freight lift connect to receiving/dispatch on G; staff move wrapped pallets with a pallet jack. The whole mall footprint is intentionally **not size-capped** during architectural planning.
 - Partial LED/fluorescent lighting, as the store is closed to ordinary Sunday retail traffic. Working/receiving aisles are lit; other rows are dimmer.

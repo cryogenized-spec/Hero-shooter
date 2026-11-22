@@ -4,7 +4,11 @@ export function drawArmedC(ctx, actor, weapon) {
         actor.hasMolleVest || actor.nvgEquipped || typeof Image === 'undefined') return false;
     if (!armedAtlas) {
         armedAtlas = new Image();
-        armedAtlas.src = new URL('../play/c-glock-ready.svg', import.meta.url).href;
+        // Repository-root Pages serves the game under /public/, unlike dist/ Pages.
+        const sourceHosted=typeof location!=='undefined' &&
+            /\/public\/(?:training|play)\//.test(location.pathname);
+        armedAtlas.src = new URL(sourceHosted ? '../public/play/c-glock-ready.svg' :
+            '../play/c-glock-ready.svg', import.meta.url).href;
     }
     if (!armedAtlas.complete || !armedAtlas.naturalWidth) return false;
     const direction = ((Math.round((actor.angle - Math.PI/2) / (Math.PI/4)) % 8) + 8) % 8;
