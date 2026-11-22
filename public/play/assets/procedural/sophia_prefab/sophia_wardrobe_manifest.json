@@ -19,6 +19,12 @@
         "jacket": "201923",
         "boots": "15151b"
       },
+      "secondary": {
+        "bra": "100d14",
+        "panties": "100d14",
+        "jacket": "19121d",
+        "boots": "121219"
+      },
       "description": "dark skirt, fitted open-front jacket, black boots, dark base layer",
       "sourceURL": "https://dionysus.dk/webxr/charactercreator/?lang=en&sex=female&cp=0.119%2C1.198%2C3.432%2C-0.107%2C1.003%2C-0.005&breastSize=0.79&breastFirmness=0.54&breastHeight=0.88&breastSpacing=-0.58&breastProjection=0.46&skin=63452c&hair=long01&outfit=panties%2Cbra%2Cskirt%2Cjacket%2Cboots&underwear=0&col=panties%3A000000%2Cbra%3A000000%2Cskirt%3A26151f%2Cjacket%3A201923%2Cboots%3A15151b&clip=walk&speed=0.65&look=off",
       "settings": {
@@ -67,26 +73,26 @@
         "clothColors": {
           "panties": {
             "primary": "#000000",
-            "secondary": "#b58a9c"
+            "secondary": "#100d14"
           },
           "bra": {
             "primary": "#000000",
-            "secondary": "#b58a9c"
+            "secondary": "#100d14"
           },
           "skirt": {
             "primary": "#26151f"
           },
           "jacket": {
             "primary": "#201923",
-            "secondary": "#4a3526"
+            "secondary": "#19121d"
           },
           "boots": {
             "primary": "#15151b",
-            "secondary": "#2a1f17"
+            "secondary": "#121219"
           }
         }
       },
-      "bytes": 4090816,
+      "bytes": 4084064,
       "animations": [
         "idle",
         "walk",
@@ -111,6 +117,12 @@
         "bra": "000000",
         "dress": "291822",
         "boots": "15151b"
+      },
+      "secondary": {
+        "bra": "100d14",
+        "panties": "100d14",
+        "dress": "18131c",
+        "boots": "121219"
       },
       "description": "deep wine-black dress and black boots; corset jewellery applied in viewer",
       "sourceURL": "https://dionysus.dk/webxr/charactercreator/?lang=en&sex=female&cp=0.119%2C1.198%2C3.432%2C-0.107%2C1.003%2C-0.005&breastSize=0.79&breastFirmness=0.54&breastHeight=0.88&breastSpacing=-0.58&breastProjection=0.46&skin=63452c&hair=long01&outfit=panties%2Cbra%2Cdress%2Cboots&underwear=0&col=panties%3A000000%2Cbra%3A000000%2Cdress%3A291822%2Cboots%3A15151b&clip=walk&speed=0.65&look=off",
@@ -159,23 +171,23 @@
         "clothColors": {
           "panties": {
             "primary": "#000000",
-            "secondary": "#b58a9c"
+            "secondary": "#100d14"
           },
           "bra": {
             "primary": "#000000",
-            "secondary": "#b58a9c"
+            "secondary": "#100d14"
           },
           "dress": {
             "primary": "#291822",
-            "secondary": "#221c1e"
+            "secondary": "#18131c"
           },
           "boots": {
             "primary": "#15151b",
-            "secondary": "#2a1f17"
+            "secondary": "#121219"
           }
         }
       },
-      "bytes": 3984528,
+      "bytes": 3980760,
       "animations": [
         "idle",
         "walk",
