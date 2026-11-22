@@ -5,6 +5,9 @@ on:
     branches: [feat/sophia-makehuman-prefab-20261122]
     paths:
       - 'scripts/export_sophia_link.mjs'
+      - 'scripts/qa_sophia_shared_walk.mjs'
+      - 'public/sophia-shared-walk.js'
+      - 'public/sophia-shared-walk.html'
       - '.github/workflows/export-sophia-shared-creator.yml'
 permissions:
   contents: write
@@ -25,6 +28,13 @@ jobs:
         run: |
           node --check scripts/export_sophia_link.mjs
           node scripts/export_sophia_link.mjs
+      - name: Verify exact GLB in playable Three.js stance viewer
+        run: |
+          node --check public/sophia-shared-walk.js
+          node --check scripts/qa_sophia_shared_walk.mjs
+          python3 -m http.server 8732 --directory public >/tmp/sophia-stance-server.log 2>&1 &
+          sleep 2
+          node scripts/qa_sophia_shared_walk.mjs
       - name: Verify GLB and source settings
         run: |
           test -s public/play/assets/procedural/sophia_prefab/sophia_from_shared_settings.glb
@@ -34,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sophia-original-site-exact-character
-          path: prefab-screenshots/user_sophia_original_creator.png
+          path: prefab-screenshots/*.png
           retention-days: 30
       - name: Commit exact exported model and provenance
         run: |
