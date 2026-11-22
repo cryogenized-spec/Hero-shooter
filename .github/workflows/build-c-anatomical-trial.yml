@@ -33,6 +33,7 @@ jobs:
           name: C-anatomical-MakeHuman-trial
           path: .c-anatomical-output/
           retention-days: 30
+          include-hidden-files: true
       - name: Commit lightweight comparison preview to trial branch
         if: startsWith(github.ref, 'refs/heads/feat/c-anatomical-makehuman-trial')
         run: |
