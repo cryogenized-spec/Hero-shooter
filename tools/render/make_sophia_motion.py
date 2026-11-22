@@ -45,16 +45,89 @@ def about(p,m):return move(*p)@m@move(*(-np.array(p)))
 
 
 def add_chrome_prop(m):
- """Nonfunctional game prop silhouette; parts stay distinct from the costume."""
+ """Stylized Cheetah-family prop: 7.65 mm / slim single-stack visual profile.
+
+ The accepted character backstory calls it an 84FS, but a real 84FS is a
+ 9 mm short double-stack pistol. A 7.65-mm single-stack is the Model 82.
+ For Hero Shooter this cosmetic reference is deliberately based on the Model
+ 82-like slim grip shape while preserving the story's polished Cheetah look.
+
+ Fixed 3D hand-space: -Z is muzzle-forward in a lowered pose, rotated by
+ exactly +90 degrees around the shoulder when sighted straight ahead (+Y).
+ The barrel / sights have identical X and Y centerlines: zero prop skew.
+ These are silhouette surfaces only, not functional/mechanical gun parts.
+ """
  x=-.435
- m.cube('prop/beretta84fs/chromed_slide',(x,.165,.756),(.069,.076,.182),'silver_hi',metal=.96)
- m.cube('prop/beretta84fs/receiver',(x,.150,.840),(.079,.084,.101),'silver',metal=.80)
- m.cube('prop/beretta84fs/nylon_grip',(x,.132,.916),(.062,.065,.117),'shadow',metal=.01)
- m.cube('prop/beretta84fs/grip_checker',(x,.170,.912),(.050,.012,.060),'corset_panel')
- m.cube('prop/beretta84fs/front_sight',(x,.161,.672),(.020,.016,.018),'silver_dark',metal=.40)
- m.cube('prop/beretta84fs/rear_sight',(x,.161,.838),(.029,.017,.020),'silver_dark',metal=.40)
- m.cube('prop/beretta84fs/muzzle',(x,.165,.660),(.050,.056,.010),'silver_dark',metal=.45)
- m.cube('prop/beretta84fs/trigger_guard',(x,.213,.860),(.063,.015,.056),'silver',metal=.70)
+ thickness=.044
+ def extrusion(name, outline, material, thick=thickness, metal=.75):
+  pts=[]
+  for xx in (x-thick/2,x+thick/2):
+   pts.extend([(xx,float(y),float(z)) for y,z in outline])
+  n=len(outline);faces=[]
+  for i in range(1,n-1):
+   faces.append((0,i,i+1));faces.append((n,n+i+1,n+i))
+  for i in range(n):
+   j=(i+1)%n
+   faces.extend([(i,j,n+j),(i,n+j,n+i)])
+  return m.grid_surface(name,pts,faces,material,metal=metal)
+
+ grip=[(.128,.840),(.155,.833),(.172,.859),(.155,.890),
+       (.119,.928),(.080,.953),(.048,.953),(.030,.940),
+       (.024,.908),(.038,.872),(.073,.840)]
+ extrusion('prop/beretta84fs/ergonomic_slim_grip',grip,'silver_dark',thick=.038,metal=.42)
+ inset=[(.125,.859),(.146,.861),(.143,.881),(.111,.914),
+        (.074,.932),(.055,.930),(.052,.909),(.066,.872)]
+ for s in (-1,1):
+  xx=x+s*.022
+  v=[(xx,y,z) for y,z in inset]
+  faces=[(0,i,i+1) for i in range(1,len(v)-1)]
+  m.grid_surface('prop/beretta84fs/contoured_black_grip_panel',v,faces,'shadow',metal=.03)
+  for i in range(3):
+   mz=.885+.015*i; my=.102-.012*i
+   m.tube('prop/beretta84fs/grip_checkering',
+          [(xx+s*.001,my-.014,mz-.010),(xx+s*.001,my+.019,mz+.009)],
+          .00165,'silver_dark',edges=6,metal=.12)
+
+ frame=[(.145,.813),(.203,.811),(.210,.831),(.201,.864),
+        (.176,.877),(.143,.872),(.122,.858)]
+ extrusion('prop/beretta84fs/curved_receiver',frame,'silver',thick=.045,metal=.88)
+
+ # Tapered open-top slide instead of a Glock-like solid rectangle.
+ slide=[(.162,.657),(.201,.657),(.211,.668),(.213,.806),
+        (.205,.826),(.179,.836),(.160,.827),(.153,.806),(.154,.680)]
+ extrusion('prop/beretta84fs/rounded_open_slide',slide,'silver_hi',thick=.046,metal=.91)
+ m.tube('prop/beretta84fs/slide_cutout_shadow',
+        [(x,.217,.702),(x,.217,.789)],.007,'silver_dark',edges=10,metal=.15)
+ m.tube('prop/beretta84fs/exposed_barrel_glint',
+        [(x,.222,.699),(x,.222,.768)],.0035,'silver',edges=9,metal=.85)
+
+ # Closed hollow guard, situated underneath the slide, not above it.
+ guard_yz=[(.159,.808),(.145,.798),(.123,.800),(.108,.814),
+           (.106,.835),(.117,.850),(.137,.859),(.158,.854)]
+ for xx in (x-.024,x+.024):
+  m.tube('prop/beretta84fs/rounded_trigger_guard',
+         [(xx,y,z) for y,z in guard_yz],.0045,'silver',
+         edges=9,metal=.80,closed=True)
+ m.tube('prop/beretta84fs/trigger_curve',
+        [(x-.026,.139,.819),(x-.027,.132,.824),(x-.027,.127,.841)],
+        .0032,'silver_dark',edges=9,metal=.40)
+
+ # Aligned front/rear sights and a cosmetic dark muzzle disk.
+ m.cube('prop/beretta84fs/front_sight',(x,.223,.662),
+        (.018,.012,.016),'silver_dark',metal=.30)
+ m.cube('prop/beretta84fs/rear_sight',(x,.223,.822),
+        (.020,.013,.014),'silver_dark',metal=.30)
+ m.ell('prop/beretta84fs/dark_muzzle',(x,.181,.649),
+       (.020,.016,.005),'silver_dark',res=14,metal=.1)
+ m.ell('prop/beretta84fs/hammer_nub',(x,.186,.849),
+       (.016,.024,.017),'silver',res=14,metal=.86)
+ for sign in (-1,1):
+  xx=x+sign*.026
+  for k in range(4):
+   z=.796+k*.009
+   m.tube('prop/beretta84fs/rear_slide_serration',
+          [(xx,.164,z),(xx,.205,z+.003)],
+          .0015,'silver_dark',edges=6,metal=.13)
 
 
 class SophiaMotion:
@@ -120,8 +193,8 @@ class SophiaMotion:
    if weapon_pose=='aimed':
     # Sight-line pose: pistol and supporting hand project outward with face.
     # Rotations are deterministic visual pose parameters, not procedural aim logic.
-    angle_x=80 if side<0 else 77
-    angle_z=-11 if side<0 else 38
+    angle_x=90 if side<0 else 88
+    angle_z=0 if side<0 else 57
    else:
     angle_x=(5 if running else 3) * -s * (1 if side<0 else -1)
     angle_z=0
@@ -184,14 +257,15 @@ def export(model):
  model.pose(0,0,'idle','lowered')
  glb,info=source.export_glb(model.model)
  shutil.copy2(glb,OUT/'sophia_v3_3_with_chrome_84fs_unrigged.glb')
- meta={'model':'Sophia/Saafiya approved v3.3 face/corset; 3D procedural articulation v3.4',
+ meta={'model':'Sophia/Saafiya approved v3.3 face/corset; 3D procedural articulation v3.5',
        'base_model':'sophia_saafiya_studio_v3_3_builder.py','world_axis':'+Z up +Y front +X anatomical left',
        'camera_elevation_degrees':58,'direction_order':list(DIRS.keys()),
-       'cell_px':list(FRAME),'weapon':'chrome Beretta 84FS appearance prop (nonfunctional)',
+       'cell_px':list(FRAME),'weapon':'chrome slim-profile Cheetah-style cosmetic prop (84FS story designation; 82-like 7.65 mm single-stack proportions, nonfunctional)',
        'weapon_poses':['lowered at side','aimed outward'],
        'atlas_layout':'eight direction rows, eight chronological frame columns (idle uses one column)',
        'atlases':atlas_manifest, 'facing':'positive screen X right, positive screen Y down; S face, N back',
        'status':'unrigged GLB + code-articulated pre-rendered sprites',
+       'gun_profile_reference':{'family':'Beretta Cheetah 80-series','story_model':'84FS','historical_single_stack_7_65':'Model 82','single_stack_width_reference_mm':30,'slide_axis':'straight -Z in rest prop space, +Y in aimed space','geometry':'stylized cosmetic silhouette; no operable firearm mechanism'},
        'limitations':['v3.3 GLB has no bones or deforming skin weights','arm rotation is procedural whole-piece articulation, jacket intersections may require cleanup','sprite atlases are suitable for inspection before game-scale approval']}
  (OUT/'sophia_motion_metadata.json').write_text(json.dumps(meta,indent=2))
  for item in OUT.glob('sophia_*_8way.png'):
