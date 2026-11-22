@@ -20,11 +20,9 @@ function hoop(root,r=.016,wire=.0024,mat=silver){
  return add(root,m);
 }
 function crescent(root){
- const sh=new THREE.Shape(),outer=[],inner=[];
- for(let i=0;i<=30;i++){const a=(-.75+1.5*i/30)*Math.PI;outer.push([.026*Math.cos(a),.038*Math.sin(a)]);}
- for(let i=30;i>=0;i--){const a=(-.75+1.5*i/30)*Math.PI;inner.push([.019*Math.cos(a)+.013,.029*Math.sin(a)]);}
- sh.moveTo(...outer[0]);for(const p of [...outer.slice(1),...inner])sh.lineTo(...p);sh.closePath();
- return add(root,new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.002,bevelEnabled:true,bevelSize:.0005,bevelThickness:.0005}),silver));
+ const mesh=add(root,new THREE.Mesh(new THREE.TorusGeometry(.026,.0049,8,36,Math.PI*1.40),silver));
+ mesh.rotation.z=-.52;
+ return mesh;
 }
 function diamondNet(r0,r1){
  const vertices=[],ns=20,nrings=13;
@@ -68,7 +66,7 @@ export function dressWithGothicDetails(model,look='street'){
  const neckChain=own(pipe(world,[[-.10,.025,0],[-.06,-.035,.01],[0,-.11,.014],[.06,-.035,.01],[.10,.025,0]],silver,.0018));
  const bodyStraps=[own(hoop(world,.145,.008,leather)),own(hoop(world,.14,.008,leather))];
  bodyStraps.forEach(o=>o.rotation.x=Math.PI/2);
- const clasp=[0,1].map(()=>own(add(world,new THREE.Mesh(new THREE.BoxGeometry(.034,.032,.007),silver))));
+ const clasp=[0,1].map(()=>own(add(world,new THREE.Mesh(new THREE.BoxGeometry(.027,.024,.005),silver))));
  const hipChains=[
   own(pipe(world,[[-.18,.02,.11],[-.13,-.05,.15],[-.03,-.10,.16],[.09,-.09,.15],[.17,.02,.09]],silver,.0020)),
   own(pipe(world,[[-.18,.02,.11],[-.12,-.09,.15],[.015,-.13,.16],[.17,.02,.09]],silver,.0019))
@@ -77,16 +75,19 @@ export function dressWithGothicDetails(model,look='street'){
  // the long-sleeve jacket/skirt and boots remain ready-made CC0 assets.
  const corset=own(add(world,new THREE.Mesh(
   new THREE.CylinderGeometry(.146,.136,.33,40,1,true,-Math.PI/2,Math.PI),corsetMaterial)));
- const net={},buckles={};
+ const net={},buckles={},shafts={};
  for(const side of ['l','r']){
   const thigh=own(new THREE.LineSegments(diamondNet(.072,.059),netMaterial));
   const shin=own(new THREE.LineSegments(diamondNet(.062,.053),netMaterial));
   thigh.frustumCulled=false;shin.frustumCulled=false;world.add(thigh,shin);
   net[side]={thigh,shin};
+  const shaft=own(add(world,new THREE.Mesh(
+    new THREE.CylinderGeometry(.068,.061,1,32,1,true),leather)));
+  shafts[side]=shaft;
   buckles[side]=[];
   for(let i=0;i<3;i++){
-   const ring=own(hoop(world,.075,.009,leather));
-   const plate=own(add(world,new THREE.Mesh(new THREE.BoxGeometry(.028,.024,.008),silver)));
+   const ring=own(hoop(world,.063,.004,leather));
+   const plate=own(add(world,new THREE.Mesh(new THREE.BoxGeometry(.024,.020,.005),silver)));
    buckles[side].push({ring,plate});
   }
  }
@@ -114,12 +115,15 @@ export function dressWithGothicDetails(model,look='street'){
    const hip=pos['thigh_'+side],knee=pos['calf_'+side],ankle=pos['foot_'+side];
    const ab=(a,b,t)=>a.clone().lerp(b,t);
    segment(net[side].thigh,ab(hip,knee,look==='dress'?.86:.42),ab(hip,knee,.93));
-   segment(net[side].shin,ab(knee,ankle,.08),ab(knee,ankle,.46));
+   // Calf-high black boot shaft overlays the bare shin of the upstream
+   // short shoes, without modifying the original geometry or animation.
+   segment(shafts[side],ab(knee,ankle,.32),ab(knee,ankle,.96));
+   net[side].shin.visible=false;
    for(let i=0;i<3;i++){
     const p=ab(knee,ankle,.43+i*.16);
     const set=buckles[side][i];set.ring.position.copy(p);
     set.ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),ankle.clone().sub(knee).normalize());
-    set.plate.position.copy(p);set.plate.position.z+=.078;
+    set.plate.position.copy(p);set.plate.position.z+=.063;
    }
   }
  }
