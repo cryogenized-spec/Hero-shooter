@@ -480,6 +480,7 @@ function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   if (isSaafiya && drawNpcAtlas(ctx,actor,'saafiya.svg')) return;
   if (selected==='family-father' && drawNpcAtlas(ctx,actor,'mr-chen.svg')) return;
   if (selected==='family-son' && drawNpcAtlas(ctx,actor,'wei-chen.svg')) return;
+  if (selected==='family-mother' && drawNpcAtlas(ctx,actor,'mrs-chen.svg')) return;
   const colors=NPC_SPRITE_COLORS[selected] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
   if (Object.hasOwn(familyArt,selected)) drawChen(ctx,actor,selected);
