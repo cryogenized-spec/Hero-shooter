@@ -1,0 +1,88 @@
+name: Build Sophia MakeHuman CC0 prefab and screenshots
+on:
+  push:
+    branches: [feat/sophia-makehuman-prefab-20261122]
+    paths:
+      - '.github/workflows/sophia-makehuman-prefab.yml'
+      - 'public/sophia-prefab.html'
+      - 'public/sophia-prefab.js'
+      - 'public/play/assets/procedural/sophia_prefab/preset.json'
+      - 'public/play/assets/procedural/sophia_prefab/user_sophia_reference.json'
+      - 'scripts/render_sophia_prefab_screenshots.mjs'
+      - 'tests/sophia-prefab.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prefab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout CC0-only generated MakeHuman assets from public source
+        uses: actions/checkout@v4
+        with:
+          repository: kblood/CharacterCreator
+          ref: 852e48f316b90a0937234886630e4fb4cdfd1f78
+          path: prefab-cc0-source
+          sparse-checkout: |
+            output
+            LICENSE-NOTES.md
+          persist-credentials: false
+      - name: Copy pinned CC0 GLBs, do not import upstream GPL code
+        run: |
+          set -eu
+          target=public/play/assets/procedural/sophia_prefab
+          mkdir -p "$target"
+          for file in base_body_anim.glb hair_long01.glb clothing_dress.glb clothing_boots.glb clothing_shirt.glb clothing_jeans.glb clothing_jacket.glb clothing_panties.glb clothing_bra.glb; do
+            test -s "prefab-cc0-source/output/$file"
+            cp "prefab-cc0-source/output/$file" "$target/$file"
+          done
+          cp prefab-cc0-source/output/clothing.json "$target/clothing.json"
+          cp prefab-cc0-source/LICENSE-NOTES.md "$target/UPSTREAM_LICENSE-NOTES.md"
+          ls -lh "$target/" | tail -15
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify the game and the new prefab
+        run: |
+          npm run check
+          node --check public/sophia-prefab.js
+          node --check scripts/render_sophia_prefab_screenshots.mjs
+          npm test
+          npm run build
+          test -s dist/sophia-prefab.html
+          test -s dist/sophia-prefab.js
+          test -s dist/play/assets/procedural/sophia_prefab/base_body_anim.glb
+          test -s dist/play/assets/procedural/sophia_prefab/clothing_panties.glb
+          test -s dist/play/assets/procedural/sophia_prefab/clothing_bra.glb
+          test -s dist/play/assets/procedural/sophia_prefab/user_sophia_reference.json
+      - name: Install Chromium for actual WebGL renders
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Render real screenshot QA
+        run: |
+          python3 -m http.server 8732 --directory public >/tmp/hero-prefab-http.log 2>&1 &
+          echo $! >/tmp/hero-prefab-http.pid
+          sleep 2
+          node scripts/render_sophia_prefab_screenshots.mjs
+      - name: Upload full-resolution original WebGL screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: sophia-makehuman-CC0-real-screenshots
+          path: prefab-screenshots/*.png
+          retention-days: 30
+      - name: Commit allowed game assets to the review branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/play/assets/procedural/sophia_prefab
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "assets: import pinned CC0 MakeHuman body, clothes and hair for Sophia prefab"
+          for attempt in 1 2 3; do
+            git fetch origin "$GITHUB_REF_NAME"
+            git rebase "origin/$GITHUB_REF_NAME"
+            if git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+          done
+          exit 1
