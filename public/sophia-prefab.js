@@ -44,7 +44,7 @@ const key=light(0xffd9ba,3.0,[-4,8,4]);key.castShadow=true;
 key.shadow.mapSize.set(2048,2048);key.shadow.camera.left=-5;key.shadow.camera.right=5;
 key.shadow.camera.top=5;key.shadow.camera.bottom=-5;key.shadow.normalBias=.03;
 light(0xb1a0d9,1.2,[4,4,-3]);light(0xffffff,.65,[0,6,5]);
-const state={preset:null,root:null,body:null,rig:null,clips:[],mixer:null,parts:[],mode:'gothic_dress',animation:'idle',reference:null,stanceDegrees:3.0,activeClip:null,activeAction:null,legBones:null};
+const state={preset:null,root:null,body:null,rig:null,clips:[],mixer:null,parts:[],mode:'gothic_dress',animation:'idle',reference:null,stanceDegrees:2.0,activeClip:null,activeAction:null,legBones:null};
 const tmpAxis=new THREE.Vector3(),tmpQ=new THREE.Quaternion(),tmpP=new THREE.Quaternion(),tmpW=new THREE.Quaternion();
 const tmpL=new THREE.Vector3(),tmpR=new THREE.Vector3();
 function footSeparation(){
@@ -71,7 +71,7 @@ function narrowStepWidth(){
    bone.updateMatrixWorld(true);
  }
  const theta=THREE.MathUtils.degToRad(state.stanceDegrees);
- for(const [suffix,sign] of [['_l',-1],['_r',1]]){
+ for(const [suffix,sign] of [['_l',1],['_r',-1]]){
    rotateWorld(state.legBones['thigh'+suffix],sign*theta*.72);
    rotateWorld(state.legBones['calf'+suffix],sign*theta*.28);
    rotateWorld(state.legBones['foot'+suffix],-sign*theta);
@@ -264,7 +264,7 @@ function chooseStance(value){
  if(stance)stance.value=String(state.stanceDegrees);
  if(stanceLabel)stanceLabel.textContent=state.stanceDegrees.toFixed(1)+'°';
 }
-chooseStance(qs.has('stance')?qs.get('stance'):3);
+chooseStance(qs.has('stance')?qs.get('stance'):2);
 if(stance)stance.addEventListener('input',()=>chooseStance(stance.value));
 $('#snapshot').addEventListener('click',()=>{
  renderer.render(scene,camera);
