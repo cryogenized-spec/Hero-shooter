@@ -1,0 +1,86 @@
+name: Enrich Pine Ridge scrapyard with Poly Haven CC0 models
+
+on:
+  pull_request:
+    paths:
+      - 'tools/render/enrich_scrapyard_polyhaven.py'
+      - '.github/workflows/enrich-scrapyard-polyhaven.yml'
+      - 'sophia/play/assets/procedural/scrapyard/arena_layout.json'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/render/enrich_scrapyard_polyhaven.py'
+      - '.github/workflows/enrich-scrapyard-polyhaven.yml'
+      - 'sophia/play/assets/procedural/scrapyard/arena_layout.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-polyhaven:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install minimal headless mesh import prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y xvfb libgl1 libxrender1 libsm6
+          python -m pip install --quiet numpy requests trimesh vtk pillow
+      - name: Download real Poly Haven 1k glTF models and enrich existing yard
+        run: |
+          xvfb-run -a python tools/render/enrich_scrapyard_polyhaven.py
+      - name: Verify exported scene and preserved collisions
+        run: |
+          python - <<'PY'
+          import json, pathlib, trimesh
+          root=pathlib.Path('sophia/play/assets/procedural/scrapyard')
+          result=json.loads((root/'arena_polyhaven_manifest.json').read_text())
+          assert result['instances']==30, result['instances']
+          assert len(result['asset_sources'])==3
+          assert result['original_scene_nodes']<result['enriched_scene_nodes']
+          assert result['collisions_unchanged'] and result['navgrid_unchanged']
+          scene=trimesh.load(root/'scrapyard_arena_polyhaven.glb',force='scene')
+          keys=set(scene.geometry)
+          assert any('polyhaven__barrel_03' in k for k in keys)
+          assert any('polyhaven__old_tyre' in k for k in keys)
+          assert any('polyhaven__rusted_wheel_rim_02' in k for k in keys)
+          assert len(scene.graph.nodes_geometry)>result['original_scene_nodes']
+          assert (root/'scrapyard_polyhaven_preview.webp').stat().st_size>10000
+          print('Imported',result['instances'],'actual Poly Haven models; GLB valid')
+          PY
+      - name: Publish inspectable PR build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrapyard-polyhaven-3d-preview
+          if-no-files-found: error
+          retention-days: 10
+          path: |
+            sophia/play/assets/procedural/scrapyard/scrapyard_arena_polyhaven.glb
+            sophia/play/assets/procedural/scrapyard/scrapyard_polyhaven_preview.webp
+            sophia/play/assets/procedural/scrapyard/scrapyard_polyhaven_preview.png
+            sophia/play/assets/procedural/scrapyard/arena_polyhaven_manifest.json
+      - name: Commit new asset variant to main (never overwrite the base GLB)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sophia/play/assets/procedural/scrapyard/scrapyard_arena_polyhaven.glb \
+                  sophia/play/assets/procedural/scrapyard/scrapyard_polyhaven_preview.webp \
+                  sophia/play/assets/procedural/scrapyard/scrapyard_polyhaven_preview.png \
+                  sophia/play/assets/procedural/scrapyard/arena_polyhaven_manifest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'assets: import Poly Haven CC0 scrapyard details (30 instances)'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          echo 'Could not push new assets without overwriting concurrent changes' >&2
+          exit 1
