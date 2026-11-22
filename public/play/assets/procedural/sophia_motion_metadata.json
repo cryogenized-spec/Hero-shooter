@@ -1,0 +1,143 @@
+{
+  "model": "Sophia/Saafiya approved v3.3 face/corset; 3D procedural articulation v3.4",
+  "base_model": "sophia_saafiya_studio_v3_3_builder.py",
+  "world_axis": "+Z up +Y front +X anatomical left",
+  "camera_elevation_degrees": 58,
+  "direction_order": [
+    "S",
+    "SW",
+    "W",
+    "NW",
+    "N",
+    "NE",
+    "E",
+    "SE"
+  ],
+  "cell_px": [
+    176,
+    224
+  ],
+  "weapon": "chrome Beretta 84FS appearance prop (nonfunctional)",
+  "weapon_poses": [
+    "lowered at side",
+    "aimed outward"
+  ],
+  "atlas_layout": "eight direction rows, eight chronological frame columns (idle uses one column)",
+  "atlases": {
+    "sophia_lowered_walk": {
+      "file": "sophia_lowered_walk_8way.webp",
+      "frames": 8,
+      "rows": [
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE",
+        "E",
+        "SE"
+      ],
+      "size": [
+        176,
+        224
+      ]
+    },
+    "sophia_lowered_run": {
+      "file": "sophia_lowered_run_8way.webp",
+      "frames": 8,
+      "rows": [
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE",
+        "E",
+        "SE"
+      ],
+      "size": [
+        176,
+        224
+      ]
+    },
+    "sophia_lowered_idle": {
+      "file": "sophia_lowered_idle_8way.webp",
+      "frames": 1,
+      "rows": [
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE",
+        "E",
+        "SE"
+      ],
+      "size": [
+        176,
+        224
+      ]
+    },
+    "sophia_aimed_walk": {
+      "file": "sophia_aimed_walk_8way.webp",
+      "frames": 8,
+      "rows": [
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE",
+        "E",
+        "SE"
+      ],
+      "size": [
+        176,
+        224
+      ]
+    },
+    "sophia_aimed_run": {
+      "file": "sophia_aimed_run_8way.webp",
+      "frames": 8,
+      "rows": [
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE",
+        "E",
+        "SE"
+      ],
+      "size": [
+        176,
+        224
+      ]
+    },
+    "sophia_aimed_idle": {
+      "file": "sophia_aimed_idle_8way.webp",
+      "frames": 1,
+      "rows": [
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE",
+        "E",
+        "SE"
+      ],
+      "size": [
+        176,
+        224
+      ]
+    }
+  },
+  "facing": "positive screen X right, positive screen Y down; S face, N back",
+  "status": "unrigged GLB + code-articulated pre-rendered sprites",
+  "limitations": [
+    "v3.3 GLB has no bones or deforming skin weights",
+    "arm rotation is procedural whole-piece articulation, jacket intersections may require cleanup",
+    "sprite atlases are suitable for inspection before game-scale approval"
+  ]
+}
