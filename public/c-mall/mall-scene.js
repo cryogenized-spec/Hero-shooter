@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildGoldenDragon } from './mall-geometry.js';
+import {attachCConceptDetails} from './c-appearance.js';
 
 const $ = id => document.getElementById(id);
 const scene = new THREE.Scene();
@@ -136,6 +137,7 @@ function setupHero(character,pistol,spawn){
  visual.traverse(n=>{if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});
  prepareArms(visual);
  group.add(visual);
+ attachCConceptDetails(visual); // Original artwork: white flower headband and silver hoops.
  const weaponHolder=new THREE.Group();weaponHolder.add(pistol.scene);
  pistol.scene.traverse(n=>{if(n.isMesh){n.castShadow=true;}});
  const muzzleFlash=makeMuzzleFlash();weaponHolder.add(muzzleFlash);
