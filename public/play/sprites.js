@@ -477,14 +477,24 @@ function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   const isSaafiyaAlias=/^(saafiya|sophia|sofia)(?:\s|$)/i.test(actor.name||'');
   const isSaafiya=['saafiya','sophia','sofia'].includes(selected) ||
     (!explicit && ['assistant','cashier'].includes(selected) && isSaafiyaAlias);
-  if (isSaafiya && drawNpcAtlas(ctx,actor,'saafiya.svg')) return;
+  if (isSaafiya || selected==='saafiya-equipped') {
+    // Explicit art keys win; otherwise do not depict a known non-Beretta as a Beretta.
+    const explicitEquipped=selected==='saafiya-equipped';
+    const weaponId=String(actor.weaponId ?? actor.weapon?.id ?? '').toLowerCase();
+    const otherWeapon=!!weaponId && !/(beretta|84[-_]?fs)/.test(weaponId);
+    if (explicitEquipped || !actor.weaponVisible || !otherWeapon) {
+      const equipped=explicitEquipped || actor.weaponVisible || prop==='pistol';
+      if (drawNpcAtlas(ctx,actor,equipped?'saafiya-equipped.svg':'saafiya.svg')) return;
+    }
+  }
   if (selected==='family-father' && drawNpcAtlas(ctx,actor,'mr-chen.svg')) return;
   if (selected==='family-son' && drawNpcAtlas(ctx,actor,'wei-chen.svg')) return;
   if (selected==='family-mother' && drawNpcAtlas(ctx,actor,'mrs-chen.svg')) return;
   const colors=NPC_SPRITE_COLORS[selected] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
   if (Object.hasOwn(familyArt,selected)) drawChen(ctx,actor,selected);
-  else drawHumanNpc(ctx,actor,colors,'#11181c','standing',prop);
+  else drawHumanNpc(ctx,actor,colors,'#11181c','standing',
+    isSaafiya && actor.weaponVisible && prop==='none' ? 'pistol' : prop);
   ctx.restore();
 }
 function drawDog(ctx, actor) {
