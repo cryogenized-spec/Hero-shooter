@@ -423,6 +423,8 @@ async function init(){
  }
 }
 
+// Stable read-only testing handle; gameplay mutation is still confined to the scene.
+window.__goldenDragonTest={state,mall,nearby,interact,respawn};
 init();
 let last=performance.now(),frames=0,framed=0;
 function tick(now){
