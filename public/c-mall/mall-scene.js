@@ -434,6 +434,7 @@ function tick(now){
  if(state.ready){
   state.elapsed+=dt;
   if(!mallUI.dialogue)nearby();
+  mall.frontBanner.visible=state.hero.position.y<-8.15;
   if(mallUI.noticeUntil&&now>mallUI.noticeUntil){$('notice').classList.remove('show');mallUI.noticeUntil=0;}
   const forward=camera.getWorldDirection(new THREE.Vector3());forward.z=0;
   if(forward.lengthSq()<.0001)forward.set(0,-1,0);else forward.normalize();
