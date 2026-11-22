@@ -23,6 +23,7 @@ jobs:
         run: |
           node --check public/c-mall/mall-geometry.js
           node --check public/c-mall/mall-scene.js
+          node --check public/c-mall/c-appearance.js
           node --check scripts/qa_c_mall.mjs
           npm run check
           npm test
