@@ -1,0 +1,64 @@
+{
+  "source": "https://dionysus.dk/webxr/charactercreator/?lang=en&cp=0.119%2C1.198%2C3.432%2C-0.107%2C1.003%2C-0.005&sex=female&breastSize=0.79&breastFirmness=0.54&breastHeight=0.88&breastSpacing=-0.58&breastProjection=0.46&skin=63452c&hair=long01&outfit=panties%2Cbra&underwear=0&col=panties%3A000000%2Cbra%3A000000&clip=walk&speed=0.65&look=off",
+  "bytes": 3926248,
+  "animations": [
+    "idle",
+    "walk",
+    "run"
+  ],
+  "materials": 11,
+  "meshes": 9,
+  "skins": 1,
+  "settings": {
+    "format": "charactercreator.character",
+    "version": 1,
+    "sex": "female",
+    "values": {
+      "age": 0,
+      "height": 0,
+      "weight": 0,
+      "muscle": 0,
+      "proportions": 0,
+      "noseWidth": 0,
+      "noseLength": 0,
+      "noseHeight": 0,
+      "jawWidth": 0,
+      "chin": 0,
+      "cheekbones": 0,
+      "eyeSize": 0,
+      "eyeSpacing": 0,
+      "eyeTilt": 0,
+      "lips": 0,
+      "mouthWidth": 0,
+      "earSize": 0,
+      "forehead": 0,
+      "breastSize": 0.79,
+      "breastFirmness": 0.54,
+      "breastHeight": 0.88,
+      "breastSpacing": -0.58,
+      "breastProjection": 0.46
+    },
+    "colors": {
+      "skin": "#63452c",
+      "eyeColor": "#4a2f19",
+      "hairColor": "#3b2a1e",
+      "browColor": "#3b2a1e"
+    },
+    "hair": "long01",
+    "outfit": [
+      "panties",
+      "bra"
+    ],
+    "clothColors": {
+      "panties": {
+        "primary": "#000000",
+        "secondary": "#b58a9c"
+      },
+      "bra": {
+        "primary": "#000000",
+        "secondary": "#b58a9c"
+      }
+    }
+  },
+  "consoleErrors": []
+}
