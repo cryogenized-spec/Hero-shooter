@@ -5,6 +5,7 @@ on:
     paths:
       - 'tools/render/generate_looters.py'
       - 'tools/render/looter_actions_repo.py'
+      - 'tools/render/export_articulated_looters.py'
       - '.github/workflows/render-looter-assets.yml'
 permissions:
   contents: write
@@ -26,6 +27,7 @@ jobs:
         run: |
           xvfb-run -a python tools/render/generate_looters.py
           xvfb-run -a python tools/render/looter_actions_repo.py
+          python tools/render/export_articulated_looters.py
       - name: Pack runtime game assets
         run: |
           python - <<'PY'
@@ -38,6 +40,7 @@ jobs:
               ident=f'looter_{age}'
               out=dest/ident;out.mkdir(parents=True,exist_ok=True)
               shutil.copyfile(root/ident/f'{ident}.glb',out/f'{ident}.glb')
+              shutil.copyfile(root/'looters_articulated'/f'{ident}_articulated.glb',out/f'{ident}_articulated.glb')
               inputs=[(root/ident/'atlas_32x48.png','gait.webp')]
               inputs.extend((root/'looter_action_output'/ident/f'{p}_action_32x48.png',f'{p}_action.webp') for p in ('brick','stone','knife'))
               inputs.extend((root/'looter_action_output'/ident/f'{p}_equipped_gait_32x48.png',f'{p}_equipped_gait.webp') for p in ('brick','stone','knife'))
