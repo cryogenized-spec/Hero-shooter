@@ -93,7 +93,7 @@ try{
  checks.push({test:'architectural_circulation',data:connectivity});
  // Capture a full-resolution topological overview, including the door leaves.
  const full=await page.evaluate(()=>{
-  const previous=g;g=backdrop;window.HomeMoreMap.paint({rect,label});
+  const previous=g;g=floor.getContext('2d');window.HomeMoreMap.paint({rect,label});
   g=previous;return floor.toDataURL('image/png').split(',')[1];
  });
  await writeFile(output+'/home_more_entire_l1_floorplan.png',Buffer.from(full,'base64'));
