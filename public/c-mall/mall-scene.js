@@ -235,7 +235,7 @@ function cameraFollow(snap=false){
  if(!state.hero)return;
  const p=state.hero.position;
  const t=new THREE.Vector3(p.x,p.y,1.18+state.jumpHeight*.45);
- if(snap){orbit.target.copy(t);camera.position.copy(t).add(new THREE.Vector3(2.7,4.4,4.8));}
+ if(snap){orbit.target.copy(t);camera.position.copy(t).add(new THREE.Vector3(1.7,-4.6,7.8));}
  else{
   const shift=t.sub(orbit.target).multiplyScalar(.12);
   orbit.target.add(shift);camera.position.add(shift);
@@ -424,7 +424,7 @@ async function init(){
 }
 
 // Stable read-only testing handle; gameplay mutation is still confined to the scene.
-window.__goldenDragonTest={state,mall,nearby,interact,respawn};
+window.__goldenDragonTest={state,mall,nearby,interact,respawn,cameraFollow};
 init();
 let last=performance.now(),frames=0,framed=0;
 function tick(now){
