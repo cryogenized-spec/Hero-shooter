@@ -5,6 +5,7 @@ on:
     branches: [main, feature/wei-chen-vtk-gait]
     paths:
       - "tools/render/wei_chen_3d.py"
+      - "tests/wei-chen-vtk-integration.test.mjs"
       - ".github/workflows/render-wei-chen.yml"
   workflow_dispatch:
 
