@@ -188,6 +188,17 @@
       const map=await response.json();
       if(epoch!==frameNumber) return;
       state=loadState(map);
+      // Developer-only motion exercise; Saafiya is not yet part of this chapter.
+      // Activate with ?autostart=1&saafiyaTest=1, never on ordinary visits.
+      if(new URLSearchParams(root.location.search).get('saafiyaTest')==='1'){
+        state.actors.push({
+          id:-9026,name:'Saafiya',type:'motion-demo',x:1400,y:1590,
+          homeX:1400,homeY:1590,index:0,route:[[1180,1590],[1430,1590]],
+          meta:{floor:'shop',sprite:'saafiya'},angle:Math.PI,walkAngle:Math.PI,
+          radius:14,speech:'',speechTime:0,speechDelay:999999,step:0,
+          gait:'walk',walkPhase:0,walkBlend:0
+        });
+      }
       restoreProgress();
       // Existing saves can be inside shelving after a map revision. Never trap C.
       if (ensureClearPlayerPosition()) saveProgress();
@@ -289,16 +300,20 @@
       if(a.type==='family-father' && state.ownerReturned && a.meta.floor==='shop'){a.meta.floor='owner';a.x=704;a.y=429;}
       if(a.meta.floor!==state.floor)continue;
       const beforeX=a.x,beforeY=a.y;
-      if(a.route.length && a.type==='worker') {
+      if(a.type==='motion-demo'){
+        a.gait=(Math.floor(state.elapsed/4)%2)===0?'walk':'run';
+        a.isSprinting=a.gait==='run';
+      }
+      if(a.route.length && (a.type==='worker'||a.type==='motion-demo')) {
         const goal=a.route[a.index % a.route.length];
         let dx=goal[0]-a.x,dy=goal[1]-a.y;
         const d=Math.hypot(dx,dy);
         if(d<4) a.index=(a.index+1)%a.route.length;
-        else { const dist=Math.min(d,dt*(a.meta.pair==='receiving'?22:30));
+        else { const dist=Math.min(d,dt*(a.type==='motion-demo'?(a.gait==='run'?92:48):(a.meta.pair==='receiving'?22:30)));
           a.x+=dx/d*dist;a.y+=dy/d*dist;a.step+=dt*9;
           a.angle=Math.atan2(dy,dx); }
       }
-      root.HeroSprites.updateWalk(a,beforeX,beforeY,dt,110,40*dt);
+      root.HeroSprites.updateWalk(a,beforeX,beforeY,dt,a.type==='motion-demo'?(a.gait==='run'?75:105):110,a.type==='motion-demo'?115*dt:40*dt);
       a.speechDelay-=dt;
       if(a.speechTime>0)a.speechTime-=dt;
       if(a.speechDelay<=0 && a.type==='worker' && !state.dialogue) {
@@ -311,7 +326,7 @@
 
   function focusOptions() {
     if(!state||!state.loaded)return [];
-    const arr=floorObjects(state.geometry.points).concat(state.actors.filter(a=>a.meta.floor===state.floor));
+    const arr=floorObjects(state.geometry.points).concat(state.actors.filter(a=>a.meta.floor===state.floor&&a.type!=='motion-demo'));
     const within=arr.filter(o=>distance(state.player,o)<95).sort((a,b)=>{
       const da=distance(state.player,a),db=distance(state.player,b);
       const angleA=Math.atan2(a.y-state.player.y,a.x-state.player.x);
