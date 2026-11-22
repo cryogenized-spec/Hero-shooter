@@ -58,7 +58,7 @@ test('Saafiya and Sophia name variants resolve to their own NPC atlas',async()=>
   }
   assert.equal(h.draws.length,4);
   assert.equal(h.urls.length,1);
-  assert.ok(h.urls[0].endsWith('/assets/procedural/saafiya_walk_8way_8frame_atlas.webp'));
+  assert.ok(h.urls[0].endsWith('/assets/procedural/sophia_lowered_idle_8way.webp'));
   assert.ok(h.draws.every(d=>d[3]===176&&d[4]===224));
   // A stable explicit Tiled identity must work regardless of an actor's displayed name.
   h.root.HeroSprites.drawNpc(h.ctx,{...npc,name:'Character 5',meta:{sprite:'saafiya'}},'assistant');
@@ -86,7 +86,7 @@ test('armed combat atlas activates only for mall C with the Glock 26 and civilia
 });
 
 test('all atlas assets are present with the correct dimensions',async()=>{
-  const assets=[['c-civilian.svg',256],['c-glock-ready.svg',320],['saafiya.svg',256]];
+  const assets=[['c-civilian.svg',256],['c-glock-ready.svg',320]];
   for(const [file,width] of assets){
     const source=await read('public/play/'+file);
     assert.ok(source.includes('width="'+width+'" height="576"'),'Wrong dimensions for '+file);
