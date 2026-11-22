@@ -1,0 +1,3 @@
+# C V8.1 — Skull contour correction (experimental)
+
+Improves the existing character head with anatomical temple, cheekbone, jaw, nasal bridge, chin, frontal/occipital skull volume; does not replace or repaint the anime face texture. UV coordinates and all other meshes, including ready-made outfit, boots, hands, scarf, headband and hair, are preserved. Two unrigged static GLBs are provided (without/with vest). Rebuild: `python refine_skull_head_v81.py --input C_V8_ready_made_without_vest.glb --vest-input C_V8_ready_made_only_assembly.glb --out output/`. No game integration; previous V8 files remain available for rollback.
