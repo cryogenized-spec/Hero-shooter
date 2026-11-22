@@ -18,7 +18,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));
 renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.4;
+renderer.toneMappingExposure=1.12;
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 $('stage').appendChild(renderer.domElement);
@@ -34,8 +34,8 @@ orbit.maxPolarAngle=Math.PI/2.08;orbit.minPolarAngle=.25;
 // from taking pointer capture or responding to any left-mouse drag.
 orbit.mouseButtons={LEFT:null,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.ROTATE};
 addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();});
-scene.add(new THREE.HemisphereLight(0xabc9ec,0x49342a,1.8));
-const sun=new THREE.DirectionalLight(0xffebce,2.35);sun.position.set(-13,-9,27);
+scene.add(new THREE.HemisphereLight(0xa0a3c8,0x49342a,1.40));
+const sun=new THREE.DirectionalLight(0xffd4b2,1.7);sun.position.set(-13,-9,27);
 sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
 sun.shadow.camera.left=-37;sun.shadow.camera.right=37;sun.shadow.camera.top=37;sun.shadow.camera.bottom=-37;
 sun.shadow.camera.near=.1;sun.shadow.camera.far=85;sun.shadow.normalBias=.03;scene.add(sun);
@@ -235,7 +235,7 @@ function cameraFollow(snap=false){
  if(!state.hero)return;
  const p=state.hero.position;
  const t=new THREE.Vector3(p.x,p.y,1.18+state.jumpHeight*.45);
- if(snap){orbit.target.copy(t);camera.position.copy(t).add(new THREE.Vector3(3,-6.6,5.1));}
+ if(snap){orbit.target.copy(t);camera.position.copy(t).add(new THREE.Vector3(2.7,4.4,4.8));}
  else{
   const shift=t.sub(orbit.target).multiplyScalar(.12);
   orbit.target.add(shift);camera.position.add(shift);
@@ -385,7 +385,7 @@ async function loadMrChen(){
  try{
   const gltf=await loader.loadAsync('../play/assets/procedural/mr_chen_hybrid_face_v2.glb');
   chen=gltf.scene;
-  chen.rotation.x=Math.PI/2; // VTK glTF Y-up => Z-up in the C/arena stage.
+  // Mr Chen's Trimesh export already uses Z-up; rotating it would lay him sideways.
   chen.updateMatrixWorld(true);
   const bounds=new THREE.Box3().setFromObject(chen),height=bounds.max.z-bounds.min.z;
   if(!(height>.4&&height<5))throw Error('Mr Chen mesh height invalid');
