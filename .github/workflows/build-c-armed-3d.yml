@@ -1,0 +1,38 @@
+name: Build C armed 3D asset (V6)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/hero-3d/c-armed/**'
+      - '.github/workflows/build-c-armed-3d.yml'
+permissions:
+  contents: read
+jobs:
+  build-armed-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'tools/hero-3d/c-armed/requirements.txt'
+      - name: Install headless VTK dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libxrender1 libsm6 libxext6
+          python -m pip install --upgrade pip
+          python -m pip install -r tools/hero-3d/c-armed/requirements.txt
+      - name: Build, verify and optimize
+        working-directory: tools/hero-3d/c-armed
+        run: xvfb-run -a python build_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: C-armed-V6-twohand-runtime
+          path: |
+            tools/hero-3d/c-armed/dist/*
+            tools/hero-3d/c-armed/C_armed_v6_asset_pack.zip
+          retention-days: 30
+          if-no-files-found: error
