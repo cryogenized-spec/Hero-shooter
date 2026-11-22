@@ -289,11 +289,17 @@ function shopReset(){
 function shopHud(){
  document.querySelector('output').textContent='CHAPTER 1 · HOME & MORE · '+objective()+
   '  |  '+(reload?'RELOADING':rounds+' / '+spares+' SPARE')+
-  '  ·  '+(run?'RUN':'WALK')+(crouch?' / CROUCH':'');
+  '  ·  '+(run?'RUN':'WALK')+(crouch?' / CROUCH':'')+
+  ' · '+(equipment.drawn?'DRAWN':'HOLSTERED')+' · BAT '+Math.round(equipment.battery)+'%';
 }
 function shopStep(dt){
  effects(dt);
- elapsed+=dt;
+ elapsed+=dt;shopTime+=dt;
+ if(equipment.drawn&&equipment.light){
+  equipment.battery=Math.max(0,equipment.battery-dt*(equipment.strobe?2.1:.6));
+  if(equipment.battery===0){equipment.light=false;equipment.strobe=false;}
+ }
+ if(!equipment.drawn)equipment.aiming=false;
  player.flash=Math.max(0,player.flash-dt);
  cool=Math.max(0,cool-dt);
  if(quest.messageTime>0)quest.messageTime-=dt;
@@ -305,10 +311,10 @@ function shopStep(dt){
  const mag=Math.hypot(dx,dy),speed=crouch?49:run?140:88,ox=player.x,oy=player.y;
  if(mag)move(player,dx/mag*speed*dt,dy/mag*speed*dt);
  player.step+=trackMotion(player,ox,oy,dt)/5;camera();
- const target=Math.atan2(aim.y+view.y-player.y,aim.x+view.x-player.x);
+ const target=equipment.drawn?Math.atan2(aim.y+view.y-player.y,aim.x+view.x-player.x):(player.travel||0);
  player.a+=Math.atan2(Math.sin(target-player.a),Math.cos(target-player.a))*Math.min(1,dt*16);
  if(reload){reload=Math.max(0,reload-dt);if(!reload){rounds=8;spares=Math.max(0,spares-1);hud()}}
- if(press&&!cool&&!reload&&rounds&&!quest.dialogue){
+ if(press&&equipment.drawn&&!cool&&!reload&&rounds&&!quest.dialogue){
   rounds--;fire(player,true);cool=.21;hud();
  }
  press=false;
@@ -317,6 +323,8 @@ function shopStep(dt){
 function shopRender(){
  g.save();g.translate(-Math.round(view.x),-Math.round(view.y));
  g.drawImage(floor,0,0);
+ window.HomeMoreMap.paint({rect,label});
+ flashlightBeam();
  drawStoryActors();
  for(const c of fx){
   g.save();g.translate(c.x,c.y-c.z);g.rotate(c.a);
@@ -324,16 +332,22 @@ function shopRender(){
   else rect(0,0,3,5,'#3b3340');g.restore();
  }
  sprite(player,true);
+ aimGuide();
  for(const p of particles)rect(p.x,p.y,2,2,p.type==='spark'?'#ffe5ab':'#b97580');
  g.restore();
  drawStoryHUD();
+ visionOverlay();
 }
 function keydown(e){
- if(!['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyC','KeyR','KeyE','Tab','Enter','Escape'].includes(e.code))return;
+ if(!['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyQ','KeyC','KeyR','KeyE','KeyG','KeyF','KeyT','KeyV','Tab','Enter','Escape'].includes(e.code))return;
  e.preventDefault();keys.add(e.code);unlock();
  if(e.repeat)return;
  if(e.code==='KeyE'||e.code==='Enter')interact();
  if(e.code==='Escape')closeConversation();
+ if(e.code==='KeyG')toggleEquipment();
+ if(e.code==='KeyF')toggleLight();
+ if(e.code==='KeyT')toggleStrobe();
+ if(e.code==='KeyV')cycleVision();
  if(e.code==='KeyQ'){run=!run;hud()}
  if(e.code==='KeyC'){crouch=!crouch;hud()}
  if(e.code==='Tab'){const a=document.getElementById('levelGuide');a.hidden=!a.hidden}
@@ -351,10 +365,20 @@ function init(){
  document.getElementById('nextDialogue').onclick=continueConversation;
  document.getElementById('closeDialogue').onclick=closeConversation;
  document.getElementById('restart').onclick=shopReset;
+ canvas.oncontextmenu=e=>e.preventDefault();
+ const oldPointerDown=canvas.onpointerdown;
+ canvas.onpointerdown=e=>{
+  if(e.button===2){e.preventDefault();equipment.aiming=equipment.drawn;unlock();return;}
+  if(e.button===0&&!equipment.drawn){canvas.onpointermove(e);unlock();return;}
+  oldPointerDown(e);
+ };
+ canvas.addEventListener('pointerup',e=>{if(e.button===2)equipment.aiming=false});
+ canvas.addEventListener('pointercancel',()=>{equipment.aiming=false});
+ window.addEventListener('blur',()=>{equipment.aiming=false});
  shopReset();
- window.__goldenDragon2D={
-   get status(){return {stage:quest.stage,player:{x:player.x,y:player.y},dialogue:!!quest.dialogue,props:props.length,blockers:blocks.length,people:people.length}},
-   interact,nearby:nearest,reset:shopReset
+ window.__homeMore2D=window.__goldenDragon2D={
+   get status(){return {stage:quest.stage,level:floorName,player:{x:player.x,y:player.y},dialogue:!!quest.dialogue,props:props.length,blockers:blocks.length,people:people.length,doors:window.HomeMoreMap.doors.map(d=>({id:d.id,name:d.name,open:d.open})),equipment:{...equipment}}},
+   interact,nearby:nearest,reset:shopReset,goUpstairs,goDownstairs
  };
 }
 init();
