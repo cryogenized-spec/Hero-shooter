@@ -2,7 +2,7 @@ name: Render deterministic 3D game assets
 
 on:
   push:
-    branches: [feat/home-more-staff-backoffice]
+    branches: [main]
     paths:
       - "tools/render/**"
       - ".github/workflows/render-game-assets.yml"
@@ -69,9 +69,9 @@ jobs:
             git commit -m 'assets: render deterministic Home & More and Saafiya 3D art'
             # Other PR updates may arrive while VTK is rendering. Preserve them.
             for attempt in 1 2 3; do
-              git fetch origin feat/home-more-staff-backoffice
-              git rebase origin/feat/home-more-staff-backoffice
-              if git push origin HEAD:feat/home-more-staff-backoffice; then
+              git fetch origin "${GITHUB_REF_NAME}"
+              git rebase "origin/${GITHUB_REF_NAME}"
+              if git push origin "HEAD:${GITHUB_REF_NAME}"; then
                 echo 'Procedural assets pushed successfully.'
                 exit 0
               fi
