@@ -83,3 +83,34 @@ test('Staff Only door connects the sales floor and back-office map',async()=>{
   assert.match(scene,/floor==='staff'/);
   assert.match(scene,/KeyE/);
 });
+
+test('back-office circulation remains walkable between all rooms',()=>{
+  const solid=new Set(['wall','shelf','till','glass-counter','counter','display','pallet',
+    'sacks','furniture','desk','lift','table','chairs','cabinet','trolley','pallet-jack',
+    'locker','workbench','toilet','fridge']);
+  const blockers=Object.values(layers).flat().filter(o=>prop(o,'floor')==='staff' && solid.has(o.type));
+  const blocked=(x,y)=>{
+    if(x<326||x>1870||y<226||y>1072)return true;
+    return blockers.some(o=>{
+      const nearX=Math.max(o.x,Math.min(x,o.x+o.width));
+      const nearY=Math.max(o.y,Math.min(y,o.y+o.height));
+      return (x-nearX)**2+(y-nearY)**2<15**2;
+    });
+  };
+  const step=10, start=[178,94], queue=[start], seen=new Set();
+  const key=(x,y)=>x+','+y;
+  for(let i=0;i<queue.length && i<80000;i++){
+    const [x,y]=queue[i],k=key(x,y);
+    if(seen.has(k))continue;
+    seen.add(k);
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;
+      if(!seen.has(key(nx,ny))&&!blocked(nx*step,ny*step))queue.push([nx,ny]);
+    }
+  }
+  assert.ok(seen.has(key(...start)),'staff entry must be walkable');
+  for(const [area,x,y] of [
+    ['packing',151,35],['canteen',97,90],['upper toilet',57,81],
+    ['lower toilet',55,94],['lockers',139,82],['office',163,74]
+  ])assert.ok(seen.has(key(x,y)),area+' must be reachable from staff entrance');
+});
