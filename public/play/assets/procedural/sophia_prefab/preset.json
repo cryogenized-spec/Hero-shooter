@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "id": "sophia_makehuman_preset_v1",
+  "source": {
+    "repository": "kblood/CharacterCreator",
+    "commit": "852e48f316b90a0937234886630e4fb4cdfd1f78",
+    "assetLicense": "CC0-1.0",
+    "upstreamLicenseNotes": "https://github.com/kblood/CharacterCreator/blob/852e48f316b90a0937234886630e4fb4cdfd1f78/LICENSE-NOTES.md"
+  },
+  "identity": {
+    "reference": "Sophia / Saafiya v3.3; no approved asset overwritten",
+    "style": "older Mount & Blade era, practical gothic"
+  },
+  "base": {
+    "model": "base_body_anim.glb",
+    "sex": "female",
+    "height_m": 1.72,
+    "bodyWeight": "slim",
+    "skin": "#bd765b",
+    "eyes": "#4e323a"
+  },
+  "look": {
+    "hair": "hair_long01.glb",
+    "hairColor": "#1e1722",
+    "hairSecondary": "#392735",
+    "eyebrows": "#271a28",
+    "outfit": "gothic_dress"
+  },
+  "clothes": {
+    "gothic_dress": [
+      "clothing_dress.glb",
+      "clothing_boots.glb"
+    ],
+    "practical": [
+      "clothing_shirt.glb",
+      "clothing_jeans.glb",
+      "clothing_jacket.glb",
+      "clothing_boots.glb"
+    ],
+    "colors": {
+      "dress": "#38212e",
+      "dressTrim": "#a78389",
+      "boots": "#1d1c22",
+      "shirt": "#322e37",
+      "jeans": "#272c38",
+      "jacket": "#272631"
+    }
+  },
+  "assets": [
+    "base_body_anim.glb",
+    "clothing_dress.glb",
+    "clothing_boots.glb",
+    "clothing_shirt.glb",
+    "clothing_jeans.glb",
+    "clothing_jacket.glb",
+    "hair_long01.glb"
+  ],
+  "copyright": "All imported output/ GLBs CC0 per upstream 2026-10-03 decision; code is original to Hero Shooter; upstream tool GPL code not copied.",
+  "limits": [
+    "Preset is a visual prototype not a finished likeness; does not reproduce v3.3 corset, painted anime face, or chrome prop.",
+    "Fitting and skinning tests required before swapping primary Sophia game model."
+  ],
+  "screenshots": [
+    "front",
+    "threequarter",
+    "profile",
+    "back"
+  ]
+}
