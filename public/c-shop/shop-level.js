@@ -209,7 +209,10 @@ function continueConversation(){
 }
 function nearest(){
  let found=null,distance=Infinity;
- const items=[{name:'Mr. Chen',x:chen.x,y:chen.y,r:158},...props];
+ // At the checkout, the shopkeeper takes precedence over the counter
+ // display so an E press can start the conversation from the customer side.
+ if(near(player,chen)<158)return {name:'Mr. Chen',x:chen.x,y:chen.y,r:158};
+ const items=props;
  for(const item of items){
   const d=near(player,item);
   if(d<item.r&&d<distance){found=item;distance=d}
@@ -286,7 +289,7 @@ function setQuestMessage(v){quest.message=v;quest.messageTime=3;}
 function shopReset(){
  weapon='beretta';inventory={beretta:{rounds:8,spares:3}};
  rounds=8;spares=3;reload=cool=grace=taxi=passengers=phase=musicTime=musicStep=0;
- player={x:685,y:549,a:-Math.PI/2,hp:3,step:0,flash:0,look:'hero',motion:0,travel:-Math.PI/2};
+ player={x:867,y:489,a:-Math.PI/2,hp:3,step:0,flash:0,look:'hero',motion:0,travel:-Math.PI/2};
  enemies=[];loot=[];particles=[];fx=[];prints=[];drop=null;
  run=crouch=held=press=confirm=false;keys.clear();
  quest.stage='find_chen';quest.dialogue=null;quest.index=0;
