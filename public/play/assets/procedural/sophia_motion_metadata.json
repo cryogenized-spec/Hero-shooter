@@ -1,5 +1,5 @@
 {
-  "model": "Sophia/Saafiya approved v3.3 face/corset; 3D procedural articulation v3.4",
+  "model": "Sophia/Saafiya approved v3.3 face/corset; 3D procedural articulation v3.5",
   "base_model": "sophia_saafiya_studio_v3_3_builder.py",
   "world_axis": "+Z up +Y front +X anatomical left",
   "camera_elevation_degrees": 58,
@@ -17,7 +17,7 @@
     176,
     224
   ],
-  "weapon": "chrome Beretta 84FS appearance prop (nonfunctional)",
+  "weapon": "chrome slim-profile Cheetah-style cosmetic prop (84FS story designation; 82-like 7.65 mm single-stack proportions, nonfunctional)",
   "weapon_poses": [
     "lowered at side",
     "aimed outward"
@@ -135,6 +135,14 @@
   },
   "facing": "positive screen X right, positive screen Y down; S face, N back",
   "status": "unrigged GLB + code-articulated pre-rendered sprites",
+  "gun_profile_reference": {
+    "family": "Beretta Cheetah 80-series",
+    "story_model": "84FS",
+    "historical_single_stack_7_65": "Model 82",
+    "single_stack_width_reference_mm": 30,
+    "slide_axis": "straight -Z in rest prop space, +Y in aimed space",
+    "geometry": "stylized cosmetic silhouette; no operable firearm mechanism"
+  },
   "limitations": [
     "v3.3 GLB has no bones or deforming skin weights",
     "arm rotation is procedural whole-piece articulation, jacket intersections may require cleanup",
