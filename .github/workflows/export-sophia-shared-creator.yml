@@ -1,0 +1,53 @@
+name: Export exact shared Sophia character from online creator
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/sophia-makehuman-prefab-20261122]
+    paths:
+      - 'scripts/export_sophia_link.mjs'
+      - '.github/workflows/export-sophia-shared-creator.yml'
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install headless browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Export actual configured user model, clothing and animation
+        run: |
+          node --check scripts/export_sophia_link.mjs
+          node scripts/export_sophia_link.mjs
+      - name: Verify GLB and source settings
+        run: |
+          test -s public/play/assets/procedural/sophia_prefab/sophia_from_shared_settings.glb
+          test -s public/play/assets/procedural/sophia_prefab/shared_glb_export_audit.json
+          test -s public/play/assets/procedural/sophia_prefab/user_sophia_creator_settings.json
+      - name: Upload real website screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: sophia-original-site-exact-character
+          path: prefab-screenshots/user_sophia_original_creator.png
+          retention-days: 30
+      - name: Commit exact exported model and provenance
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/play/assets/procedural/sophia_prefab/sophia_from_shared_settings.glb
+          git add public/play/assets/procedural/sophia_prefab/shared_glb_export_audit.json
+          git add public/play/assets/procedural/sophia_prefab/user_sophia_creator_settings.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'asset: preserve exact linked Sophia creator export with humanoid animations'
+          for attempt in 1 2 3; do
+            git fetch origin "$GITHUB_REF_NAME"
+            git rebase "origin/$GITHUB_REF_NAME"
+            if git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+          done
+          exit 1
