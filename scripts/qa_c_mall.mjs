@@ -52,6 +52,7 @@ try{
  await page.evaluate(()=>{
   const h=window.__goldenDragonTest.state.hero;
   h.position.set(5.35,-3.8,.04);
+  window.__goldenDragonTest.cameraFollow(true);
  });
  await page.waitForTimeout(350);
  await page.keyboard.press('e');
@@ -60,7 +61,7 @@ try{
  await page.screenshot({path:'c-mall-screenshots/golden_dragon_chen_dialogue.png',animations:'disabled'});
  await page.keyboard.press('Escape');
  assert.equal(await page.locator('#dialogue').evaluate(el=>el.hidden),true);
- await page.evaluate(()=>window.__goldenDragonTest.state.hero.position.set(0,-11.3,.04));
+ await page.evaluate(()=>{window.__goldenDragonTest.state.hero.position.set(0,-11.3,.04);window.__goldenDragonTest.cameraFollow(true);});
  await page.waitForTimeout(450);
  await page.screenshot({path:'c-mall-screenshots/golden_dragon_mall_concourse.png',animations:'disabled'});
  if(fatal.length)throw Error('Browser errors: '+fatal.join('\n').slice(0,2500));
