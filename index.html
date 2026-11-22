@@ -1,254 +1,95 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Hero Shooter — Post-Meltdown South Africa</title>
-<link rel="stylesheet" href="./src/styles.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="theme-color" content="#171c23">
+<title>Hero Shooter — Sophia's Scrapyard · 3D Demo</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#171c23;color:#eee9df}
+#stage{position:fixed;inset:0;overflow:hidden}
+#stage canvas{width:100%;height:100%;display:block;outline:none}
+#hud{position:fixed;z-index:3;top:clamp(12px,3vw,25px);left:clamp(12px,3vw,25px);width:min(420px,calc(100vw - 24px));padding:18px 19px;background:rgba(17,23,29,.89);border:1px solid rgba(217,178,125,.35);border-radius:14px;box-shadow:0 14px 46px #0008;backdrop-filter:blur(13px)}
+#hud.hidden{display:none}
+.eyebrow{font-size:10px;letter-spacing:.18em;color:#d8ae75;font-weight:700}
+h1{font-size:clamp(17px,2vw,22px);line-height:1.12;font-weight:750;margin:6px 0 10px}
+p{font-size:12.5px;color:#c4c8c9;line-height:1.55;margin:0 0 12px}
+.keyrow{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;padding:11px 0;border-block:1px solid #ffffff18}
+.keyrow span{font-size:11.5px;color:#e8ddd0}
+kbd{display:inline-block;font:700 10px ui-monospace,SFMono-Regular,monospace;background:#303944;border:1px solid #627282;border-bottom-width:2px;border-radius:4px;padding:3px 5px;color:#f5eadc;min-width:20px;text-align:center}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{font:600 12px inherit;cursor:pointer;border-radius:8px;background:#343c48;border:1px solid #687482;color:#f4ecdd;padding:8px 11px}
+button:hover,button:focus-visible{background:#4c5d6d;outline:2px solid #bb9d71;outline-offset:2px}
+button:active{transform:translateY(1px)}
+#status{min-height:17px;margin-top:12px;color:#ebc48c;font:600 11px ui-monospace,monospace}
+.stats{display:flex;justify-content:space-between;gap:12px;margin-top:9px;color:#9ba9ac;font:11px ui-monospace,monospace}
+#loading{position:fixed;z-index:10;inset:0;display:grid;place-items:center;text-align:center;background:#131820;color:#f9ddb1;font-weight:700;padding:26px}
+#loading[hidden]{display:none}
+#loading.error{color:#ffbbac}
+#hint{position:fixed;bottom:15px;right:16px;pointer-events:none;color:#e5e6e3;background:#1a222bd0;border:1px solid #ffffff21;padding:8px 12px;border-radius:8px;z-index:2;font-size:11px}
+#mobile{position:fixed;z-index:4;bottom:max(16px,env(safe-area-inset-bottom));left:16px;right:16px;display:none;justify-content:space-between;pointer-events:none}
+.pad,.act{pointer-events:auto;display:grid;gap:5px}
+.pad{grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px 52px}
+.pad button{padding:0;font-weight:800;font-size:19px;touch-action:none}
+.pad [data-control=up]{grid-column:2}.pad [data-control=left]{grid-row:2;grid-column:1}
+.pad [data-control=down]{grid-row:2;grid-column:2}.pad [data-control=right]{grid-row:2;grid-column:3}
+.act{align-content:end;grid-template-columns:76px 76px}
+.act button{touch-action:none;min-height:44px;font-size:11px}
+@media(max-width:720px),(pointer:coarse){
+ #hud{padding:12px;width:min(345px,calc(100vw - 24px))}
+ #hud p{display:none}#hud .keyrow{display:none}#hud .eyebrow{font-size:9px}
+ #hud h1{font-size:16px;margin:5px 0}
+ #hint{display:none}#mobile{display:flex}
+}
+@media(max-height:600px){#hud{top:8px;padding:9px}#hud .keyrow{display:none}}
+</style>
+<script type="importmap">{"imports":{
+"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+}}</script>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-
-    <!-- HUD Layer -->
-    <div id="hud">
-        <!-- Top-Left Character Portrait + Vitals + Physical Rounds & Magazines -->
-        <div id="playerPanel">
-            <div class="player-top-row">
-                <div id="portraitFrame">
-                    <div id="portrait"></div>
-                </div>
-
-                <div class="vitals-col">
-                    <div class="bar-row">
-                        <div class="bar-label"><span id="hpLabelText">HEALTH</span><span id="hpVal">100</span></div>
-                        <div class="bar-track"><div class="bar-fill" id="hpBar"></div></div>
-                    </div>
-                    <div class="bar-row">
-                        <div class="bar-label"><span id="armorLabelText">ARMOR</span><span id="armorVal">0</span></div>
-                        <div class="bar-track"><div class="bar-fill" id="armorBar"></div></div>
-                    </div>
-                    <div class="bar-row">
-                        <div class="bar-label"><span>STAMINA</span><span id="stamVal">100</span></div>
-                        <div class="bar-track"><div class="bar-fill" id="stamBar"></div></div>
-                    </div>
-                </div>
-
-                <div class="weapon-col">
-                    <div id="wepName">GLOCK 26 PINK [EXT + RDS]</div>
-                    <div id="ammoDisplay">15 <span>/ 40</span></div>
-                    <div id="ammoTypeToggle" style="display:none;">LOAD: 100GR FMJ [B]</div>
-                    <div id="reloadIndicator"></div>
-                    <div class="slot-bar" id="slotBar"></div>
-                </div>
-            </div>
-
-            <!-- Physical Round & Magazine Indicators directly under Character Portrait -->
-            <div id="ammoVisualRow">
-                <div class="ammo-visual-group">
-                    <div class="ammo-visual-label" id="magRoundsLabel">ROUNDS IN MAG (15 / 15)</div>
-                    <div id="magRoundsGrid"></div>
-                </div>
-                <div class="ammo-visual-group" style="align-items: flex-end;">
-                    <div class="ammo-visual-label" id="magCountLabel">SPARE MAGS (3)</div>
-                    <div id="magCountIcons"></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="phoneToast">
-            <div class="phone-header">
-                <span id="phoneSender">PHONE // DAVID (EXFIL OPS)</span>
-                <span id="phoneTime">07:04 AM</span>
-            </div>
-            <div class="phone-msg" id="phoneMsg">Stay low in the dark aisles.</div>
-        </div>
-
-        <div id="monologueToast">
-            <div class="mono-avatar" id="monoAvatar"></div>
-            <div class="mono-body">
-                <div class="mono-tag" id="monoTag">C // INTERNAL THOUGHT</div>
-                <div class="mono-text" id="monoText">Go-bag and MOLLE rig are locked in the boot down on B1...</div>
-            </div>
-        </div>
-
-        <div id="missionPanel">
-            <div class="mission-phase" id="missionPhase">STAGE 1 / 5</div>
-            <div class="mission-title" id="missionTitle">Clear the Block</div>
-            <div class="mission-desc" id="missionDesc">Push forward and eliminate hostile forces in your sector.</div>
-            <div class="mission-progress" id="missionProgress">TARGETS REMAINING: 0</div>
-        </div>
-
-        <div id="topRightStats">
-            <div id="floorIndicator">FLOOR: L1 — UPPER GALLERIA</div>
-            <div id="killCounter">HOSTILES NEUTRALIZED: 0</div>
-            <div id="cashCounter">CASH LOOTED: R0</div>
-            <div id="stanceStatus">STANCE [C]: RUN (NORMAL)</div>
-            <div id="stealthStatus">SIGNATURE: CONCEALED</div>
-            <div id="opticsStatus">OPTICS [V]: LOCKED IN B1 CAR BOOT</div>
-            <div id="radioStatus">IPODS [M]: OFF</div>
-        </div>
-
-        <div id="promptBanner">PRESS [E] TO INTERACT</div>
-
-        <div id="radarFrame">
-            <canvas id="radarCanvas" width="156" height="156"></canvas>
-        </div>
-    </div>
-
-    <!-- Checkpoint Smartphone Messenger Cutscene Overlay -->
-    <div id="cutsceneOverlay" class="hidden">
-        <div class="smartphone-chassis" id="phoneChassis">
-            <div class="phone-notch-bar">
-                <span id="phoneClockTop">07:00 AM</span>
-                <div class="phone-speaker-pill"></div>
-                <span>LTE // 64%</span>
-            </div>
-            <div class="phone-opsec-banner" id="phoneOpsecBanner">
-                OPSEC WARNING: CELLULAR SIGNAL UNENCRYPTED (NO DMR RADIO)
-            </div>
-            <div class="phone-chat-header">
-                <div class="phone-contact-avatar" id="phoneContactAvatar"></div>
-                <div class="phone-contact-meta">
-                    <div class="phone-contact-name" id="phoneContactName">DAVID // EXFIL OPS</div>
-                    <div class="phone-contact-sub" id="phoneContactSub">BURNER SIM &bull; TOWER RELAY ACTIVE</div>
-                </div>
-            </div>
-            <div class="phone-chat-stream" id="phoneChatStream"></div>
-            <div class="phone-typing-bar" id="phoneTypingBar"></div>
-            <div class="phone-action-footer">
-                <button type="button" class="btn-phone-skip" id="btnCutsceneSkip">SKIP [ESC]</button>
-                <button type="button" class="btn-phone-next" id="btnCutsceneNext">NEXT [CLICK / SPACE]</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Mobile Touch Controls (Automatically enabled when mobile/touch platform is detected) -->
-    <div id="mobileControls" class="hidden">
-        <div id="leftStickZone" class="touch-stick-zone">
-            <div class="touch-stick-base" id="leftStickBase">
-                <div class="touch-stick-knob" id="leftStickKnob"></div>
-            </div>
-            <div class="stick-label">MOVE / DRIVE</div>
-        </div>
-
-        <div id="mobileActionCluster">
-            <button type="button" class="mobile-btn" id="btnOptics">OPTICS</button>
-            <button type="button" class="mobile-btn" id="btnUtil">LIGHT [F]</button>
-            <button type="button" class="mobile-btn" id="btnStrobe">STROBE</button>
-            <button type="button" class="mobile-btn" id="btnVehicle">USE [E]</button>
-            <button type="button" class="mobile-btn" id="btnReload">RELOAD</button>
-            <button type="button" class="mobile-btn" id="btnSneak">SNEAK</button>
-            <button type="button" class="mobile-btn" id="btnSprint">SPRINT</button>
-        </div>
-
-        <div id="rightStickZone" class="touch-stick-zone">
-            <div class="touch-stick-base" id="rightStickBase">
-                <div class="touch-stick-knob" id="rightStickKnob"></div>
-            </div>
-            <div class="stick-label">AIM &amp; FIRE</div>
-        </div>
-    </div>
-
-    <!-- Approved 16:9 retro-anime title art; actionable menu hotspots align with the artwork. -->
-    <div id="titleScreen" class="title-screen" role="dialog" aria-modal="true" aria-label="Hero Shooter main menu">
-        <div class="title-screen-frame">
-            <img class="title-art" src="./assets/title/hero-shooter-title.webp" alt="" decoding="async" fetchpriority="high">
-            <a href="./training/" style="position:absolute;right:3%;top:5%;z-index:3;padding:.55em 1.1em;background:#251812;color:#ffc75a;border:1px solid #ffb13b;font:bold clamp(12px,1.6vw,24px) system-ui;text-decoration:none">TRAINING</a>
-            <button type="button" id="titleStart" class="title-hit title-hit-start" aria-label="Start Home and More Sunday introduction" title="Start new Sunday introduction"></button>
-            <button type="button" id="titleContinue" class="title-hit title-hit-continue" aria-label="Continue the Home and More Sunday introduction" title="Continue Sunday introduction"></button>
-            <button type="button" id="titleOptions" class="title-hit title-hit-options" aria-label="Options" title="Options"></button>
-            <button type="button" id="titlePressStart" class="title-hit title-hit-prompt" aria-label="Press start: begin Home and More" title="Begin Home and More"></button>
-        </div>
-    </div>
-
-    <div id="titleOptionsDialog" class="title-options-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="titleOptionsHeading">
-        <section class="title-options-panel">
-            <h2 id="titleOptionsHeading">OPTIONS</h2>
-            <label class="title-option-row" for="titleMusicPref">
-                <span>Music enabled when playing</span>
-                <input id="titleMusicPref" type="checkbox">
-            </label>
-            <p>Soundtrack can also be toggled during gameplay with M.</p>
-            <div class="title-options-actions">
-                <button type="button" id="titleFullscreen">FULLSCREEN</button>
-                <button type="button" id="titleClassic" hidden aria-hidden="true" tabindex="-1">PLAY PREVIOUS BUILD</button>
-                <button type="button" id="titleOptionsBack">BACK</button>
-            </div>
-        </section>
-    </div>
-
-    <!-- Start / Stage Select Modal -->
-    <div class="modal-overlay" id="startOverlay">
-        <div class="modal-card">
-            <div class="modal-kicker" id="menuKicker">WOODLAND AIRSOFT ARENA // YOUTH SQUAD TRAINING</div>
-            <div class="modal-title">HERO SHOOTER</div>
-            <div class="campaign-grid">
-                <div class="campaign-card training-card selected" id="campTrainingBtn">
-                    <div class="card-avatar" id="avatarTraining"></div>
-                    <div class="card-info">
-                        <div class="campaign-badge">PROLOGUE / TRAINING STAGE: WOODLAND AIRSOFT</div>
-                        <div class="campaign-name">PINE RIDGE AIRSOFT SKIRMISH</div>
-                        <div class="campaign-meta">Younger C + Younger G + Younger Blaze vs. Grown-Up MilSim Adults</div>
-                    </div>
-                </div>
-                <div class="campaign-card" id="campMallBtn">
-                    <div class="card-avatar" id="avatarMall"></div>
-                    <div class="card-info">
-                        <div class="campaign-badge">CHAPTER 1: 4-FLOOR SANDTON MALL</div>
-                        <div class="campaign-name">THE MALL BLOCKADE</div>
-                        <div class="campaign-meta">C &bull; L1 Golden Dragon &rarr; B1 Go-Bag &rarr; L2 Skybridge Exfil</div>
-                    </div>
-                </div>
-                <div class="campaign-card" id="campCbdBtn">
-                    <div class="card-avatar" id="avatarCbd"></div>
-                    <div class="card-info">
-                        <div class="campaign-badge">CHAPTER 2: INNER-CITY CBD</div>
-                        <div class="campaign-name">JOBURG CBD</div>
-                        <div class="campaign-meta">Blaze &bull; Portable Flamethrower &amp; G17</div>
-                    </div>
-                </div>
-                <div class="campaign-card" id="campSniperBtn">
-                    <div class="card-avatar" id="avatarSniper"></div>
-                    <div class="card-info">
-                        <div class="campaign-badge">CHAPTER 3: OVERWATCH</div>
-                        <div class="campaign-name">SNIPER OVERWATCH</div>
-                        <div class="campaign-meta">The Uncle &bull; Ruger M77 Bolt-Action</div>
-                    </div>
-                </div>
-                <div class="campaign-card" id="campSuburbsBtn">
-                    <div class="card-avatar" id="avatarSuburbs"></div>
-                    <div class="card-info">
-                        <div class="campaign-badge">CHAPTER 4: SUBURBS (+48H)</div>
-                        <div class="campaign-name">THE SUBURBS</div>
-                        <div class="campaign-meta">G &bull; Vektor LM4 &amp; Panga Machete</div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-body" id="menuBody">
-                Years before the grid went dark—a Sunday morning airsoft skirmish in a dense pine woodland. Play as <strong>Younger C</strong> alongside <strong>Younger G</strong> and <strong>Younger Blaze</strong> in a 3-player youth squad facing off against an entrenched team of <strong>grown-up MilSim adults</strong>. Use forest cover, coordinate with your teammates, and capture the adults' base flag!
-            </div>
-            <div class="controls-grid" id="controlsGrid">
-                <div><strong>WASD / Arrows:</strong> Run &amp; Drive (<strong>C:</strong> Toggle Sneak)</div>
-                <div><strong>LMB / RMB:</strong> Fire &amp; Sniper Scope</div>
-                <div><strong>M (iPods):</strong> Toggle Earbuds + 150 BPM Psytrance / Metal</div>
-                <div><strong>V / F / T / B:</strong> Optics &bull; Light &bull; Strobe &bull; FMJ/JHP</div>
-                <div><strong>E (Interact):</strong> Talk &bull; Stairs &bull; Boot &bull; Execute</div>
-                <div><strong>R (Reload):</strong> Toss Mag (Forfeits Leftover Rounds)</div>
-            </div>
-            <button id="startBtn" class="btn-primary">DEPLOY INTO SECTOR</button>
-        </div>
-    </div>
-
-    <!-- Death / Victory Modal -->
-    <div class="modal-overlay hidden" id="endOverlay">
-        <div class="modal-card" id="endCard">
-            <div class="modal-kicker" id="endKicker">STATUS REPORT</div>
-            <div class="modal-title" id="endTitle">FLATLINED</div>
-            <div class="modal-body" id="endBody">You didn't make it through the aftermath.</div>
-            <button id="restartBtn" class="btn-primary">PLAY AGAIN</button>
-        </div>
-    </div>
-
-<script type="module" src="./src/title-entry.js"></script>
-</body>
-</html>
+<main id="stage" aria-label="Sophia's three-dimensional scrapyard practice arena"></main>
+<div id="loading" role="status">Loading Sophia and the 3D scrapyard…</div>
+<section id="hud" aria-label="Game controls">
+<div class="eyebrow">HERO SHOOTER / FREE ROAM PROTOTYPE</div>
+<h1>Sophia's Scrapyard</h1>
+<p>Explore the original 50 × 28 metre VTK scrapyard in full 3D. Sophia uses her approved 3D model and original face texture; the other three looters are wandering test actors. This is a movement sandbox, not a combat mission.</p>
+<div class="keyrow">
+<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Walk / steer</span>
+<span><kbd>Shift</kbd> Sprint</span>
+<span><kbd>Space</kbd> Jump</span>
+<span><kbd>J</kbd> Toss a test stone</span>
+<span><kbd>F</kbd> Aim pose</span>
+<span><kbd>V</kbd> Change camera</span>
+<span><kbd>N</kbd> Toggle NPCs</span>
+<span><kbd>R</kbd> Return to gate</span>
+<span>Drag mouse · Orbit camera</span>
+<span>Wheel · Zoom / <kbd>H</kbd> hide HUD</span>
+</div>
+<div class="row">
+<button id="respawn" type="button">Return to gate</button>
+<button id="cameraMode" type="button">Switch camera</button>
+<button id="npcToggle" type="button">Toggle looters</button>
+</div>
+<div id="status" role="status">Initializing scene…</div>
+<div class="stats"><span id="distance">At south gate</span><span id="fps">— FPS</span></div>
+</section>
+<div id="hint">Drag to orbit · Scroll to zoom · Press H to hide controls</div>
+<div id="mobile">
+<div class="pad">
+<button data-control="up" aria-label="Forward">↑</button>
+<button data-control="left" aria-label="Left">←</button>
+<button data-control="down" aria-label="Backward">↓</button>
+<button data-control="right" aria-label="Right">→</button>
+</div>
+<div class="act">
+<button data-control="run">RUN</button>
+<button data-control="jump">JUMP</button>
+<button data-control="aim">AIM</button>
+<button data-control="throw">THROW</button>
+</div>
+</div>
+<script type="module" src="./src/sophia-demo.js"></script>
+</body></html>
