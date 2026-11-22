@@ -4,7 +4,7 @@ This folder contains the **versioned, shareable story bible** for *Hero Shooter*
 
 ## Character histories
 
-- [Saafiya (“Fay”) — history and continuity](saafiya-history.md): Cape Town upbringing, working life, her relationship with Fayeem, the Russian coercion plot, the developed Copperlane opening and outstanding canon decisions.
+- [Saafiya (“Fay”) — history and continuity](saafiya-history.md): Cape Town upbringing, working life, her relationship with Fayeem, the Russian coercion plot, the developed Copperlane opening, and confirmed Beretta 84FS (.380 ACP) canon.
 
 ## How to maintain it
 
