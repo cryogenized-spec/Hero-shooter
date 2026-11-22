@@ -19,6 +19,7 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.70;
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.localClippingEnabled=true;
 renderer.setSize(innerWidth,innerHeight);
 $('#stage').appendChild(renderer.domElement);
 const camera=new THREE.PerspectiveCamera(35,innerWidth/innerHeight,.05,50);
@@ -145,7 +146,32 @@ async function init(){
   if(!pose.clips.find(c=>c.name==='walk'))throw Error('Missing source walk animation');
   const box=new THREE.Box3().setFromObject(pose.model);
   pose.model.position.y-=box.min.y;
+  // GPU-side hem cropping preserves original garment geometry and skinning.
+  const hem=new THREE.Plane(new THREE.Vector3(0,1,0),-.72);
+  const jacketHem=new THREE.Plane(new THREE.Vector3(0,1,0),-1.00);
+  const fittings=[];
+  pose.model.traverse(o=>{
+    if(!o.isMesh)return;
+    const name=o.name.toLowerCase();
+    const plane=name.includes('cloth_skirt')||name.includes('cloth_dress')?hem:
+      name.includes('cloth_jacket')?jacketHem:null;
+    if(!plane)return;
+    o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();
+    for(const m of Array.isArray(o.material)?o.material:[o.material]){
+      m.clippingPlanes=[plane];m.clipShadows=true;m.side=THREE.DoubleSide;
+    }
+    fittings.push(o.name);
+  });
+  window.__sophiaOutfitHemNames=fittings;
+  const pelvis=pose.model.getObjectByName('pelvis');
   accessories=dressWithGothicDetails(pose.model,look);
+  accessories.fitHems=()=>{
+    if(!pelvis)return;
+    const y=pelvis.getWorldPosition(new THREE.Vector3()).y;
+    hem.constant=-(y-.17);
+    jacketHem.constant=-(y+.035);
+  };
+  accessories.fitHems();
   pose.mixer=new THREE.AnimationMixer(pose.model);
   chooseMotion(params.get('motion')||'walk');
   chooseView(params.get('view')||'front');
@@ -174,6 +200,7 @@ function loop(now){
   $('#gap').textContent=(widths.original*100).toFixed(1)+' cm → '+(widths.updated*100).toFixed(1)+' cm';
  }
  accessories?.update();
+ accessories?.fitHems?.();
  orbit.update();renderer.render(scene,camera);
  requestAnimationFrame(loop);
 }
