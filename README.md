@@ -23,6 +23,10 @@ npm run preview  # Serve dist/ on localhost:4173
 
 The exact, unmodified latest Gemini revision is in `reference/gemini-original-2026-11-19.html`; its SHA-256 digest is in `reference/original.sha256`.
 
+## Approved Home & More shop layout
+
+The game director approved the definitive L1 retail interior on 21 November 2026. See [the approved shop artwork and migration notes](docs/art/home-and-more-shop-approved.md). The master PNG and optimised WebP are preserved in the ChatGPT Library; the existing Tiled map remains the live collision/scene source until the approved artwork is aligned and copied into the repository. Do not silently replace the shop geometry with a stretched image.
+
 ## Artwork & cutscenes
 
 Artwork belongs in `public/assets/cutscenes/<chapter>/`, where it is copied to `/assets/cutscenes/<chapter>/` during build. For example `public/assets/cutscenes/mall/yael-portrait.webp` is a 4:5 anime character illustration optimised for web delivery. The visual cutscene player is not wired into gameplay yet; the original phone cutscene system is unchanged. Avoid base64-embedding large images into source files.
