@@ -1,0 +1,33 @@
+{
+  "source": "User-supplied dionysus.dk MakeHuman character URL, 2026-11-22",
+  "notes": "Exact visible URL settings; the source web app cannot be modified from Hero Shooter. This is a separate preview of its preset and a gait correction.",
+  "camera": "0.119,1.198,3.432,-0.107,1.003,-0.005",
+  "sex": "female",
+  "breastSize": 0.79,
+  "breastFirmness": 0.54,
+  "breastHeight": 0.88,
+  "breastSpacing": -0.58,
+  "breastProjection": 0.46,
+  "skin": "#63452c",
+  "hair": "long01",
+  "outfit": [
+    "panties",
+    "bra"
+  ],
+  "underwear": false,
+  "colors": {
+    "bra": "#000000",
+    "panties": "#000000"
+  },
+  "clip": "walk",
+  "speed": 0.65,
+  "look": "off",
+  "gait": {
+    "correction": "reduced lateral upper-leg/calf abduction with ankle counter-rotation",
+    "degrees": 3,
+    "sliderMin": 0,
+    "sliderMax": 5,
+    "originalAt": 0,
+    "phaseLockedQA": 0.29
+  }
+}
