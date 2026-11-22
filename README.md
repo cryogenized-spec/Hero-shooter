@@ -1,5 +1,7 @@
 # Hero Shooter
 
+> **Play Sophia's 3D scrapyard demo online:** [Open the GitHub Pages version](https://cryogenized-spec.github.io/Hero-shooter/sophia/). This is a static WebGL/Three.js game hosted by GitHub Pages, **not Vercel**. The source and full 3D engine remain under [PR #52](https://github.com/cryogenized-spec/Hero-shooter/pull/52); the `sophia/` folder on `main` holds the playable static website and its GLB assets. The legacy 2D project is being retired on the feature branch, but its history is retained.
+
 A top-down, chapter-based browser action game set in South Africa, developed collaboratively with creative direction from the game director and iterations originating in Gemini.
 
 ## Chapters
