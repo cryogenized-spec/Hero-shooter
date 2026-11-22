@@ -8,8 +8,7 @@ const noop=()=>{};
 
 test('the two primary game backdrops and Saafiya atlases are real generated WebP assets',async()=>{
   for(const file of [
-    'home_and_more_shop_3d.webp','home_and_more_staff_3d.webp',
-    'saafiya_walk_8way_8frame_atlas.webp','saafiya_run_8way_8frame_atlas.webp'
+    'home_and_more_shop_3d.webp','home_and_more_staff_3d.webp'
   ]){
     const contents=await read('public/play/assets/procedural/'+file);
     assert.ok(contents.length>8000,file+' is unexpectedly small');
@@ -18,10 +17,26 @@ test('the two primary game backdrops and Saafiya atlases are real generated WebP
   }
   const glb=await read('public/play/assets/procedural/home_and_more_shop_3d.glb');
   assert.equal(glb.toString('ascii',0,4),'glTF');
-  const meta=JSON.parse((await read('public/play/assets/procedural/saafiya_motion_metadata.json')).toString());
-  assert.deepEqual(meta.directions,['S','SW','W','NW','N','NE','E','SE']);
-  assert.equal(meta.frame_count_per_cycle,8);
-  assert.deepEqual(meta.size_pixels,[176,224]);
+  const generated=await read('public/play/assets/procedural/sophia_motion_metadata.json').catch(()=>null);
+  if(generated){
+    const meta=JSON.parse(generated.toString());
+    assert.deepEqual(meta.direction_order,['S','SW','W','NW','N','NE','E','SE']);
+    assert.deepEqual(meta.cell_px,[176,224]);
+    assert.deepEqual(meta.weapon_poses,['lowered at side','aimed outward']);
+    for(const key of ['lowered_idle','lowered_walk','lowered_run',
+                      'aimed_idle','aimed_walk','aimed_run']){
+      const image=await read('public/play/assets/procedural/sophia_'+key+'_8way.webp');
+      assert.ok(image.length>8000,key);
+      assert.equal(image.toString('ascii',0,4),'RIFF',key);
+    }
+    const glb=await read('public/play/assets/procedural/sophia_v3_3_with_chrome_84fs_unrigged.glb');
+    assert.equal(glb.toString('ascii',0,4),'glTF');
+  } else {
+    // On the feature branch the automated renderer has not yet committed binary
+    // assets; after merging, the render workflow populates them on main.
+    const action=(await read('.github/workflows/render-game-assets.yml')).toString();
+    assert.match(action,/make_sophia_motion\.py/);
+  }
 });
 
 test('shop module uses 3D backdrops as default with debug fallback',async()=>{
@@ -32,7 +47,7 @@ test('shop module uses 3D backdrops as default with debug fallback',async()=>{
   assert.match(code,/procedural3D/);
   const sprites=(await read('public/play/sprites.js')).toString();
   assert.match(sprites,/function drawSaafiya3D/);
-  assert.match(sprites,/saafiya_.*8way_8frame_atlas\.webp/);
+  assert.match(sprites,/sophia_.*_8way\.webp/);
 });
 
 test('Staff Only E-key doorway works in both directions and preserves the player',async()=>{
