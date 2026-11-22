@@ -8,7 +8,7 @@ import vtk
 import numpy as np
 from vtk.util.numpy_support import vtk_to_numpy
 import saafiya_true3d as original
-OUT=Path('/mnt/data')
+OUT=Path(__file__).resolve().parent
 FRAME=(176,224)
 DIRECTIONS=original.DIRECTIONS
 
