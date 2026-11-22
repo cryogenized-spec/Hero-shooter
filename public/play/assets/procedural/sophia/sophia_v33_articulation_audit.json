@@ -1,0 +1,22 @@
+{
+  "character": "Sophia/Saafiya v3.3",
+  "height_m": 1.72,
+  "rig_type": "procedural articulated rigid parts (not skinned)",
+  "groups": [
+    "body",
+    "left_leg",
+    "right_leg",
+    "left_boot",
+    "right_boot",
+    "left_arm",
+    "right_arm"
+  ],
+  "face_texture_px": [
+    2048,
+    2048
+  ],
+  "parts": 320,
+  "triangles": 209788,
+  "material_face_textures": 1,
+  "weapon": "attached chrome Beretta 84FS appearance prop"
+}
