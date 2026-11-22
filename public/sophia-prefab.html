@@ -30,17 +30,24 @@ button:hover{background:#67495c}
 <div id="loading">Loading CC0 MakeHuman base body, fitted clothing and hair…</div>
 <section id="ui">
 <h2>Hero Shooter / Experimental model factory</h2>
-<h1>Sophia · prefab v1</h1>
-<p>Built from ready-made MakeHuman CC0 character, garments and hair. Colour presets are procedural; the approved v3.3 Sophia remains untouched in the game.</p>
+<h1>Sophia · gait correction preview</h1>
+<p>Your shared MakeHuman character settings are preserved when opened in reference mode. Compare original vs narrower foot placement without changing her proportions.</p>
 <h2>Clothing preset</h2>
 <div class="row">
 <button data-outfit="gothic_dress" aria-pressed="true">Dark dress + boots</button>
-<button data-outfit="practical" aria-pressed="false">Practical jacket</button>
+<button data-outfit="practical" aria-pressed="false">Practical jacket</button><button data-outfit="reference" hidden aria-pressed="false">Your linked outfit</button>
 </div>
 <h2>View</h2>
 <div class="row">
 <button data-view="front">Front</button><button data-view="threequarter">3/4</button><button data-view="profile">Profile</button><button data-view="back">Back</button><button data-view="portrait">Portrait</button>
 </div>
+<h2>Walking foot spacing</h2>
+<div style="display:flex;align-items:center;gap:9px;margin:12px 0 4px">
+ <span style="font-size:11px;color:#e5d6d9">Original</span>
+ <input id="stance" aria-label="Narrow walking stance correction in degrees" type="range" min="0" max="5" step="0.5" value="3" style="flex:1;accent-color:#b883a1"/>
+ <span id="stanceValue" style="font:700 12px ui-monospace;min-width:30px">3.0°</span>
+</div>
+<p style="font-size:11px;margin:0 0 10px">Adjusts just her walking foot placement. Body shape, hip width, colours and hair remain unchanged. Set zero to compare the original gait.</p>
 <h2>Rig movement</h2>
 <div class="row"><button data-motion="idle">Idle</button><button data-motion="walk">Walk</button><button data-motion="run">Run</button></div>
 <button id="snapshot">Save PNG screenshot</button>
