@@ -444,23 +444,26 @@ function drawChen(ctx,actor,role) {
     ctx.restore();
 }
 
-// The code-rendered Saafiya atlases have eight directional rows and eight
-// chronological pose columns. They are shared meshes, not AI-redrawn frames.
-const saafiyaProceduralAtlases=new Map();
+// Sophia / Saafiya: painted-face v3.3 model, deterministically rendered in VTK.
+// 3D source and chrome 84FS prop are versioned in tools/render.
+// Each eight-way sheet has directions as rows [S,SW,W,NW,N,NE,E,SE].
+// Moving sheets: 8 chronological frames (columns); stationary: one neutral frame.
+const sophiaAtlases=new Map();
 function drawSaafiya3D(ctx,actor) {
   if(typeof Image==='undefined')return false;
   const moving=actor.gait?actor.gait!=='idle':actor.walkBlend>0.1;
-  const run=moving && (actor.gait==='run'||actor.isSprinting);
-  const pose=run?'run':'walk';
-  let atlas=saafiyaProceduralAtlases.get(pose);
+  const gait=moving?(actor.gait==='run'||actor.isSprinting?'run':'walk'):'idle';
+  const weaponPose=(actor.weaponPose==='aimed'||actor.aiming===true)?'aimed':'lowered';
+  const key=weaponPose+'_'+gait;
+  let atlas=sophiaAtlases.get(key);
   if(!atlas){
     atlas=new Image();
-    atlas.src=new URL('./assets/procedural/saafiya_'+pose+'_8way_8frame_atlas.webp',document.baseURI).href;
-    saafiyaProceduralAtlases.set(pose,atlas);
+    atlas.src=new URL('./assets/procedural/sophia_'+key+'_8way.webp',document.baseURI).href;
+    sophiaAtlases.set(key,atlas);
   }
   if(!atlas.complete||!atlas.naturalWidth)return false;
-  const angle=moving ? actor.walkAngle : actor.angle;
-  // Contract: screen +X east, +Y south; S=0,SW=1,W=2,NW=3,N=4,NE=5,E=6,SE=7.
+  const angle=weaponPose==='aimed' ? (actor.angle??actor.walkAngle??Math.PI/2) :
+    (moving ? (actor.walkAngle??actor.angle??Math.PI/2) : (actor.angle??Math.PI/2));
   const direction=((Math.round((angle-Math.PI/2)/(Math.PI/4))%8)+8)%8;
   const phase=((actor.walkPhase||0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
   const frame=moving?Math.floor(phase*4/Math.PI+1e-8)%8:0;
@@ -503,7 +506,7 @@ function drawNpc(ctx, actor, appearance='assistant', prop='none') {
   const isSaafiyaAlias=/^(saafiya|sophia|sofia)(?:\s|$)/i.test(actor.name||'');
   const isSaafiya=['saafiya','sophia','sofia'].includes(selected) ||
     (!explicit && ['assistant','cashier'].includes(selected) && isSaafiyaAlias);
-  if (isSaafiya && (drawSaafiya3D(ctx,actor) || drawNpcAtlas(ctx,actor,'saafiya.svg'))) return;
+  if (isSaafiya && drawSaafiya3D(ctx,actor)) return;
   if (selected==='family-father' && drawNpcAtlas(ctx,actor,'mr-chen.svg')) return;
   const colors=NPC_SPRITE_COLORS[selected] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
