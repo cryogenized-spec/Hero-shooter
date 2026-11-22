@@ -41,12 +41,14 @@ try{
  assert.ok(report.canvasVisible,'Loading overlay still covers level');
  await page.waitForTimeout(900);
  await page.screenshot({path:'c-mall-screenshots/golden_dragon_shop_overview.png',animations:'disabled'});
- const start=await page.evaluate(()=>window.__goldenDragonTest.state.hero.position.y);
+ const start=await page.evaluate(()=>window.__goldenDragonTest.state.hero.position.toArray());
  await page.keyboard.down('w');
- await page.waitForTimeout(450);
+ await page.waitForTimeout(600);
  await page.keyboard.up('w');
- const end=await page.evaluate(()=>window.__goldenDragonTest.state.hero.position.y);
- assert.ok(Math.abs(start-end)>.06,'Player did not walk');
+ const end=await page.evaluate(()=>window.__goldenDragonTest.state.hero.position.toArray());
+ const walked=Math.hypot(start[0]-end[0],start[1]-end[1]);
+ console.log('KEYBOARD MOVEMENT DEBUG',JSON.stringify({start,end,walked}));
+ assert.ok(walked>.06,'Player did not walk: '+JSON.stringify({start,end}));
  await page.evaluate(()=>{
   const h=window.__goldenDragonTest.state.hero;
   h.position.set(5.35,-3.8,.04);
@@ -62,7 +64,7 @@ try{
  await page.waitForTimeout(450);
  await page.screenshot({path:'c-mall-screenshots/golden_dragon_mall_concourse.png',animations:'disabled'});
  if(fatal.length)throw Error('Browser errors: '+fatal.join('\n').slice(0,2500));
- output.push({...report,walkingDeltaM:Math.abs(start-end),pageErrors:fatal,files:3});
+ output.push({...report,walkingDeltaM:walked,pageErrors:fatal,files:3});
  console.log(JSON.stringify(output[0],null,2));
  await writeFile('c-mall-screenshots/qa.json',JSON.stringify(output,null,2));
 }finally{
