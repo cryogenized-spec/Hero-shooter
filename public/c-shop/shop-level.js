@@ -129,6 +129,9 @@ function shopMap(){
   rect(px+4,404,28,3,'#c4b1a1');
  }
  label('CHECKOUT',1014,422,'#ffe3bd',11);
+ rect(945,429,225,12,'#673240');
+ label('金 龍  ·  GOLDEN DRAGON',963,439,'#edc392',11);
+ lantern(1163,458);
  spot('Checkout counter',1015,440,75,'The registers are offline. An emergency torch is still glowing.');
  // Front merchandising with a path to the stockroom and shop counter.
  furnishing(151,492,109,57,'#5f494c','#cc9e78');
@@ -289,7 +292,7 @@ function setQuestMessage(v){quest.message=v;quest.messageTime=3;}
 function shopReset(){
  weapon='beretta';inventory={beretta:{rounds:8,spares:3}};
  rounds=8;spares=3;reload=cool=grace=taxi=passengers=phase=musicTime=musicStep=0;
- player={x:867,y:489,a:-Math.PI/2,hp:3,step:0,flash:0,look:'hero',motion:0,travel:-Math.PI/2};
+ player={x:867,y:446,a:-Math.PI/2,hp:3,step:0,flash:0,look:'hero',motion:0,travel:-Math.PI/2};
  enemies=[];loot=[];particles=[];fx=[];prints=[];drop=null;
  run=crouch=held=press=confirm=false;keys.clear();
  quest.stage='find_chen';quest.dialogue=null;quest.index=0;
