@@ -19,6 +19,8 @@ jobs:
             test "$(stat -c%s "downloaded/${item}.glb")" -gt 400000
             sha256sum "downloaded/${item}.glb"
           done
+          curl -fL --retry 3 --connect-timeout 15 -o downloaded/PlateCarrier.glb "https://cdn.3dassets.dev/assets/32665/v1/model.glb"
+          sha256sum downloaded/PlateCarrier.glb
           curl -fL --retry 3 -o downloaded/QUATERNIUS_LICENSES.md "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/main/LICENSES.md"
           printf 'Source: https://github.com/trebeljahr/quaternius-showcase/tree/main/public/glb/modular_women\nCreator: Quaternius. For review; verify upstream license per model.\n' > downloaded/README.txt
       - name: Upload original donor models
