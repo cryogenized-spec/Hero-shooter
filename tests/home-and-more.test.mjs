@@ -37,7 +37,7 @@ test('shops have the requested features and a separate mezzanine office',()=>{
 test('Sunday staff and their routes are represented on the map',()=>{
   const actorNames=layers.Actors.map(o=>o.name);
   assert.equal(actorNames.length,8);
-  assert.equal(new Set(actorNames).size,7);
+  assert.equal(new Set(actorNames).size,8);
   for(const name of ['Mr. Chen','Mrs. Chen','Wei Chen','Sibusiso Mkhize',
     'Thandeka Dlamini','Bongani Cele','Mandla Khumalo'])
       assert.ok(actorNames.includes(name),'Missing '+name);
