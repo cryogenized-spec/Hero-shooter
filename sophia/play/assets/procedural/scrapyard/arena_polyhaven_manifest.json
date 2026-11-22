@@ -1,0 +1,396 @@
+{
+  "version": 1,
+  "scene": "Pine Ridge scrapyard / Hero Shooter",
+  "base_glb": "scrapyard_arena.glb",
+  "enriched_glb": "scrapyard_arena_polyhaven.glb",
+  "preview": "scrapyard_polyhaven_preview.png",
+  "source": "Poly Haven CC0 3D models (downloaded once at build time)",
+  "api_credit": "Powered by Poly Haven \u2014 https://polyhaven.com",
+  "asset_sources": {
+    "barrel_03": {
+      "page": "https://polyhaven.com/a/barrel_03",
+      "license": "CC0",
+      "resolution": "1k",
+      "mesh_groups": 1,
+      "triangles": 1473,
+      "source_axial_axis": "Y",
+      "target_extent_m": [
+        0.735,
+        0.96,
+        0.74
+      ],
+      "source_extent": [
+        0.634,
+        0.93,
+        0.639
+      ]
+    },
+    "old_tyre": {
+      "page": "https://polyhaven.com/a/old_tyre",
+      "license": "CC0",
+      "resolution": "1k",
+      "mesh_groups": 1,
+      "triangles": 2880,
+      "source_axial_axis": "Z",
+      "target_extent_m": [
+        0.81,
+        0.21,
+        0.81
+      ],
+      "source_extent": [
+        0.6,
+        0.6,
+        0.165
+      ]
+    },
+    "rusted_wheel_rim_02": {
+      "page": "https://polyhaven.com/a/rusted_wheel_rim_02",
+      "license": "CC0",
+      "resolution": "1k",
+      "mesh_groups": 1,
+      "triangles": 15256,
+      "source_axial_axis": "Z",
+      "target_extent_m": [
+        0.6,
+        0.18,
+        0.6
+      ],
+      "source_extent": [
+        0.338,
+        0.338,
+        0.119
+      ]
+    }
+  },
+  "instances": 30,
+  "placements": [
+    {
+      "asset": "barrel_03",
+      "at": "barrel_1",
+      "position_m": [
+        -23.0,
+        0.0,
+        -3.5
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "asset": "barrel_03",
+      "at": "barrel_2",
+      "position_m": [
+        -21.2,
+        0.0,
+        -4.0
+      ],
+      "yaw_deg": 31
+    },
+    {
+      "asset": "barrel_03",
+      "at": "barrel_3",
+      "position_m": [
+        -19.3,
+        0.0,
+        -3.5
+      ],
+      "yaw_deg": 62
+    },
+    {
+      "asset": "barrel_03",
+      "at": "barrel_6",
+      "position_m": [
+        2.0,
+        0.0,
+        -12.0
+      ],
+      "yaw_deg": 93
+    },
+    {
+      "asset": "barrel_03",
+      "at": "barrel_8",
+      "position_m": [
+        9.0,
+        0.0,
+        -10.4
+      ],
+      "yaw_deg": 124
+    },
+    {
+      "asset": "barrel_03",
+      "at": "barrel_14",
+      "position_m": [
+        11.0,
+        0.0,
+        3.1
+      ],
+      "yaw_deg": 155
+    },
+    {
+      "asset": "barrel_03",
+      "at": "barrel_16",
+      "position_m": [
+        -19.2,
+        0.0,
+        11.0
+      ],
+      "yaw_deg": 186
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_1",
+      "stack_layer": 0,
+      "position_m": [
+        -19.8,
+        0.0,
+        -2.4
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_1",
+      "stack_layer": 1,
+      "position_m": [
+        -19.8,
+        0.20500000000000002,
+        -2.4
+      ],
+      "yaw_deg": 27
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_1",
+      "stack_layer": 2,
+      "position_m": [
+        -19.8,
+        0.41000000000000003,
+        -2.4
+      ],
+      "yaw_deg": 54
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_2",
+      "stack_layer": 0,
+      "position_m": [
+        -6.5,
+        0.0,
+        -4.8
+      ],
+      "yaw_deg": 17
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_2",
+      "stack_layer": 1,
+      "position_m": [
+        -6.5,
+        0.20500000000000002,
+        -4.8
+      ],
+      "yaw_deg": 44
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_2",
+      "stack_layer": 2,
+      "position_m": [
+        -6.5,
+        0.41000000000000003,
+        -4.8
+      ],
+      "yaw_deg": 71
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_3",
+      "stack_layer": 0,
+      "position_m": [
+        1.9,
+        5.551115123125783e-17,
+        -10.0
+      ],
+      "yaw_deg": 34
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_3",
+      "stack_layer": 1,
+      "position_m": [
+        1.9,
+        0.18000000000000005,
+        -10.0
+      ],
+      "yaw_deg": 61
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_3",
+      "stack_layer": 2,
+      "position_m": [
+        1.9,
+        0.36000000000000004,
+        -10.0
+      ],
+      "yaw_deg": 88
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_3",
+      "stack_layer": 3,
+      "position_m": [
+        1.9,
+        0.54,
+        -10.0
+      ],
+      "yaw_deg": 115
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_3",
+      "stack_layer": 4,
+      "position_m": [
+        1.9,
+        0.72,
+        -10.0
+      ],
+      "yaw_deg": 142
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_5",
+      "stack_layer": 0,
+      "position_m": [
+        11.0,
+        0.0,
+        -5.0
+      ],
+      "yaw_deg": 51
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_5",
+      "stack_layer": 1,
+      "position_m": [
+        11.0,
+        0.20500000000000002,
+        -5.0
+      ],
+      "yaw_deg": 78
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_5",
+      "stack_layer": 2,
+      "position_m": [
+        11.0,
+        0.41000000000000003,
+        -5.0
+      ],
+      "yaw_deg": 105
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_7",
+      "stack_layer": 0,
+      "position_m": [
+        -21.0,
+        0.0,
+        6.5
+      ],
+      "yaw_deg": 68
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_7",
+      "stack_layer": 1,
+      "position_m": [
+        -21.0,
+        0.20500000000000002,
+        6.5
+      ],
+      "yaw_deg": 95
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_7",
+      "stack_layer": 2,
+      "position_m": [
+        -21.0,
+        0.41000000000000003,
+        6.5
+      ],
+      "yaw_deg": 122
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_9",
+      "stack_layer": 0,
+      "position_m": [
+        24.0,
+        0.0,
+        8.0
+      ],
+      "yaw_deg": 85
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_9",
+      "stack_layer": 1,
+      "position_m": [
+        24.0,
+        0.20500000000000002,
+        8.0
+      ],
+      "yaw_deg": 112
+    },
+    {
+      "asset": "old_tyre",
+      "at": "tirestack_9",
+      "stack_layer": 2,
+      "position_m": [
+        24.0,
+        0.41000000000000003,
+        8.0
+      ],
+      "yaw_deg": 139
+    },
+    {
+      "asset": "rusted_wheel_rim_02",
+      "at": "pallet_1",
+      "position_m": [
+        -22.3,
+        0.23,
+        -7.2
+      ],
+      "yaw_deg": 11
+    },
+    {
+      "asset": "rusted_wheel_rim_02",
+      "at": "pallet_3",
+      "position_m": [
+        -14.0,
+        0.23,
+        10.6
+      ],
+      "yaw_deg": 50
+    },
+    {
+      "asset": "rusted_wheel_rim_02",
+      "at": "pallet_6",
+      "position_m": [
+        22.0,
+        0.23,
+        11.6
+      ],
+      "yaw_deg": 89
+    }
+  ],
+  "original_mesh_groups": 36,
+  "enriched_mesh_groups": 39,
+  "original_scene_nodes": 36,
+  "enriched_scene_nodes": 66,
+  "collisions_unchanged": true,
+  "navgrid_unchanged": true,
+  "engine_note": "3D enriched GLB not directly loaded by current 2D public/training range; runtime integration is separate.",
+  "size_bytes": 16988432
+}
