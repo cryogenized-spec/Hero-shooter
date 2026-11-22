@@ -474,7 +474,7 @@ function drawSaafiya3D(ctx,actor) {
   ctx.restore();return true;
 }
 const npcAtlases=new Map();
-function drawNpcAtlas(ctx, actor, filename) {
+function drawNpcAtlas(ctx, actor, filename, staticIdle=false) {
   if (typeof Image === 'undefined') return false;
   let atlas=npcAtlases.get(filename);
   if (!atlas) {
@@ -488,7 +488,7 @@ function drawNpcAtlas(ctx, actor, filename) {
   const column=((Math.round((angle-Math.PI/2)/(Math.PI/4))%8)+8)%8;
   const gait=moving ? (actor.gait==='run' || actor.isSprinting ? 2 : 1) : 0;
   const phase=moving ? actor.walkPhase*2/Math.PI : (actor.idleClock ?? performance.now()/1000)*3;
-  const frame=((Math.floor(phase)%4)+4)%4;
+  const frame=(!moving && staticIdle) ? 0 : ((Math.floor(phase)%4)+4)%4;
   ctx.save();
   ctx.imageSmoothingEnabled=false;
   ctx.drawImage(atlas,column*32,(gait*4+frame)*48,32,48,
@@ -508,6 +508,9 @@ function drawNpc(ctx, actor, appearance='assistant', prop='none') {
     (!explicit && ['assistant','cashier'].includes(selected) && isSaafiyaAlias);
   if (isSaafiya && drawSaafiya3D(ctx,actor)) return;
   if (selected==='family-father' && drawNpcAtlas(ctx,actor,'mr-chen.svg')) return;
+  // Wei's atlas was rendered from the approved VTK hybrid-face model; it uses
+  // the same 8 bearings/12 rows as Mr Chen, with idle frame 0 truly at rest.
+  if (selected==='family-son' && drawNpcAtlas(ctx,actor,'assets/procedural/wei_chen_8dir_12row_atlas.png',true)) return;
   const colors=NPC_SPRITE_COLORS[selected] || NPC_SPRITE_COLORS.assistant;
   ctx.save();ctx.translate(actor.x,actor.y);ctx.rotate(actor.angle);
   if (Object.hasOwn(familyArt,selected)) drawChen(ctx,actor,selected);
