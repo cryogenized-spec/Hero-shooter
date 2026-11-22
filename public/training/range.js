@@ -1,6 +1,6 @@
 // Both built Pages (/training/) and repository-root Pages (/public/training/) are supported.
 const sourcePublished=import.meta.url.includes('/public/training/');
-const {drawArmedC}=await import(sourcePublished?'../../src/armed-c.js':'../src/armed-c.js');
+const {drawArmedC, armedFacing}=await import(sourcePublished?'../../src/armed-c.js':'../src/armed-c.js');
 
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
@@ -27,11 +27,68 @@ const player = {gender:'mall', angle:0, walkPhase:0, walkBlend:0};
 const weapon = {id:'glock26'};
 const keys = new Set();
 const broken = new Set();
-let particles = [], trace, last, aim;
+let particles = [], last, aim;
+const casings = [];
+// Barrel positions relative to the sprite anchor, clockwise from south.
+const muzzleOffsets = [[2,8],[-13,3],[-16,0],[-16,-1],[0,-10],[13,0],[15,2],[15,4]];
+let flash;
+
+function fireEffects() {
+ const [dx,dy] = muzzleOffsets[armedFacing(player.angle)];
+ const x = player.x + dx, y = player.y + dy;
+ flash = {x, y, angle:player.angle, life:.06};
+ const side = player.angle + Math.PI/2 + (Math.random()-.5)*.6;
+ const speed = 90 + Math.random()*60;
+ casings.push({
+  x:x-4*Math.cos(player.angle), y:y-4*Math.sin(player.angle),
+  vx:speed*Math.cos(side), vy:speed*Math.sin(side),
+  angle:side, spin:(Math.random()-.5)*36, life:.38
+ });
+}
+
+function drawShotEffects(dt) {
+ if (flash && flash.life > 0) {
+  ctx.save();
+  ctx.translate(flash.x,flash.y);
+  ctx.rotate(flash.angle);
+  ctx.scale(flash.life/.06,flash.life/.06);
+  ctx.fillStyle='#ffae48';
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.lineTo(4,-3);
+  ctx.lineTo(11,0);
+  ctx.lineTo(4,3);
+  ctx.fill();
+  ctx.fillStyle='#fff4c4';
+  ctx.fillRect(0,-1,6,2);
+  ctx.restore();
+  flash.life-=dt;
+ }
+ const drag = Math.pow(.9,dt*60);
+ for (let i=casings.length-1; i>=0; i--) {
+  const c=casings[i];
+  ctx.save();
+  ctx.translate(c.x,c.y);
+  ctx.rotate(c.angle);
+  ctx.globalAlpha=Math.min(1,c.life/.12);
+  ctx.fillStyle='#dfa744';
+  ctx.fillRect(-2,-1,4,2);
+  ctx.fillStyle='#ffdb84';
+  ctx.fillRect(-2,-1,1,2);
+  ctx.restore();
+  c.x+=c.vx*dt;
+  c.y+=c.vy*dt;
+  c.vx*=drag;
+  c.vy*=drag;
+  c.angle+=c.spin*dt;
+  c.life-=dt;
+  if (c.life<=0) casings.splice(i,1);
+ }
+}
 function updateScore(){score.value = broken.size + ' / ' + targets.length + ' broken';}
 function reset(){
  Object.assign(player,{x:270,y:435,angle:0,walkPhase:0,walkBlend:0,slideTime:0});
- broken.clear(); particles=[]; trace=null; aim=null; keys.clear(); updateScore();
+ broken.clear(); particles=[]; flash=null; casings.length=0; aim=null; keys.clear(); updateScore();
 }
 function canStand(x,y){
  return x>115 && x<1570 && y>175 && y<752 &&
@@ -47,7 +104,7 @@ canvas.onpointerdown=e=>{
  aim=pointer(e);
  player.angle=Math.atan2(aim.y-player.y,aim.x-player.x);
  player.slideTime=.105;
- trace={...aim,time:.075};
+ fireEffects();
  const i=targets.findIndex(([x,y,w,h],i)=>!broken.has(i) && aim.x>=x && aim.x<x+w && aim.y>=y && aim.y<y+h);
  if(i<0)return;
  broken.add(i); updateScore();
@@ -80,9 +137,7 @@ function frame(now){
   const [x,y,w,h,sx,sy]=targets[i];ctx.drawImage(yard,sx,sy,w,h,x,y,w,h);
  }
  drawArmedC(ctx,player,weapon);
- if(trace && (trace.time-=dt)>0){
-  ctx.strokeStyle='#ffdf92';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(trace.x,trace.y);ctx.stroke();
- }
+ drawShotEffects(dt);
  for(const p of particles){
   p.life-=dt;p.vy+=390*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
   ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,3,2);
