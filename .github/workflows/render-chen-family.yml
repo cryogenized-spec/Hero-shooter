@@ -1,0 +1,96 @@
+name: Publish missing Chen family VTK models
+
+on:
+  push:
+    branches: [assets/chen-family-all-3d]
+    paths:
+      - 'tools/render/mr_chen_hybrid_v2.py'
+      - 'tools/render/mrs_chen_vtk.py'
+      - '.github/workflows/render-chen-family.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Verify and publish Mr and Mrs Chen GLBs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install off-screen VTK runtime
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1 libxrender1 libsm6
+          python -m pip install --quiet vtk numpy pillow trimesh scipy
+      - name: Rebuild Mr Chen V2 and Mrs Chen 3D assets from source
+        run: |
+          mkdir -p "${RUNNER_TEMP}/chen-mr" "${RUNNER_TEMP}/chen-mrs"
+          xvfb-run -a python tools/render/mr_chen_hybrid_v2.py --out "${RUNNER_TEMP}/chen-mr"
+          cp tools/render/mrs_chen_vtk.py "${RUNNER_TEMP}/chen-mrs/build_mrs_chen_vtk.py"
+          xvfb-run -a python "${RUNNER_TEMP}/chen-mrs/build_mrs_chen_vtk.py"
+      - name: Validate three Chen family GLBs and two atlas images
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os, shutil, trimesh
+          from PIL import Image
+          temp=Path(os.environ["RUNNER_TEMP"])
+          dest=Path("public/play/assets/procedural")
+          dest.mkdir(parents=True,exist_ok=True)
+          sources={
+              "mr_chen_hybrid_face_v2.glb":temp/"chen-mr/mr_chen_hybrid_face_v2.glb",
+              "mrs_chen_unarmed_vtk.glb":temp/"chen-mrs/mrs_chen_unarmed_vtk.glb",
+              "mr_chen_8dir_12row_atlas.png":temp/"chen-mr/mr_chen_8dir_12row_atlas.png",
+              "mrs_chen_vtk_atlas_32x48.png":temp/"chen-mrs/mrs_chen_vtk_atlas_32x48.png",
+              "mr_chen_facials_neutral.png":temp/"chen-mr/mr_chen_facials_neutral.png"
+          }
+          for name,src in sources.items():
+              assert src.exists() and src.stat().st_size>1000, (name,str(src))
+              shutil.copyfile(src,dest/name)
+          for name in ("mr_chen_hybrid_face_v2.glb","mrs_chen_unarmed_vtk.glb","wei_chen_hybrid_vtk_v2.glb"):
+              p=dest/name
+              s=trimesh.load(p,force="scene")
+              assert len(s.geometry)>0 and p.stat().st_size>100_000,name
+              print(name,p.stat().st_size,'bytes',len(s.geometry),'meshes')
+          for name in ("mr_chen_8dir_12row_atlas.png","mrs_chen_vtk_atlas_32x48.png","wei_chen_8dir_12row_atlas.png"):
+              with Image.open(dest/name) as im:
+                  assert im.size==(256,576),(name,im.size)
+                  assert im.mode=="RGBA",(name,im.mode)
+              print(name,'256x576 RGBA')
+          PY
+      - name: Check game source, tests, and static build
+        run: |
+          npm run check
+          npm test
+          npm run build
+      - name: Commit approved prototype binaries to feature branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/play/assets/procedural/mr_chen_hybrid_face_v2.glb
+          git add public/play/assets/procedural/mrs_chen_unarmed_vtk.glb
+          git add public/play/assets/procedural/mr_chen_8dir_12row_atlas.png
+          git add public/play/assets/procedural/mrs_chen_vtk_atlas_32x48.png
+          git add public/play/assets/procedural/mr_chen_facials_neutral.png
+          if git diff --cached --quiet; then
+            echo 'All Chen GLBs are already committed.'
+            exit 0
+          fi
+          git commit -m 'assets: upload Mr and Mrs Chen GLBs and VTK atlases'
+          for attempt in 1 2 3; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo 'Published missing Chen 3D models.'
+              exit 0
+            fi
+          done
+          echo 'Could not push rendered models without overwrite.'
+          exit 1
