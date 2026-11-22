@@ -33,9 +33,9 @@ She particularly loves her **black Ford Mustang**. Long drives, including outing
 
 The approved visual direction is retro-anime / early-3D-console gothic styling. Saafiya has a **medium-tan complexion**, **dark hair with burgundy-to-purple colouring**, pronounced eyeliner and dark lipstick, and a distinctive beauty mark. She wears sunglasses pushed up onto her hair, hoop earrings and other piercings, a choker with a **crescent pendant**, lace or fishnet details, a fitted gothic corset, belts and chains, and tall buckled boots. Outfits may change by scene while these identifying motifs remain recognisable.
 
-An **engraved, inherited Beretta Cheetah-family pistol** is an established personal possession, associated in the original story notes with **7.65 mm ammunition** and **three spare magazines**. It has significance to her history and appearance; it should not be treated as a generic interchangeable prop.
+Saafiya owns an **engraved, inherited Beretta 84FS Cheetah chambered in .380 ACP (9 mm Short / 9×17 mm)**. She carries **three spare magazines**. The pistol's sentimental significance and polished appearance are established character details; it should not be treated as a generic interchangeable prop.
 
-**Continuity issue requiring a final model-name decision:** Later art and asset files frequently label it **“Beretta 84FS”**, whereas that model is a .380 ACP / 9 mm Short double-stack Cheetah. The 7.65 mm Cheetah variants belong elsewhere in the 80-series (including the Model 81/82 family). Do not quietly rewrite the original 7.65 mm backstory or declare the “84FS” marking correct without the director settling the discrepancy. For the moment, story prose can say **engraved 7.65 mm Beretta Cheetah**.
+**Canon decision — 23 November 2026:** The director confirmed **Beretta 84FS, .380 ACP** as final. The 84FS has a **double-stack magazine and a correspondingly wider grip** than the single-stack Cheetah variants. Older notes describing Saafiya's pistol as **7.65 mm** or single-stack are **superseded**, including any asset notes proposing the Model 82. Use **Beretta 84FS (.380 ACP)** consistently in future story scripts, dialogue, asset descriptions and visual reviews. This decision updates lore; it does not imply that every existing game-art asset has been remodelled.
 
 ## Fayeem: the relationship before the crisis
 
@@ -65,7 +65,7 @@ She receives an unfamiliar email on a **Pixel-like smartphone with a black glitt
 
 The message is a lead, **not proof of the sender's identity or motives**. It does not establish that Saafiya understands the Russian plot.
 
-In the proposed visual sequence, she retrieves her engraved Cheetah from beneath a pillow, gathers her **three spare magazines** (shown in a right-thigh garter), and leaves in her **own black Mustang**. The property is a modest, older, mine-worker-style house; storm clouds gather as she goes. One draft has her think or mutter angrily in Afrikaans, demonstrating how the language surfaces under emotional strain.
+In the proposed visual sequence, she retrieves her engraved .380 ACP Beretta 84FS from beneath a pillow, gathers her **three spare magazines** (shown in a right-thigh garter), and leaves in her **own black Mustang**. The property is a modest, older, mine-worker-style house; storm clouds gather as she goes. One draft has her think or mutter angrily in Afrikaans, demonstrating how the language surfaces under emotional strain.
 
 The scene's narrative progression is: **something is wrong → she notices what Fayeem took → an anonymous message gives her an address → personal hurt becomes a decision to seek him out**. Her reaction should retain suspicion, anger and emotional vulnerability, not simply turn her into a detached action-game character.
 
@@ -88,7 +88,7 @@ If she becomes a companion, she should remain recognisably Saafiya: capable and 
 - Fuel-station/restaurant managerial work, black Ford Mustang, fondness for driving.
 - On-and-off involvement with Fayeem; his technical aptitude and Russian military lieutenant history.
 - Johannesburg family-visit premise, concealed other woman and approximately two-year-old son, and Russian operative's blackmail.
-- Engraved inherited 7.65 mm Beretta Cheetah-family pistol, with three spare magazines.
+- Engraved inherited **Beretta 84FS Cheetah, .380 ACP**, with three spare magazines; double-stack profile is canon.
 - Distinctive gothic appearance, dark/burgundy hair, jewellery and established character-design motifs.
 
 ### Developed scenes or working connections
@@ -104,7 +104,7 @@ If she becomes a companion, she should remain recognisably Saafiya: capable and 
 - Fayeem's Russian service dates, operative identity, the specifics of the operation and its outcome.
 - Who sent the Copperlane email, why, whether it is trustworthy, and precisely where the search leads.
 - When and how Saafiya learns about the other woman and child, what Fayeem admits, whether they reconcile, and her ending.
-- Whether the story-standard firearm should retain **84FS** as an intentional fictional art label or be corrected to a 7.65 mm Cheetah variant.
+- The Beretta designation and cartridge are **resolved** (84FS, .380 ACP); older 7.65 mm/single-stack references remain only as superseded development history. Physical art alignment may still require a separate asset revision.
 
 ## Writing guidance
 
