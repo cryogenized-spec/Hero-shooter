@@ -32,7 +32,7 @@ test('family-father selects Mr Chen artwork for all 96 direction and gait frames
         actor.angle=Math.PI/2+col*Math.PI/4;
         actor.walkAngle=actor.angle;
         actor.walkBlend=gait===0?0:1;
-        actor.idleClock=frame/3;
+        actor.idlePoseFrame=frame; // Explicit still-pose preview; never time-animated.
         actor.walkPhase=frame*Math.PI/2;
         root.HeroSprites.drawNpc(ctx,actor,'family-father');
         const d=drawn.at(-1);
