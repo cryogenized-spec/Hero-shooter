@@ -65,6 +65,32 @@ jobs:
               html=html.replace("<div id=\"hint\">",link+"<div id=\"hint\">",1)
               page.write_text(html)
           PY
+      - name: Checkout C Golden Dragon mall scene
+        uses: actions/checkout@v4
+        with:
+          ref: feat/c-golden-dragon-mall-level-20261122
+          path: c-mall-src
+          persist-credentials: false
+      - name: Publish separate playable Chinese-shop level at /c-mall/
+        run: |
+          mkdir -p dist/c-mall dist/play/assets/procedural
+          cp -a c-mall-src/public/c-mall/. dist/c-mall/
+          cp c-main/public/play/assets/procedural/mr_chen_hybrid_face_v2.glb dist/play/assets/procedural/
+          node --check dist/c-mall/mall-scene.js
+          node --check dist/c-mall/mall-geometry.js
+          test -s dist/c-mall/index.html
+          test -s dist/c-mall/assets/c_portrait.webp
+          test -s dist/c-mall/mall-scene.js
+          test -s dist/c-mall/mall-geometry.js
+          test -s dist/play/assets/procedural/mr_chen_hybrid_face_v2.glb
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('dist/c/index.html')
+          t=p.read_text()
+          link='<a class="btn" href="../c-mall/" style="border-color:#d1a074;color:#ffe0ae">GOLDEN DRAGON MALL</a>'
+          t=t.replace('<a id="back"',link+'<a id="back"',1)
+          p.write_text(t)
+          PY
       - name: Checkout the verified original-link Sophia gait comparison
         uses: actions/checkout@v4
         with:
