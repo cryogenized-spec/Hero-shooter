@@ -576,7 +576,8 @@ def output():
     render.save(ROOT/'home_and_more_3d_render.png')
     plan=draw_layout_map();plan.save(ROOT/'home_and_more_code_floorplan.png')
     # compare with the exact user-provided reference for QA
-    src_path=ROOT/'Home and More - Approved Shop Layout - Web Optimized.webp'\n    src=Image.open(src_path).convert('RGB') if src_path.exists() else render.copy().convert('RGB')
+    src_path=ROOT/'Home and More - Approved Shop Layout - Web Optimized.webp'
+    src=Image.open(src_path).convert('RGB') if src_path.exists() else render.copy().convert('RGB')
     source_view=Image.new('RGB',(950,540),'#f9f5ee');src.thumbnail((950,520),Image.Resampling.LANCZOS)
     source_view.paste(src,((950-src.width)//2,(540-src.height)//2))
     rend_view=render.convert('RGB').resize((950,570),Image.Resampling.LANCZOS)
