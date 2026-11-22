@@ -28,10 +28,27 @@ test('Saafiya selects atlas cells for her NPC identity without changing C',async
   assert.equal(draws.length,1);
   assert.equal(draws[0][1],0);
   assert.equal(draws[0][2],0);
-  assert.deepEqual(draws[0].slice(3),[32,48,144,78,32,48]);
+  assert.deepEqual(draws[0].slice(3),[176,224,135,59,50,64]);
   const running={...idle,gait:'run',angle:0,walkAngle:0,walkPhase:0,walkBlend:1};
   root.HeroSprites.drawNpc(ctx,running,'saafiya');
   assert.equal(draws.length,2);
-  assert.equal(draws[1][1],192);
-  assert.equal(draws[1][2],384);
+  assert.equal(draws[1][1],0);
+  assert.equal(draws[1][2],6*224);
+  assert.deepEqual(draws[1].slice(3),[176,224,135,59,50,64]);
+  // Eight directions × eight distinct chronological poses on the VTK atlas.
+  for(const gait of ['walk','run']){
+    for(let direction=0;direction<8;direction++){
+      for(let frame=0;frame<8;frame++){
+        const angle=Math.PI/2+direction*Math.PI/4;
+        root.HeroSprites.drawNpc(ctx,{
+          ...idle,gait,walkBlend:1,angle,walkAngle:angle,
+          walkPhase:frame*(2*Math.PI/8)
+        },'saafiya');
+        const coords=draws.at(-1);
+        assert.equal(coords[1],frame*176,'frame '+frame);
+        assert.equal(coords[2],direction*224,'direction '+direction);
+      }
+    }
+  }
+  assert.equal(draws.length,130);
 });

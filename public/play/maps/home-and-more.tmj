@@ -10,7 +10,7 @@
   "tiledversion": "1.11.2",
   "version": "1.10",
   "type": "map",
-  "nextobjectid": 131,
+  "nextobjectid": 195,
   "nextlayerid": 7,
   "properties": [
     {
@@ -335,6 +335,312 @@
               "name": "floor",
               "type": "string",
               "value": "office"
+            }
+          ]
+        },
+        {
+          "id": 132,
+          "name": "staff north wall",
+          "type": "wall",
+          "x": 300,
+          "y": 200,
+          "width": 1600,
+          "height": 26,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 133,
+          "name": "staff south wall",
+          "type": "wall",
+          "x": 300,
+          "y": 1074,
+          "width": 1600,
+          "height": 26,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 134,
+          "name": "staff west wall",
+          "type": "wall",
+          "x": 300,
+          "y": 200,
+          "width": 26,
+          "height": 900,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 135,
+          "name": "staff east wall upper",
+          "type": "wall",
+          "x": 1874,
+          "y": 200,
+          "width": 26,
+          "height": 640,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 136,
+          "name": "staff east wall lower",
+          "type": "wall",
+          "x": 1874,
+          "y": 973,
+          "width": 26,
+          "height": 127,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 137,
+          "name": "packing partition west",
+          "type": "wall",
+          "x": 326,
+          "y": 654,
+          "width": 930,
+          "height": 23,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 138,
+          "name": "packing partition east",
+          "type": "wall",
+          "x": 1370,
+          "y": 654,
+          "width": 504,
+          "height": 23,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 139,
+          "name": "toilet corridor partition upper",
+          "type": "wall",
+          "x": 614,
+          "y": 678,
+          "width": 24,
+          "height": 75,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 140,
+          "name": "toilet corridor partition middle",
+          "type": "wall",
+          "x": 614,
+          "y": 827,
+          "width": 24,
+          "height": 68,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 141,
+          "name": "toilet corridor partition lower",
+          "type": "wall",
+          "x": 614,
+          "y": 969,
+          "width": 24,
+          "height": 105,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 142,
+          "name": "canteen/lockers partition north",
+          "type": "wall",
+          "x": 1185,
+          "y": 678,
+          "width": 24,
+          "height": 94,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 143,
+          "name": "canteen/lockers partition south",
+          "type": "wall",
+          "x": 1185,
+          "y": 865,
+          "width": 24,
+          "height": 209,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 144,
+          "name": "lockers/office partition north",
+          "type": "wall",
+          "x": 1470,
+          "y": 678,
+          "width": 24,
+          "height": 93,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 145,
+          "name": "lockers/office partition south",
+          "type": "wall",
+          "x": 1470,
+          "y": 860,
+          "width": 24,
+          "height": 214,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 146,
+          "name": "office east wall upper",
+          "type": "wall",
+          "x": 1820,
+          "y": 678,
+          "width": 24,
+          "height": 164,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 147,
+          "name": "office east wall lower",
+          "type": "wall",
+          "x": 1820,
+          "y": 939,
+          "width": 24,
+          "height": 135,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 148,
+          "name": "toilet stall separator",
+          "type": "wall",
+          "x": 330,
+          "y": 853,
+          "width": 284,
+          "height": 16,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
             }
           ]
         }
@@ -2034,6 +2340,564 @@
               "value": "shop"
             }
           ]
+        },
+        {
+          "id": 149,
+          "name": "loading pallets",
+          "type": "pallet",
+          "x": 384,
+          "y": 296,
+          "width": 158,
+          "height": 126,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 150,
+          "name": "receiving cartons",
+          "type": "pallet",
+          "x": 370,
+          "y": 480,
+          "width": 198,
+          "height": 105,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 151,
+          "name": "incoming stock rack 1",
+          "type": "shelf",
+          "x": 690,
+          "y": 236,
+          "width": 220,
+          "height": 84,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 152,
+          "name": "incoming stock rack 2",
+          "type": "shelf",
+          "x": 940,
+          "y": 236,
+          "width": 220,
+          "height": 84,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 153,
+          "name": "incoming stock rack 3",
+          "type": "shelf",
+          "x": 1190,
+          "y": 236,
+          "width": 220,
+          "height": 84,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 154,
+          "name": "packing rack 1",
+          "type": "shelf",
+          "x": 770,
+          "y": 369,
+          "width": 82,
+          "height": 238,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 155,
+          "name": "packing rack 2",
+          "type": "shelf",
+          "x": 932,
+          "y": 369,
+          "width": 82,
+          "height": 238,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 156,
+          "name": "packing rack 3",
+          "type": "shelf",
+          "x": 1094,
+          "y": 369,
+          "width": 82,
+          "height": 238,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 157,
+          "name": "packing rack 4",
+          "type": "shelf",
+          "x": 1256,
+          "y": 369,
+          "width": 82,
+          "height": 238,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 158,
+          "name": "dispatch stock rack",
+          "type": "shelf",
+          "x": 1731,
+          "y": 254,
+          "width": 125,
+          "height": 248,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 159,
+          "name": "packing workbench",
+          "type": "workbench",
+          "x": 1410,
+          "y": 420,
+          "width": 278,
+          "height": 116,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 160,
+          "name": "dispatch cart",
+          "type": "trolley",
+          "x": 1702,
+          "y": 515,
+          "width": 92,
+          "height": 66,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 161,
+          "name": "pallet jack",
+          "type": "pallet-jack",
+          "x": 525,
+          "y": 399,
+          "width": 74,
+          "height": 45,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 162,
+          "name": "upper toilet cubicles",
+          "type": "cabinet",
+          "x": 357,
+          "y": 720,
+          "width": 136,
+          "height": 75,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 163,
+          "name": "upper toilet basin",
+          "type": "toilet",
+          "x": 522,
+          "y": 701,
+          "width": 56,
+          "height": 50,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 164,
+          "name": "lower toilet cubicles",
+          "type": "cabinet",
+          "x": 356,
+          "y": 897,
+          "width": 138,
+          "height": 78,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 165,
+          "name": "lower toilet basin",
+          "type": "toilet",
+          "x": 523,
+          "y": 995,
+          "width": 56,
+          "height": 50,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 166,
+          "name": "canteen kitchenette",
+          "type": "counter",
+          "x": 703,
+          "y": 706,
+          "width": 190,
+          "height": 72,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 167,
+          "name": "canteen fridge",
+          "type": "fridge",
+          "x": 1092,
+          "y": 972,
+          "width": 62,
+          "height": 73,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 168,
+          "name": "canteen table 1",
+          "type": "table",
+          "x": 827,
+          "y": 771,
+          "width": 106,
+          "height": 85,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 169,
+          "name": "canteen table 2",
+          "type": "table",
+          "x": 1017,
+          "y": 771,
+          "width": 106,
+          "height": 85,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 170,
+          "name": "canteen table 3",
+          "type": "table",
+          "x": 832,
+          "y": 925,
+          "width": 106,
+          "height": 85,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 171,
+          "name": "canteen table 4",
+          "type": "table",
+          "x": 1018,
+          "y": 925,
+          "width": 106,
+          "height": 85,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 172,
+          "name": "canteen chairs 1",
+          "type": "chairs",
+          "x": 814,
+          "y": 859,
+          "width": 128,
+          "height": 28,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 173,
+          "name": "canteen chairs 2",
+          "type": "chairs",
+          "x": 1005,
+          "y": 859,
+          "width": 128,
+          "height": 28,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 174,
+          "name": "locker bank west",
+          "type": "locker",
+          "x": 1217,
+          "y": 934,
+          "width": 111,
+          "height": 65,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 175,
+          "name": "locker bank east",
+          "type": "locker",
+          "x": 1340,
+          "y": 934,
+          "width": 111,
+          "height": 65,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 176,
+          "name": "locker bench",
+          "type": "table",
+          "x": 1260,
+          "y": 1020,
+          "width": 140,
+          "height": 28,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 177,
+          "name": "office workstation",
+          "type": "desk",
+          "x": 1580,
+          "y": 760,
+          "width": 175,
+          "height": 95,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 178,
+          "name": "office filing shelf",
+          "type": "cabinet",
+          "x": 1560,
+          "y": 926,
+          "width": 160,
+          "height": 65,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 179,
+          "name": "office chair",
+          "type": "chairs",
+          "x": 1610,
+          "y": 862,
+          "width": 60,
+          "height": 60,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
         }
       ]
     },
@@ -2188,6 +3052,114 @@
               "name": "floor",
               "type": "string",
               "value": "office"
+            }
+          ]
+        },
+        {
+          "id": 180,
+          "name": "receiving / packing",
+          "type": "zone",
+          "x": 326,
+          "y": 226,
+          "width": 1548,
+          "height": 428,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 181,
+          "name": "toilets",
+          "type": "zone",
+          "x": 326,
+          "y": 678,
+          "width": 288,
+          "height": 396,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 182,
+          "name": "staff canteen",
+          "type": "zone",
+          "x": 638,
+          "y": 678,
+          "width": 547,
+          "height": 396,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 183,
+          "name": "lockers / changing",
+          "type": "zone",
+          "x": 1209,
+          "y": 678,
+          "width": 261,
+          "height": 396,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 184,
+          "name": "back office",
+          "type": "zone",
+          "x": 1494,
+          "y": 678,
+          "width": 326,
+          "height": 396,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 185,
+          "name": "entry corridor",
+          "type": "zone",
+          "x": 1844,
+          "y": 843,
+          "width": 30,
+          "height": 130,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
             }
           ]
         }
@@ -2484,6 +3456,124 @@
               "value": "office"
             }
           ]
+        },
+        {
+          "id": 131,
+          "name": "STAFF ONLY · Back Office",
+          "type": "office-door",
+          "x": 310,
+          "y": 1082,
+          "width": 32,
+          "height": 32,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "shop"
+            },
+            {
+              "name": "destination",
+              "type": "string",
+              "value": "staffEntry"
+            }
+          ]
+        },
+        {
+          "id": 186,
+          "name": "Sales floor · STAFF ONLY return",
+          "type": "office-door",
+          "x": 1827,
+          "y": 890,
+          "width": 32,
+          "height": 32,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            },
+            {
+              "name": "destination",
+              "type": "string",
+              "value": "staffReturn"
+            }
+          ]
+        },
+        {
+          "id": 187,
+          "name": "Warehouse roller shutter",
+          "type": "door",
+          "x": 352,
+          "y": 428,
+          "width": 32,
+          "height": 32,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 188,
+          "name": "Toilets",
+          "type": "door",
+          "x": 620,
+          "y": 793,
+          "width": 32,
+          "height": 32,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 189,
+          "name": "Staff canteen",
+          "type": "door",
+          "x": 1188,
+          "y": 820,
+          "width": 32,
+          "height": 32,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
+        },
+        {
+          "id": 190,
+          "name": "Locker room",
+          "type": "door",
+          "x": 1475,
+          "y": 808,
+          "width": 32,
+          "height": 32,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            }
+          ]
         }
       ]
     },
@@ -2675,6 +3765,34 @@
               "name": "role",
               "type": "string",
               "value": "payroll"
+            }
+          ]
+        },
+        {
+          "id": 191,
+          "name": "Back-office clerk",
+          "type": "staff-clerk",
+          "x": 1600,
+          "y": 845,
+          "width": 30,
+          "height": 30,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "assistant"
+            },
+            {
+              "name": "role",
+              "type": "string",
+              "value": "dispatch paperwork"
             }
           ]
         }
@@ -2917,6 +4035,75 @@
               "name": "power",
               "type": "float",
               "value": 0.85
+            }
+          ]
+        },
+        {
+          "id": 192,
+          "name": "packing LEDs",
+          "type": "light",
+          "x": 920,
+          "y": 332,
+          "width": 330,
+          "height": 24,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            },
+            {
+              "name": "power",
+              "type": "float",
+              "value": 0.9
+            }
+          ]
+        },
+        {
+          "id": 193,
+          "name": "canteen lights",
+          "type": "light",
+          "x": 810,
+          "y": 722,
+          "width": 250,
+          "height": 22,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            },
+            {
+              "name": "power",
+              "type": "float",
+              "value": 0.9
+            }
+          ]
+        },
+        {
+          "id": 194,
+          "name": "office light",
+          "type": "light",
+          "x": 1580,
+          "y": 725,
+          "width": 170,
+          "height": 22,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "floor",
+              "type": "string",
+              "value": "staff"
+            },
+            {
+              "name": "power",
+              "type": "float",
+              "value": 0.9
             }
           ]
         }

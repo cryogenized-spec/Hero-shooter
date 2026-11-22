@@ -65,7 +65,7 @@ test('Saafiya and Sophia continue using their own atlas, not Mr Chen artwork',as
       walkPhase:0,walkBlend:0,idleClock:0,gait:'idle',radius:14},'assistant');
   }
   assert.equal(drawn.length,3);
-  assert.deepEqual(urls,['https://example.test/play/saafiya.svg']);
+  assert.deepEqual(urls,['https://example.test/play/assets/procedural/saafiya_walk_8way_8frame_atlas.webp']);
 });
 
 test('current Tiled shop assigns the correct family roles, not generic employee roles',async()=>{

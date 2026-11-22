@@ -36,13 +36,15 @@ test('shops have the requested features and a separate mezzanine office',()=>{
 });
 test('Sunday staff and their routes are represented on the map',()=>{
   const actorNames=layers.Actors.map(o=>o.name);
-  assert.equal(actorNames.length,7);
-  assert.equal(new Set(actorNames).size,7);
+  assert.equal(actorNames.length,8);
+  assert.equal(new Set(actorNames).size,8);
   for(const name of ['Mr. Chen','Mrs. Chen','Wei Chen','Sibusiso Mkhize',
     'Thandeka Dlamini','Bongani Cele','Mandla Khumalo'])
       assert.ok(actorNames.includes(name),'Missing '+name);
   const workers=layers.Actors.filter(o=>o.type==='worker');
   assert.equal(workers.length,4);
+  assert.ok(layers.Actors.some(o=>o.name==='Back-office clerk' && prop(o,'floor')==='staff'));
+
   assert.ok(workers.every(o=>String(prop(o,'route')).includes(';')));
 });
 test('scene is integrated into the active game, not published as a standalone throwaway demo',async()=>{
@@ -59,4 +61,56 @@ test('scene is integrated into the active game, not published as a standalone th
   assert.match(scene,/function handPayslip/);
   assert.match(scene,/function talkMother/);
   assert.match(scene,/function animateActors/);
+});
+
+test('Staff Only door connects the sales floor and back-office map',async()=>{
+  const portals=layers.Interactables.filter(o=>o.type==='office-door');
+  const entrance=portals.find(o=>o.name==='STAFF ONLY · Back Office');
+  const exit=portals.find(o=>o.name==='Sales floor · STAFF ONLY return');
+  assert.ok(entrance);
+  assert.ok(exit);
+  assert.equal(prop(entrance,'floor'),'shop');
+  assert.equal(prop(entrance,'destination'),'staffEntry');
+  assert.equal(prop(exit,'floor'),'staff');
+  assert.equal(prop(exit,'destination'),'staffReturn');
+  for(const area of ['receiving / packing','toilets','staff canteen','lockers / changing','back office'])
+    assert.ok(layers.Zones.some(o=>o.name===area && prop(o,'floor')==='staff'),area);
+  assert.ok(layers.Fixtures.some(o=>o.type==='workbench' && prop(o,'floor')==='staff'));
+  assert.ok(layers.Fixtures.some(o=>o.type==='locker' && prop(o,'floor')==='staff'));
+  const scene=await text('public/play/shop.js');
+  assert.match(scene,/staffEntry:\['staff'/);
+  assert.match(scene,/staffReturn:\['shop'/);
+  assert.match(scene,/floor==='staff'/);
+  assert.match(scene,/KeyE/);
+});
+
+test('back-office circulation remains walkable between all rooms',()=>{
+  const solid=new Set(['wall','shelf','till','glass-counter','counter','display','pallet',
+    'sacks','furniture','desk','lift','table','chairs','cabinet','trolley','pallet-jack',
+    'locker','workbench','toilet','fridge']);
+  const blockers=Object.values(layers).flat().filter(o=>prop(o,'floor')==='staff' && solid.has(o.type));
+  const blocked=(x,y)=>{
+    if(x<326||x>1870||y<226||y>1072)return true;
+    return blockers.some(o=>{
+      const nearX=Math.max(o.x,Math.min(x,o.x+o.width));
+      const nearY=Math.max(o.y,Math.min(y,o.y+o.height));
+      return (x-nearX)**2+(y-nearY)**2<15**2;
+    });
+  };
+  const step=10, start=[178,94], queue=[start], seen=new Set();
+  const key=(x,y)=>x+','+y;
+  for(let i=0;i<queue.length && i<80000;i++){
+    const [x,y]=queue[i],k=key(x,y);
+    if(seen.has(k))continue;
+    seen.add(k);
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;
+      if(!seen.has(key(nx,ny))&&!blocked(nx*step,ny*step))queue.push([nx,ny]);
+    }
+  }
+  assert.ok(seen.has(key(...start)),'staff entry must be walkable');
+  for(const [area,x,y] of [
+    ['packing',151,35],['canteen',97,90],['upper toilet',57,81],
+    ['lower toilet',55,94],['lockers',139,82],['office',163,74]
+  ])assert.ok(seen.has(key(x,y)),area+' must be reachable from staff entrance');
 });
