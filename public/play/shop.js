@@ -6,6 +6,31 @@
   const props = (o) => Object.fromEntries((o.properties || []).map(p => [p.name,p.value]));
   const clamp = (n,a,b) => Math.min(b,Math.max(a,n));
   const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
+  const proceduralSceneFiles={
+    shop:'./assets/procedural/home_and_more_shop_3d.webp',
+    staff:'./assets/procedural/home_and_more_staff_3d.webp'
+  };
+  const proceduralScenes=Object.create(null);
+  // Preserve object-layer collision and E-key interaction while the approved
+  // code-rendered 3D scenes replace the prior hand-drawn blockout visuals.
+  // ?procedural3D=0 restores the old debug geometry if alignment needs checking.
+  function drawProceduralBackdrop(ctx,floor,bounds) {
+    if(new URLSearchParams(root.location.search).get('procedural3D')==='0')return false;
+    const name=proceduralSceneFiles[floor];
+    if(!name || typeof Image==='undefined')return false;
+    if(!proceduralScenes[floor]){
+      const img=new Image();
+      img.src=new URL(name,root.document.baseURI).href;
+      proceduralScenes[floor]=img;
+    }
+    const img=proceduralScenes[floor];
+    if(!img.complete||!img.naturalWidth)return false;
+    ctx.save();
+    ctx.imageSmoothingEnabled=true;
+    ctx.drawImage(img,bounds.x,bounds.y,bounds.w,bounds.h);
+    ctx.restore();
+    return true;
+  }
   const palettes = {
     wall:['#3b4653','#1a2430'],
     shelf:['#59636c','#9da8b3'],
@@ -580,6 +605,9 @@
     } else if(floor==='shop') {
       drawLabel(ctx,'OWNER’S OFFICE',848,242,.8);
     }
+    // Primary sales/staff visuals are the deterministic 3D renders. These
+    // paint above the old debug fixture drawings, but below characters and E prompts.
+    drawProceduralBackdrop(ctx,floor,bounds);
     }
     for(const a of state.actors)if(a.meta.floor===floor)drawActor(ctx,a);
     // C uses the authentic procedural olive-flannel figure from Codex PR #8.
