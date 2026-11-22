@@ -7,6 +7,7 @@ on:
       - 'public/sophia-prefab.html'
       - 'public/sophia-prefab.js'
       - 'public/play/assets/procedural/sophia_prefab/preset.json'
+      - 'public/play/assets/procedural/sophia_prefab/user_sophia_reference.json'
       - 'scripts/render_sophia_prefab_screenshots.mjs'
       - 'tests/sophia-prefab.test.mjs'
   workflow_dispatch:
@@ -33,7 +34,7 @@ jobs:
           set -eu
           target=public/play/assets/procedural/sophia_prefab
           mkdir -p "$target"
-          for file in base_body_anim.glb hair_long01.glb clothing_dress.glb clothing_boots.glb clothing_shirt.glb clothing_jeans.glb clothing_jacket.glb; do
+          for file in base_body_anim.glb hair_long01.glb clothing_dress.glb clothing_boots.glb clothing_shirt.glb clothing_jeans.glb clothing_jacket.glb clothing_panties.glb clothing_bra.glb; do
             test -s "prefab-cc0-source/output/$file"
             cp "prefab-cc0-source/output/$file" "$target/$file"
           done
@@ -51,6 +52,9 @@ jobs:
           test -s dist/sophia-prefab.html
           test -s dist/sophia-prefab.js
           test -s dist/play/assets/procedural/sophia_prefab/base_body_anim.glb
+          test -s dist/play/assets/procedural/sophia_prefab/clothing_panties.glb
+          test -s dist/play/assets/procedural/sophia_prefab/clothing_bra.glb
+          test -s dist/play/assets/procedural/sophia_prefab/user_sophia_reference.json
       - name: Install Chromium for actual WebGL renders
         run: |
           npm install --no-save --ignore-scripts playwright@1.56.1
