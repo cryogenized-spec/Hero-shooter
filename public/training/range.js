@@ -71,7 +71,13 @@ function frame(now){
  if(canStand(player.x+dx*step,player.y))player.x+=dx*step;
  if(canStand(player.x,player.y+dy*step))player.y+=dy*step;
  const distance=Math.hypot(player.x-ox,player.y-oy);
- player.walkBlend=distance>0?1:0; player.walkPhase+=distance*.095;
+ if(distance>0.01){
+  player.walkBlend=1;
+  player.walkPhase=(player.walkPhase+distance*.095)%(Math.PI*2);
+ }else{
+  player.walkBlend=0;
+  player.walkPhase=0; // No stuck mid-stride pose when keys are released or movement is blocked.
+ }
  if(aim)player.angle=Math.atan2(aim.y-player.y,aim.x-player.x);
  else if(length)player.angle=Math.atan2(dy,dx);
  player.slideTime=Math.max(0,player.slideTime-dt);

@@ -13,8 +13,10 @@ export function drawArmedC(ctx, actor, weapon) {
     if (!armedAtlas.complete || !armedAtlas.naturalWidth) return false;
     const direction = ((Math.round((actor.angle - Math.PI/2) / (Math.PI/4)) % 8) + 8) % 8;
     const gait = actor.walkBlend < 0.1 ? 0 : actor.sprinting ? 2 : 1;
-    const phase = gait ? actor.walkPhase * 2 / Math.PI : performance.now() * 0.003;
-    const row = gait * 4 + Math.floor(phase) % 4;
+    // The training and combat renderer must never cycle a standing character.
+    const idleFrame=Number.isInteger(actor.idlePoseFrame) ? ((actor.idlePoseFrame%4)+4)%4 : 0;
+    const walkingFrame=((Math.floor(actor.walkPhase*2/Math.PI)%4)+4)%4;
+    const row=gait*4+(gait?walkingFrame:idleFrame);
     const kick = 2 * Math.sin(Math.PI * Math.min(1, (actor.slideTime || 0) / 0.105));
     ctx.save();
     ctx.translate(Math.round(actor.x - Math.cos(actor.angle)*kick), Math.round(actor.y - Math.sin(actor.angle)*kick));

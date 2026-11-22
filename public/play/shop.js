@@ -131,7 +131,7 @@
       return Object.assign(o,{
         homeX:o.x,homeY:o.y,route:nodes,index:0,speech:'',speechTime:0,
         speechDelay:5+o.id%6,activity:o.type==='worker'?'packing':'idle',step:0,
-        radius:14,angle:-Math.PI/2,walkAngle:-Math.PI/2,walkPhase:0,walkBlend:0,woundedSpeedFactor:1
+        radius:14,angle:-Math.PI/2,walkAngle:-Math.PI/2,walkPhase:0,walkBlend:0,gait:'idle',woundedSpeedFactor:1
       });
     });
     return {
@@ -233,7 +233,6 @@
       if(keys.KeyS||keys.ArrowDown||joystick.down)y++;
     }
     state.player.gait='idle';
-    state.player.idleClock=(state.player.idleClock || 0)+dt;
     const beforeX=state.player.x,beforeY=state.player.y;
     const mag=Math.hypot(x,y);
     if(mag<0.01) {
@@ -267,6 +266,8 @@
           a.x+=dx/d*dist;a.y+=dy/d*dist;a.step+=dt*9;
           a.angle=Math.atan2(dy,dx); }
       }
+      // Derive gait from displacement rather than the slowly decaying walkBlend.
+      a.gait=Math.hypot(a.x-beforeX,a.y-beforeY)>0.01?'walk':'idle';
       root.HeroSprites.updateWalk(a,beforeX,beforeY,dt,110,40*dt);
       a.speechDelay-=dt;
       if(a.speechTime>0)a.speechTime-=dt;

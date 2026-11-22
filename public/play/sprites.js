@@ -48,6 +48,9 @@ function updateSpriteWalk(actor, previousX, previousY, dt, strideLength, maxTrav
     if (stepping) {
         actor.walkPhase = (actor.walkPhase + travel * 2 * Math.PI / strideLength) % (2 * Math.PI);
         actor.walkAngle = Math.atan2(dy, dx);
+    } else {
+        // End the stride as soon as travel stops. The next walk starts from neutral.
+        actor.walkPhase = 0;
     }
     actor.walkBlend += ((stepping ? 1 : 0) - actor.walkBlend) * (1 - Math.exp(-18 * dt));
 }
@@ -334,6 +337,13 @@ function normalize(actor) {
   if (!Number.isFinite(actor.radius)) actor.radius=14;
   if (!Number.isFinite(actor.woundedSpeedFactor)) actor.woundedSpeedFactor=1;
 }
+// Art-review override: choose one static idle pose without animating it over time.
+function atlasIdleFrame(actor) {
+  return Number.isInteger(actor.idlePoseFrame) ? ((actor.idlePoseFrame%4)+4)%4 : 0;
+}
+function atlasWalkFrame(actor) {
+  return ((Math.floor(actor.walkPhase*2/Math.PI)%4)+4)%4;
+}
 let civilianAtlas, armedCivilianAtlas;
 function drawC(ctx, actor) {
   // Both atlases portray C before she acquires the tactical carrier and goggles.
@@ -358,8 +368,8 @@ function drawC(ctx, actor) {
       if (!idle && !glockReady) actor.lastTravelFacing=angle;
       const direction=((Math.round((angle-Math.PI/2)/(Math.PI/4))%8)+8)%8;
       const gait=idle?0:actor.gait==='run'?2:1;
-      const phase=idle?(actor.idleClock||0)*3:actor.walkPhase*2/Math.PI;
-      const frame=((Math.floor(phase)%4)+4)%4;
+      // A stationary C uses a neutral full-body frame, never an interrupted stride.
+      const frame=idle?atlasIdleFrame(actor):atlasWalkFrame(actor);
       const cellWidth=glockReady?40:32;
       ctx.save();
       ctx.imageSmoothingEnabled=false;
@@ -458,8 +468,8 @@ function drawNpcAtlas(ctx, actor, filename) {
   const angle=moving ? actor.walkAngle : actor.angle;
   const column=((Math.round((angle-Math.PI/2)/(Math.PI/4))%8)+8)%8;
   const gait=moving ? (actor.gait==='run' || actor.isSprinting ? 2 : 1) : 0;
-  const phase=moving ? actor.walkPhase*2/Math.PI : (actor.idleClock ?? performance.now()/1000)*3;
-  const frame=((Math.floor(phase)%4)+4)%4;
+  // Idle artwork is static; walk/run frames advance only with actual movement.
+  const frame=moving?atlasWalkFrame(actor):atlasIdleFrame(actor);
   ctx.save();
   ctx.imageSmoothingEnabled=false;
   ctx.drawImage(atlas,column*32,(gait*4+frame)*48,32,48,
