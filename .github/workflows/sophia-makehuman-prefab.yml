@@ -47,6 +47,8 @@ jobs:
       - name: Verify the game and the new prefab
         run: |
           npm run check
+          node --check public/sophia-prefab.js
+          node --check scripts/render_sophia_prefab_screenshots.mjs
           npm test
           npm run build
           test -s dist/sophia-prefab.html
