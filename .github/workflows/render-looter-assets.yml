@@ -1,0 +1,70 @@
+name: Generate VTK male looter assets
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/render/generate_looters.py'
+      - 'tools/render/looter_actions_repo.py'
+      - '.github/workflows/render-looter-assets.yml'
+permissions:
+  contents: write
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install VTK dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1 libxrender1 libsm6
+          python -m pip install --quiet vtk numpy pillow trimesh
+      - name: Generate male locomotion and prop action sprites
+        run: |
+          xvfb-run -a python tools/render/generate_looters.py
+          xvfb-run -a python tools/render/looter_actions_repo.py
+      - name: Pack runtime game assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          from PIL import Image
+          root=Path('tools/render')
+          dest=Path('public/play/assets/procedural/looters')
+          for age in (23,27,35):
+              ident=f'looter_{age}'
+              out=dest/ident;out.mkdir(parents=True,exist_ok=True)
+              shutil.copyfile(root/ident/f'{ident}.glb',out/f'{ident}.glb')
+              inputs=[(root/ident/'atlas_32x48.png','gait.webp')]
+              inputs.extend((root/'looter_action_output'/ident/f'{p}_action_32x48.png',f'{p}_action.webp') for p in ('brick','stone','knife'))
+              for file,name in inputs:
+                  im=Image.open(file).convert('RGBA')
+                  expected=(256,576) if name=='gait.webp' else (256,384)
+                  assert im.size==expected,(name,im.size)
+                  im.save(out/name,'WEBP',lossless=True,method=6,exact=True)
+                  print(ident,name,(out/name).stat().st_size)
+          props=dest/'props';props.mkdir(parents=True,exist_ok=True)
+          for prop in ('brick','stone','knife'):
+              shutil.copyfile(root/'looter_action_output'/'props'/f'{prop}.glb',props/f'{prop}.glb')
+          PY
+      - name: Run existing project checks
+        run: |
+          npm run check
+          npm test
+          npm run build
+      - name: Commit generated GLBs and sheets to branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/play/assets/procedural/looters/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'assets: publish generated male looter sheets and props'
+          for attempt in 1 2 3; do
+            git fetch origin "$GITHUB_REF_NAME"
+            git rebase "origin/$GITHUB_REF_NAME"
+            if git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+          done
+          exit 1
