@@ -119,6 +119,10 @@ jobs:
           test -s dist/c/assets/C_pink_compact_pistol.glb.gz
           test -s dist/sophia/play/assets/procedural/sophia/sophia_v33_articulated.glb
           test -s dist/sophia/play/assets/procedural/scrapyard/scrapyard_arena.glb
+          test -s dist/sophia-outfit/index.html
+          test -s dist/sophia-outfit/sophia-gothic-accents.js
+          test -s dist/sophia-outfit/play/assets/procedural/sophia_prefab/sophia_gothic_street.glb
+          test -s dist/sophia-outfit/play/assets/procedural/sophia_prefab/sophia_gothic_dress.glb
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload static website
