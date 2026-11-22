@@ -1,0 +1,1736 @@
+{
+  "project": "Hero Shooter",
+  "asset": "Pine Ridge scrapyard arena",
+  "generation": "procedural Python VTK 9.6",
+  "fidelity": "stylized spatial interpretation of reference image, not exact photogrammetry",
+  "dimension_m": {
+    "width_x": 50.0,
+    "height_ground_y": 28.0,
+    "maximum_structure_z": 9.4
+  },
+  "authored_coordinates": "X right/east, Y towards image top/north, Z up (metres)",
+  "glb_coordinates": "X right/east, Y up/height, Z towards image bottom/south",
+  "glb_transform": {
+    "x_glb": "x_authored",
+    "y_glb": "z_authored",
+    "z_glb": "-y_authored"
+  },
+  "engine": "Current Hero Shooter uses HTML Canvas 2D. GLB needs a Three.js/Babylon.js/WebGL 3D integration; overhead PNG may be used separately.",
+  "mesh_material_groups": 36,
+  "triangles": 72544,
+  "landmarks": [
+    {
+      "name": "container_1",
+      "x": -21.15,
+      "y": 10.3,
+      "kind": "cover"
+    },
+    {
+      "name": "wreck_car_1",
+      "x": -14.6,
+      "y": 11.2,
+      "kind": "wreck"
+    },
+    {
+      "name": "wreck_car_2",
+      "x": -8.8,
+      "y": 11.6,
+      "kind": "wreck"
+    },
+    {
+      "name": "wreck_car_3",
+      "x": 4.1,
+      "y": 11.8,
+      "kind": "wreck"
+    },
+    {
+      "name": "wreck_car_4",
+      "x": -14.9,
+      "y": 6.0,
+      "kind": "wreck"
+    },
+    {
+      "name": "wreck_car_5",
+      "x": 10.0,
+      "y": -10.3,
+      "kind": "wreck"
+    },
+    {
+      "name": "container_2",
+      "x": -0.6,
+      "y": 6.1,
+      "kind": "cover"
+    },
+    {
+      "name": "central elevated container",
+      "x": -0.6,
+      "y": 6.1,
+      "kind": "elevated"
+    },
+    {
+      "name": "watchtower",
+      "x": 21.8,
+      "y": 9.7,
+      "kind": "elevated"
+    },
+    {
+      "name": "container_3",
+      "x": 20.4,
+      "y": -5.0,
+      "kind": "cover"
+    },
+    {
+      "name": "container_4",
+      "x": -23.35,
+      "y": -5.2,
+      "kind": "cover"
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "south_gate",
+      "x": 0,
+      "y": -11.8,
+      "facing_deg_math": 90,
+      "z": 0.1
+    },
+    {
+      "id": "west_flank",
+      "x": -18.7,
+      "y": -5.2,
+      "facing_deg_math": 35,
+      "z": 0.1
+    },
+    {
+      "id": "east_flank",
+      "x": 18.4,
+      "y": -1.0,
+      "facing_deg_math": 160,
+      "z": 0.1
+    },
+    {
+      "id": "north_junkyard",
+      "x": -10,
+      "y": 7.5,
+      "facing_deg_math": 270,
+      "z": 0.1
+    },
+    {
+      "id": "northeast_cover",
+      "x": 14.7,
+      "y": 3.4,
+      "facing_deg_math": 225,
+      "z": 0.1
+    },
+    {
+      "id": "southwest_cover",
+      "x": -7.7,
+      "y": -7.2,
+      "facing_deg_math": 30,
+      "z": 0.1
+    },
+    {
+      "id": "central_open",
+      "x": 2.8,
+      "y": -4.3,
+      "facing_deg_math": 75,
+      "z": 0.1
+    },
+    {
+      "id": "upper_container_entry",
+      "x": -6.7,
+      "y": 3.8,
+      "facing_deg_math": 10,
+      "z": 0.1
+    }
+  ],
+  "colliders": [
+    {
+      "name": "gate_post_-3.1",
+      "type": "box",
+      "center": [
+        -3.1,
+        -13.7,
+        1.3
+      ],
+      "size": [
+        0.27,
+        0.27,
+        2.6
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "gate_post_3.1",
+      "type": "box",
+      "center": [
+        3.1,
+        -13.7,
+        1.3
+      ],
+      "size": [
+        0.27,
+        0.27,
+        2.6
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "light_post_-21_-13.4",
+      "type": "box",
+      "center": [
+        -21,
+        -13.4,
+        1.75
+      ],
+      "size": [
+        0.2,
+        0.2,
+        3.5
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "light_post_-1.95_-13.2",
+      "type": "box",
+      "center": [
+        -1.95,
+        -13.2,
+        1.75
+      ],
+      "size": [
+        0.2,
+        0.2,
+        3.5
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "light_post_2_-13.2",
+      "type": "box",
+      "center": [
+        2,
+        -13.2,
+        1.75
+      ],
+      "size": [
+        0.2,
+        0.2,
+        3.5
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "light_post_22.6_-13.2",
+      "type": "box",
+      "center": [
+        22.6,
+        -13.2,
+        1.75
+      ],
+      "size": [
+        0.2,
+        0.2,
+        3.5
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "light_post_-15_13.4",
+      "type": "box",
+      "center": [
+        -15,
+        13.4,
+        1.75
+      ],
+      "size": [
+        0.2,
+        0.2,
+        3.5
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "light_post_-1.4_13.4",
+      "type": "box",
+      "center": [
+        -1.4,
+        13.4,
+        1.75
+      ],
+      "size": [
+        0.2,
+        0.2,
+        3.5
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "light_post_17.8_13.4",
+      "type": "box",
+      "center": [
+        17.8,
+        13.4,
+        1.75
+      ],
+      "size": [
+        0.2,
+        0.2,
+        3.5
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "container_1",
+      "type": "box",
+      "center": [
+        -21.15,
+        10.3,
+        1.225
+      ],
+      "size": [
+        6.2,
+        2.7,
+        2.45
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "wreck_car_1",
+      "type": "box",
+      "center": [
+        -14.6,
+        11.2,
+        1.008
+      ],
+      "size": [
+        3.864,
+        2.128,
+        2.016
+      ],
+      "yaw_deg": 21,
+      "kind": "solid"
+    },
+    {
+      "name": "wreck_car_2",
+      "type": "box",
+      "center": [
+        -8.8,
+        11.6,
+        0.9
+      ],
+      "size": [
+        3.45,
+        1.9,
+        1.8
+      ],
+      "yaw_deg": -16,
+      "kind": "solid"
+    },
+    {
+      "name": "wreck_car_3",
+      "type": "box",
+      "center": [
+        4.1,
+        11.8,
+        0.837
+      ],
+      "size": [
+        3.209,
+        1.767,
+        1.674
+      ],
+      "yaw_deg": 27,
+      "kind": "solid"
+    },
+    {
+      "name": "wreck_car_4",
+      "type": "box",
+      "center": [
+        -14.9,
+        6.0,
+        0.72
+      ],
+      "size": [
+        2.76,
+        1.52,
+        1.44
+      ],
+      "yaw_deg": 7,
+      "kind": "solid"
+    },
+    {
+      "name": "wreck_car_5",
+      "type": "box",
+      "center": [
+        10.0,
+        -10.3,
+        0.846
+      ],
+      "size": [
+        3.243,
+        1.786,
+        1.692
+      ],
+      "yaw_deg": -17,
+      "kind": "solid"
+    },
+    {
+      "name": "target_-15_8.2",
+      "type": "box",
+      "center": [
+        -15,
+        8.2,
+        0.913
+      ],
+      "size": [
+        0.87,
+        0.12,
+        1.827
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "target_-13.7_8.2",
+      "type": "box",
+      "center": [
+        -13.7,
+        8.2,
+        0.913
+      ],
+      "size": [
+        0.87,
+        0.12,
+        1.827
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "target_-12.4_8.2",
+      "type": "box",
+      "center": [
+        -12.4,
+        8.2,
+        0.913
+      ],
+      "size": [
+        0.87,
+        0.12,
+        1.827
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "target_8.4_9.5",
+      "type": "box",
+      "center": [
+        8.4,
+        9.5,
+        0.882
+      ],
+      "size": [
+        0.84,
+        0.12,
+        1.764
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "target_9.7_9.5",
+      "type": "box",
+      "center": [
+        9.7,
+        9.5,
+        0.882
+      ],
+      "size": [
+        0.84,
+        0.12,
+        1.764
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "target_11.0_9.5",
+      "type": "box",
+      "center": [
+        11.0,
+        9.5,
+        0.882
+      ],
+      "size": [
+        0.84,
+        0.12,
+        1.764
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "target_16.9_4.3",
+      "type": "box",
+      "center": [
+        16.9,
+        4.3,
+        0.913
+      ],
+      "size": [
+        0.87,
+        0.12,
+        1.827
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "barrel_1",
+      "type": "cylinder",
+      "center": [
+        -23.0,
+        3.5,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_2",
+      "type": "cylinder",
+      "center": [
+        -21.2,
+        4.0,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_3",
+      "type": "cylinder",
+      "center": [
+        -19.3,
+        3.5,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_4",
+      "type": "cylinder",
+      "center": [
+        -17.7,
+        8.1,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_5",
+      "type": "cylinder",
+      "center": [
+        -6.0,
+        3.6,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_6",
+      "type": "cylinder",
+      "center": [
+        2.0,
+        12.0,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_7",
+      "type": "cylinder",
+      "center": [
+        7.0,
+        10.8,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_8",
+      "type": "cylinder",
+      "center": [
+        9.0,
+        10.4,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_9",
+      "type": "cylinder",
+      "center": [
+        18.6,
+        10.1,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_10",
+      "type": "cylinder",
+      "center": [
+        22.6,
+        6.9,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_11",
+      "type": "cylinder",
+      "center": [
+        -14.0,
+        -4.3,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_12",
+      "type": "cylinder",
+      "center": [
+        -7.1,
+        -5.1,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_13",
+      "type": "cylinder",
+      "center": [
+        3.6,
+        -2.7,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_14",
+      "type": "cylinder",
+      "center": [
+        11,
+        -3.1,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_15",
+      "type": "cylinder",
+      "center": [
+        20.5,
+        -6.8,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_16",
+      "type": "cylinder",
+      "center": [
+        -19.2,
+        -11.0,
+        0.46
+      ],
+      "radius": 0.35,
+      "height": 0.92,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_1",
+      "type": "cylinder",
+      "center": [
+        -19.8,
+        2.4,
+        0.31
+      ],
+      "radius": 0.4,
+      "height": 0.62,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_2",
+      "type": "cylinder",
+      "center": [
+        -6.5,
+        4.8,
+        0.31
+      ],
+      "radius": 0.4,
+      "height": 0.62,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_3",
+      "type": "cylinder",
+      "center": [
+        1.9,
+        10.0,
+        0.465
+      ],
+      "radius": 0.4,
+      "height": 0.9299999999999999,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_4",
+      "type": "cylinder",
+      "center": [
+        6.7,
+        8.4,
+        0.31
+      ],
+      "radius": 0.4,
+      "height": 0.62,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_5",
+      "type": "cylinder",
+      "center": [
+        11,
+        5,
+        0.31
+      ],
+      "radius": 0.4,
+      "height": 0.62,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_6",
+      "type": "cylinder",
+      "center": [
+        4.7,
+        -7.3,
+        0.31
+      ],
+      "radius": 0.4,
+      "height": 0.62,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_7",
+      "type": "cylinder",
+      "center": [
+        -21,
+        -6.5,
+        0.31
+      ],
+      "radius": 0.4,
+      "height": 0.62,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_8",
+      "type": "cylinder",
+      "center": [
+        12,
+        -5,
+        0.31
+      ],
+      "radius": 0.4,
+      "height": 0.62,
+      "kind": "solid"
+    },
+    {
+      "name": "tirestack_9",
+      "type": "cylinder",
+      "center": [
+        24,
+        -8,
+        0.31
+      ],
+      "radius": 0.4,
+      "height": 0.62,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_1",
+      "type": "box",
+      "center": [
+        -17.1,
+        4.2,
+        0.7
+      ],
+      "size": [
+        1.4,
+        1.4,
+        1.4
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_2",
+      "type": "box",
+      "center": [
+        -14.5,
+        -6.1,
+        0.55
+      ],
+      "size": [
+        1.1,
+        1.1,
+        1.1
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_3",
+      "type": "box",
+      "center": [
+        -9.4,
+        3.8,
+        0.46
+      ],
+      "size": [
+        0.92,
+        0.92,
+        0.92
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_4",
+      "type": "box",
+      "center": [
+        4.5,
+        3.8,
+        0.5
+      ],
+      "size": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_5",
+      "type": "box",
+      "center": [
+        14.4,
+        4.2,
+        0.445
+      ],
+      "size": [
+        0.89,
+        0.89,
+        0.89
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_6",
+      "type": "box",
+      "center": [
+        20.4,
+        4.3,
+        0.35
+      ],
+      "size": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_7",
+      "type": "box",
+      "center": [
+        -12.2,
+        -9.7,
+        0.46
+      ],
+      "size": [
+        0.92,
+        0.92,
+        0.92
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_8",
+      "type": "box",
+      "center": [
+        -10.2,
+        -10.1,
+        0.375
+      ],
+      "size": [
+        0.75,
+        0.75,
+        0.75
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_9",
+      "type": "box",
+      "center": [
+        5.2,
+        -7.4,
+        0.55
+      ],
+      "size": [
+        1.1,
+        1.1,
+        1.1
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_10",
+      "type": "box",
+      "center": [
+        14.9,
+        -10.2,
+        0.4
+      ],
+      "size": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "crate_11",
+      "type": "box",
+      "center": [
+        21.3,
+        -7.9,
+        0.7
+      ],
+      "size": [
+        1.4,
+        1.4,
+        1.4
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_1",
+      "type": "box",
+      "center": [
+        -22.3,
+        7.2,
+        0.115
+      ],
+      "size": [
+        1.275,
+        1.201,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_2",
+      "type": "box",
+      "center": [
+        -20.1,
+        3.3,
+        0.115
+      ],
+      "size": [
+        1.289,
+        1.213,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_3",
+      "type": "box",
+      "center": [
+        -14,
+        -10.6,
+        0.115
+      ],
+      "size": [
+        1.099,
+        1.035,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_4",
+      "type": "box",
+      "center": [
+        -0.5,
+        -2.3,
+        0.115
+      ],
+      "size": [
+        1.243,
+        1.171,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_5",
+      "type": "box",
+      "center": [
+        18.3,
+        -10.5,
+        0.115
+      ],
+      "size": [
+        1.371,
+        1.291,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_6",
+      "type": "box",
+      "center": [
+        22,
+        -11.6,
+        0.115
+      ],
+      "size": [
+        1.048,
+        0.986,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_7",
+      "type": "box",
+      "center": [
+        -4.8,
+        -6.5,
+        0.115
+      ],
+      "size": [
+        1.26,
+        1.187,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_1",
+      "type": "box",
+      "center": [
+        -12.8,
+        7.1,
+        0.59
+      ],
+      "size": [
+        3.9,
+        0.49,
+        1.18
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_2",
+      "type": "box",
+      "center": [
+        -5.0,
+        7.45,
+        0.625
+      ],
+      "size": [
+        2.25,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_3",
+      "type": "box",
+      "center": [
+        8.9,
+        7.6,
+        0.65
+      ],
+      "size": [
+        2.5,
+        0.49,
+        1.3
+      ],
+      "yaw_deg": 110,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_4",
+      "type": "box",
+      "center": [
+        13.0,
+        6.2,
+        0.625
+      ],
+      "size": [
+        2.45,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 90,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_5",
+      "type": "box",
+      "center": [
+        16.2,
+        5.6,
+        0.55
+      ],
+      "size": [
+        3.5,
+        0.49,
+        1.1
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_6",
+      "type": "box",
+      "center": [
+        19.7,
+        5.6,
+        0.5
+      ],
+      "size": [
+        2.9,
+        0.49,
+        1.0
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_7",
+      "type": "box",
+      "center": [
+        12.1,
+        3.6,
+        0.625
+      ],
+      "size": [
+        4.0,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_8",
+      "type": "box",
+      "center": [
+        12.2,
+        1.8,
+        0.625
+      ],
+      "size": [
+        3.1,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 90,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_9",
+      "type": "box",
+      "center": [
+        16.2,
+        2.2,
+        0.625
+      ],
+      "size": [
+        2.5,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 90,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_10",
+      "type": "box",
+      "center": [
+        10.5,
+        -2.1,
+        0.625
+      ],
+      "size": [
+        4.9,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_11",
+      "type": "box",
+      "center": [
+        8.1,
+        -3.6,
+        0.625
+      ],
+      "size": [
+        3.8,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 90,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_12",
+      "type": "box",
+      "center": [
+        12.8,
+        -3.6,
+        0.625
+      ],
+      "size": [
+        3.4,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 90,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_13",
+      "type": "box",
+      "center": [
+        11.7,
+        -5.25,
+        0.625
+      ],
+      "size": [
+        2.2,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_14",
+      "type": "box",
+      "center": [
+        -6.8,
+        -8.3,
+        0.625
+      ],
+      "size": [
+        5.1,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_15",
+      "type": "box",
+      "center": [
+        -9,
+        -8.9,
+        0.625
+      ],
+      "size": [
+        1.8,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 90,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_16",
+      "type": "box",
+      "center": [
+        -4.3,
+        -9.1,
+        0.625
+      ],
+      "size": [
+        1.5,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 90,
+      "kind": "solid"
+    },
+    {
+      "name": "concrete_cover_17",
+      "type": "box",
+      "center": [
+        10.3,
+        -10.9,
+        0.625
+      ],
+      "size": [
+        2.9,
+        0.49,
+        1.25
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "container_2",
+      "type": "box",
+      "center": [
+        -0.6,
+        6.1,
+        1.375
+      ],
+      "size": [
+        6.1,
+        3.1,
+        2.75
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_17",
+      "type": "cylinder",
+      "center": [
+        -2.3,
+        6.0,
+        0.37
+      ],
+      "radius": 0.35,
+      "height": 0.74,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_18",
+      "type": "cylinder",
+      "center": [
+        -1.46,
+        6.0,
+        0.37
+      ],
+      "radius": 0.35,
+      "height": 0.74,
+      "kind": "solid"
+    },
+    {
+      "name": "barrel_19",
+      "type": "cylinder",
+      "center": [
+        -0.62,
+        6.0,
+        0.37
+      ],
+      "radius": 0.35,
+      "height": 0.74,
+      "kind": "solid"
+    },
+    {
+      "name": "central_stairs_foot",
+      "type": "box",
+      "center": [
+        -4.4,
+        2.8,
+        1.45
+      ],
+      "size": [
+        3.8,
+        2.1,
+        2.9
+      ],
+      "yaw_deg": 32,
+      "kind": "stairs"
+    },
+    {
+      "name": "pipe_section_-2.4_0.6",
+      "type": "box",
+      "center": [
+        -2.4,
+        -1.2,
+        1.3
+      ],
+      "size": [
+        2.9,
+        1.8,
+        2.6
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pipe_section_-0.8_0.6",
+      "type": "box",
+      "center": [
+        -0.8,
+        -1.1,
+        1.3
+      ],
+      "size": [
+        2.9,
+        1.8,
+        2.6
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pipe_section_-2.0_1.72",
+      "type": "box",
+      "center": [
+        -2.0,
+        -1.4,
+        1.3
+      ],
+      "size": [
+        2.9,
+        1.8,
+        2.6
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pipe_section_-0.4_1.72",
+      "type": "box",
+      "center": [
+        -0.4,
+        -1.5,
+        1.3
+      ],
+      "size": [
+        2.9,
+        1.8,
+        2.6
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_8",
+      "type": "box",
+      "center": [
+        -4.3,
+        -1.5,
+        0.115
+      ],
+      "size": [
+        1.2,
+        1.13,
+        0.23
+      ],
+      "yaw_deg": 22,
+      "kind": "solid"
+    },
+    {
+      "name": "mannequin_1",
+      "type": "box",
+      "center": [
+        -6.9,
+        -9.5,
+        1.225
+      ],
+      "size": [
+        0.74,
+        0.52,
+        2.45
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "mannequin_2",
+      "type": "box",
+      "center": [
+        -4.7,
+        -9.4,
+        1.225
+      ],
+      "size": [
+        0.74,
+        0.52,
+        2.45
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "mannequin_3",
+      "type": "box",
+      "center": [
+        -2.6,
+        -9.7,
+        1.225
+      ],
+      "size": [
+        0.74,
+        0.52,
+        2.45
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "mannequin_4",
+      "type": "box",
+      "center": [
+        13.7,
+        -2.6,
+        1.225
+      ],
+      "size": [
+        0.74,
+        0.52,
+        2.45
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "mannequin_5",
+      "type": "box",
+      "center": [
+        16.8,
+        11.8,
+        1.225
+      ],
+      "size": [
+        0.74,
+        0.52,
+        2.45
+      ],
+      "yaw_deg": 0,
+      "kind": "shootable"
+    },
+    {
+      "name": "tower_stairs",
+      "type": "box",
+      "center": [
+        17.0,
+        7.2,
+        2.25
+      ],
+      "size": [
+        5.2,
+        2.2,
+        4.5
+      ],
+      "yaw_deg": 43,
+      "kind": "stairs"
+    },
+    {
+      "name": "tower_stairs",
+      "type": "box",
+      "center": [
+        17.0,
+        7.2,
+        2.25
+      ],
+      "size": [
+        5.2,
+        2.2,
+        4.5
+      ],
+      "yaw_deg": 43,
+      "kind": "stairs"
+    },
+    {
+      "name": "watchtower_tall_support",
+      "type": "box",
+      "center": [
+        21.8,
+        9.7,
+        3.75
+      ],
+      "size": [
+        3.4,
+        3.2,
+        7.5
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "container_3",
+      "type": "box",
+      "center": [
+        20.4,
+        -5.0,
+        1.3
+      ],
+      "size": [
+        5.7,
+        2.6,
+        2.6
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "container_4",
+      "type": "box",
+      "center": [
+        -23.35,
+        -5.2,
+        1.225
+      ],
+      "size": [
+        8.5,
+        2.2,
+        2.45
+      ],
+      "yaw_deg": 90,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_9",
+      "type": "box",
+      "center": [
+        -23.2,
+        -3,
+        0.115
+      ],
+      "size": [
+        1.068,
+        1.006,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_10",
+      "type": "box",
+      "center": [
+        -23.2,
+        -4,
+        0.115
+      ],
+      "size": [
+        1.068,
+        1.006,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_11",
+      "type": "box",
+      "center": [
+        -23.2,
+        -5.5,
+        0.115
+      ],
+      "size": [
+        1.068,
+        1.006,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    },
+    {
+      "name": "pallet_12",
+      "type": "box",
+      "center": [
+        -23.2,
+        -8.5,
+        0.115
+      ],
+      "size": [
+        1.068,
+        1.006,
+        0.23
+      ],
+      "yaw_deg": 0,
+      "kind": "solid"
+    }
+  ],
+  "collision_guide": "All colliders in authored Z-up coordinates. Convert each center [x,y,z] to GLB [x,z,-y] if using glTF engine. Where yaw degrees are used, authored rotation is around vertical Z.",
+  "traversal_note": "The rendered stairs and elevated central platform are visual only until stair/ramp colliders are implemented by the target game engine.",
+  "navmesh_note": "Obstacle list is not yet a baked navigation mesh."
+}
