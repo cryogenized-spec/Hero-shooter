@@ -1,0 +1,101 @@
+name: Render Home and More staff 3D VTK assets
+
+on:
+  push:
+    branches: [assets/home-more-workers-vtk]
+    paths:
+      - 'tools/render/build_shop_workers_vtk.py'
+      - 'tools/render/build_ismail_vtk.py'
+      - 'tests/home-more-staff-3d.test.mjs'
+      - '.github/workflows/render-home-more-staff.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-staff:
+    name: Generate and audit six actual VTK character models
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install VTK and headless rendering dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1 libxrender1 libsm6
+          python -m pip install --quiet vtk numpy pillow trimesh scipy
+      - name: Render five map workers from original procedural VTK
+        run: |
+          mkdir -p "${RUNNER_TEMP}/shop-staff"
+          xvfb-run -a python tools/render/build_shop_workers_vtk.py --out "${RUNNER_TEMP}/shop-staff"
+      - name: Regenerate original approved Ismail 3D model
+        run: |
+          mkdir -p "${RUNNER_TEMP}/ismail"
+          cp tools/render/build_ismail_vtk.py "${RUNNER_TEMP}/ismail/build_ismail_vtk.py"
+          xvfb-run -a python "${RUNNER_TEMP}/ismail/build_ismail_vtk.py"
+      - name: Validate GLBs and 96-frame atlases, then publish
+        run: |
+          python - <<'PY'
+          import os, json, shutil
+          from pathlib import Path
+          from PIL import Image
+          import trimesh
+          staff=Path(os.environ['RUNNER_TEMP'])/'shop-staff'
+          ismail=Path(os.environ['RUNNER_TEMP'])/'ismail'
+          dst=Path('public/play/assets/procedural')
+          dst.mkdir(parents=True,exist_ok=True)
+          slugs=['sibusiso_mkhize','thandeka_dlamini','bongani_cele','mandla_khumalo','back_office_clerk']
+          manifest=json.loads((staff/'home_more_workers_vtk_manifest.json').read_text())
+          assert len(manifest['characters'])==5
+          for slug in slugs:
+              for path in [staff/(slug+'.glb'),staff/(slug+'_8dir_12row_atlas.png')]:
+                  assert path.is_file(),str(path)
+                  shutil.copy2(path,dst/path.name)
+          for name in ['ismail_unarmed_vtk.glb','ismail_vtk_atlas_32x48.png']:
+              src=ismail/name
+              assert src.is_file(),str(src)
+              shutil.copy2(src,dst/name)
+          shutil.copy2(staff/'home_more_workers_vtk_manifest.json',dst/'home_more_workers_vtk_manifest.json')
+          for slug in [*slugs,'ismail']:
+              glbname='ismail_unarmed_vtk.glb' if slug=='ismail' else slug+'.glb'
+              pngname='ismail_vtk_atlas_32x48.png' if slug=='ismail' else slug+'_8dir_12row_atlas.png'
+              glb=dst/glbname
+              scene=trimesh.load(glb,force='scene')
+              assert len(scene.geometry)>=5 and glb.stat().st_size>150_000,(glb,len(scene.geometry))
+              atlas=dst/pngname
+              with Image.open(atlas) as im:
+                  assert im.mode=='RGBA' and im.size==(256,576),(slug,im.size,im.mode)
+                  assert im.getchannel('A').getextrema()[0]==0,slug
+              print(slug,'GLB',glb.stat().st_size,'meshes',len(scene.geometry),
+                    'PNG',atlas.stat().st_size)
+          PY
+      - name: Validate gameplay and build
+        run: |
+          npm run check
+          npm test
+          npm run build
+      - name: Commit rendered staff and Ismail assets to feature branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/play/assets/procedural/
+          if git diff --cached --quiet; then
+            echo 'No new staff exports.'
+            exit 0
+          fi
+          git commit -m 'assets: publish six VTK staff models and 8-way motion atlases'
+          for attempt in 1 2 3; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo 'Published six models and atlases.'
+              exit 0
+            fi
+          done
+          exit 1
