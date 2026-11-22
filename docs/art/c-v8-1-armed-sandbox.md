@@ -8,7 +8,7 @@ This is a **3D test scene**, not a replacement for the 2D game or Sophia's exist
 - **Shoot:** **Left mouse click only**. Gunshot sound, muzzle flash, flash light, ejected casing, optional static-environment impact marker, ammo counter, and fire-rate gating.
 - **Camera:** Hold **right mouse button and drag** to orbit. Left drag does **not** manipulate the camera. Wheel zoom; V switches follow/overhead.
 - **Reload:** R, two spare 15-round magazines. A 15-round extended magazine is a supported optional G26 magazine; it is NOT the pistol's 10-round standard magazine.
-- **Sound:** three near-field 9mm handgun recordings and two tails, sourced at runtime from a GitHub-hosted CC0 audio library https://github.com/yegors/hard-lines/tree/main/public/audio (recorded PPQ, not a specific Glock sample). Audio may be affected by CDN availability/browser autoplay; synthesized fallback provided.
+- **Sound:** three near-field 9mm handgun recordings and two tails, embedded in this repository from a CC0 audio library https://github.com/yegors/hard-lines/tree/main/public/audio (recorded PPQ, not a specific Glock sample). Audio may be affected by browser autoplay; synthesized fallback provided.
 - **Rendering:** Three.js pinned to v0.180.0 via import map. Z up. 3D model files are gzip-compressed GLBs loaded through DecompressionStream, keeping repo footprint low.
 
 **Limitations:** C's current V8.1 asset is an *unrigged static GLB*, so arms are deformed in the sandbox as a rigging **approximation**, not true weighted skeletal animations or accurate fingers on a grip. The pistol follows the right-hand pose; contact should be inspected in-browser. Jump and movement are simple functional prototypes. Target NPCs and combat AI are not implemented here.
