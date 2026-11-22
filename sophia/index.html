@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="theme-color" content="#171c23">
+<title>Hero Shooter — Sophia's Scrapyard · 3D Demo</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#171c23;color:#eee9df}
+#stage{position:fixed;inset:0;overflow:hidden}
+#stage canvas{width:100%;height:100%;display:block;outline:none}
+#hud{position:fixed;z-index:3;top:clamp(12px,3vw,25px);left:clamp(12px,3vw,25px);width:min(420px,calc(100vw - 24px));padding:18px 19px;background:rgba(17,23,29,.89);border:1px solid rgba(217,178,125,.35);border-radius:14px;box-shadow:0 14px 46px #0008;backdrop-filter:blur(13px)}
+#hud.hidden{display:none}
+.eyebrow{font-size:10px;letter-spacing:.18em;color:#d8ae75;font-weight:700}
+h1{font-size:clamp(17px,2vw,22px);line-height:1.12;font-weight:750;margin:6px 0 10px}
+p{font-size:12.5px;color:#c4c8c9;line-height:1.55;margin:0 0 12px}
+.keyrow{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;padding:11px 0;border-block:1px solid #ffffff18}
+.keyrow span{font-size:11.5px;color:#e8ddd0}
+kbd{display:inline-block;font:700 10px ui-monospace,SFMono-Regular,monospace;background:#303944;border:1px solid #627282;border-bottom-width:2px;border-radius:4px;padding:3px 5px;color:#f5eadc;min-width:20px;text-align:center}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{font:600 12px inherit;cursor:pointer;border-radius:8px;background:#343c48;border:1px solid #687482;color:#f4ecdd;padding:8px 11px}
+button:hover,button:focus-visible{background:#4c5d6d;outline:2px solid #bb9d71;outline-offset:2px}
+button:active{transform:translateY(1px)}
+#status{min-height:17px;margin-top:12px;color:#ebc48c;font:600 11px ui-monospace,monospace}
+.stats{display:flex;justify-content:space-between;gap:12px;margin-top:9px;color:#9ba9ac;font:11px ui-monospace,monospace}
+#loading{position:fixed;z-index:10;inset:0;display:grid;place-items:center;text-align:center;background:#131820;color:#f9ddb1;font-weight:700;padding:26px}
+#loading[hidden]{display:none}
+#loading.error{color:#ffbbac}
+#hint{position:fixed;bottom:15px;right:16px;pointer-events:none;color:#e5e6e3;background:#1a222bd0;border:1px solid #ffffff21;padding:8px 12px;border-radius:8px;z-index:2;font-size:11px}
+#mobile{position:fixed;z-index:4;bottom:max(16px,env(safe-area-inset-bottom));left:16px;right:16px;display:none;justify-content:space-between;pointer-events:none}
+.pad,.act{pointer-events:auto;display:grid;gap:5px}
+.pad{grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px 52px}
+.pad button{padding:0;font-weight:800;font-size:19px;touch-action:none}
+.pad [data-control=up]{grid-column:2}.pad [data-control=left]{grid-row:2;grid-column:1}
+.pad [data-control=down]{grid-row:2;grid-column:2}.pad [data-control=right]{grid-row:2;grid-column:3}
+.act{align-content:end;grid-template-columns:76px 76px}
+.act button{touch-action:none;min-height:44px;font-size:11px}
+@media(max-width:720px),(pointer:coarse){
+ #hud{padding:12px;width:min(345px,calc(100vw - 24px))}
+ #hud p{display:none}#hud .keyrow{display:none}#hud .eyebrow{font-size:9px}
+ #hud h1{font-size:16px;margin:5px 0}
+ #hint{display:none}#mobile{display:flex}
+}
+@media(max-height:600px){#hud{top:8px;padding:9px}#hud .keyrow{display:none}}
+</style>
+<script type="importmap">{"imports":{
+"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+}}</script>
+</head>
+<body>
+<main id="stage" aria-label="Sophia's three-dimensional scrapyard practice arena"></main>
+<div id="loading" role="status">Loading Sophia and the 3D scrapyard…</div>
+<section id="hud" aria-label="Game controls">
+<div class="eyebrow">HERO SHOOTER / FREE ROAM PROTOTYPE</div>
+<h1>Sophia's Scrapyard</h1>
+<p>Explore the original 50 × 28 metre VTK scrapyard in full 3D. Sophia uses her approved 3D model and original face texture; the other three looters are wandering test actors. This is a movement sandbox, not a combat mission.</p>
+<div class="keyrow">
+<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Walk / steer</span>
+<span><kbd>Shift</kbd> Sprint</span>
+<span><kbd>Space</kbd> Jump</span>
+<span><kbd>J</kbd> Toss a test stone</span>
+<span><kbd>F</kbd> Aim pose</span>
+<span><kbd>V</kbd> Change camera</span>
+<span><kbd>N</kbd> Toggle NPCs</span>
+<span><kbd>R</kbd> Return to gate</span>
+<span>Drag mouse · Orbit camera</span>
+<span>Wheel · Zoom / <kbd>H</kbd> hide HUD</span>
+</div>
+<div class="row">
+<button id="respawn" type="button">Return to gate</button>
+<button id="cameraMode" type="button">Switch camera</button>
+<button id="npcToggle" type="button">Toggle looters</button>
+</div>
+<div id="status" role="status">Initializing scene…</div>
+<div class="stats"><span id="distance">At south gate</span><span id="fps">— FPS</span></div>
+</section>
+<div id="hint">Drag to orbit · Scroll to zoom · Press H to hide controls</div>
+<div id="mobile">
+<div class="pad">
+<button data-control="up" aria-label="Forward">↑</button>
+<button data-control="left" aria-label="Left">←</button>
+<button data-control="down" aria-label="Backward">↓</button>
+<button data-control="right" aria-label="Right">→</button>
+</div>
+<div class="act">
+<button data-control="run">RUN</button>
+<button data-control="jump">JUMP</button>
+<button data-control="aim">AIM</button>
+<button data-control="throw">THROW</button>
+</div>
+</div>
+<script type="module" src="./src/sophia-demo.js"></script>
+</body></html>
