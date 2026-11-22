@@ -463,7 +463,7 @@ function drawSaafiya3D(ctx,actor) {
   // Contract: screen +X east, +Y south; S=0,SW=1,W=2,NW=3,N=4,NE=5,E=6,SE=7.
   const direction=((Math.round((angle-Math.PI/2)/(Math.PI/4))%8)+8)%8;
   const phase=((actor.walkPhase||0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
-  const frame=moving?Math.floor(phase*4/Math.PI)%8:0;
+  const frame=moving?Math.floor(phase*4/Math.PI+1e-8)%8:0;
   const cw=176,ch=224,dw=50,dh=64,footOffset=51;
   ctx.save();ctx.imageSmoothingEnabled=true;
   ctx.drawImage(atlas,frame*cw,direction*ch,cw,ch,
