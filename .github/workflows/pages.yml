@@ -82,6 +82,7 @@ jobs:
           test -s dist/c-mall/assets/c_portrait.webp
           test -s dist/c-mall/mall-scene.js
           test -s dist/c-mall/mall-geometry.js
+          test -s dist/c-mall/c-appearance.js
           test -s dist/play/assets/procedural/mr_chen_hybrid_face_v2.glb
           python3 - <<'PY'
           from pathlib import Path
