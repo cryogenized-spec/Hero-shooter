@@ -117,3 +117,15 @@ Treat this document as the continuity baseline for future dialogue, cutscenes, c
 ---
 
 *Compiled from the director's Hero Shooter character-development conversations of 20–22 November 2026 and the repository's existing story/asset conventions. Edited 23 November 2026.*
+
+## November 2026 development addendum — read before revising older scenes
+
+The director subsequently developed a much fuller account of the character's adolescence and a proposed KZN-first narrative structure. Preserve it in [the 24 November development notes](saafiya-development-notes-2026-11-24.md), with visual/gameplay implications in [the narrative presentation guide](../docs/story/narrative-presentation-and-sound-2026-11.md).
+
+Key additions include her father **Faisal Rasool**, who adopted the name **Farrell**, a gradually changing religious and intellectual outlook, and a practical operations career; a possible later murder linked to reporting misconduct; her Afrikaans-speaking mother with potential police/K9 history; a businesswoman aunt with a Victorian/Edwardian Cape Town guesthouse and prepared cottage; an English-medium independent-school period in Grades 10–12; the **Ambrosia** reading/makeup circle and a gradual interest in modern nature-centred pagan ideas; the **single left-side black dragon-wing tattoo** with vertical spaced lowercase **vitalus** lettering; and a discreet older acquaintance she is introduced to **only after turning 18**.
+
+**Important: naming is deliberately unresolved.** The newer proposal explores *Sofia* as a birth name and *Sophia* as a school form, while this document and current code still use **Saafiya/Fay**. Keep the existing designation pending an explicit director decision; do not infer that the words are interchangeable etymologically.
+
+**Important: geography is deliberately unresolved.** The director now favours **KZN as the origin**, later broadening to Gauteng and organised-crime plots. Earlier chapters and the Johannesburg/Fayeem family visit still exist. Do not overwrite their dates or settings before making a unified timeline.
+
+**Important: fictional violence and power dynamics.** The mall confrontation, Domino (Ernest Meintjies), interaction with Russian, institutional consequences and the devastating **“But None of Us Will Win”** path are story-development ideas, not a final mission script. Avoid treating ethnicity or political allegiance as a proxy for culpability. An older acquaintance's private adult master/submission relationships are separate from pagan spirituality; Saafiya's consent or participation is not established.
