@@ -1,0 +1,55 @@
+name: Build C anatomical MakeHuman trial
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/hero-3d/c-anatomical-trial/**'
+      - '.github/workflows/build-c-anatomical-trial.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    if: "!contains(github.event.head_commit.message, '[generated-preview]')"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Python and VTK runtime
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgl1 libegl1 libopengl0 xvfb
+          python -m pip install -r tools/hero-3d/c-anatomical-trial/requirements.txt
+      - name: Generate from real CC0 MakeHuman basemesh and targets
+        env:
+          VTK_DEFAULT_RENDER_WINDOW_OFFSCREEN: '1'
+        run: |
+          mkdir -p .c-anatomical-output
+          python tools/hero-3d/c-anatomical-trial/build_c_anatomical.py --out .c-anatomical-output --cache /tmp/makehuman-cc0
+      - name: Publish downloadable model and review images
+        uses: actions/upload-artifact@v4
+        with:
+          name: C-anatomical-MakeHuman-trial
+          path: .c-anatomical-output/
+          retention-days: 30
+          include-hidden-files: true
+      - name: Commit lightweight comparison preview to trial branch
+        if: startsWith(github.ref, 'refs/heads/feat/c-anatomical-makehuman-trial')
+        run: |
+          python - <<'PY'
+          from PIL import Image,ImageOps
+          import pathlib,shutil
+          out=pathlib.Path('docs/art/c-anatomical-trial');out.mkdir(parents=True,exist_ok=True)
+          img=Image.open('.c-anatomical-output/C_anatomical_four_views.png').convert('RGB')
+          img.thumbnail((1050,1440),Image.Resampling.LANCZOS)
+          img.save(out/'preview.jpg',quality=86,optimize=True)
+          shutil.copyfile('.c-anatomical-output/measurements_and_provenance.json',out/'profile.json')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/art/c-anatomical-trial/preview.jpg docs/art/c-anatomical-trial/profile.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs: preview C anatomical trial [generated-preview]'
+            git push origin HEAD:feat/c-anatomical-makehuman-trial
+          fi

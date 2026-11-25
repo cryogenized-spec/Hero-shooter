@@ -1,0 +1,64 @@
+{
+  "status": "independent anatomical base trial, not a literal run of MPFB/Blender",
+  "source": "MakeHuman HM08 CC0 base.obj + macro targets",
+  "source_revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+  "mesh_height_m_before_hair": 1.68,
+  "morph_targets": [
+    [
+      "targets/macrodetails/caucasian-female-young.target",
+      0.3333333333333333
+    ],
+    [
+      "targets/macrodetails/african-female-young.target",
+      0.3333333333333333
+    ],
+    [
+      "targets/macrodetails/asian-female-young.target",
+      0.3333333333333333
+    ],
+    [
+      "targets/macrodetails/universal-female-young-averagemuscle-averageweight.target",
+      1.0
+    ]
+  ],
+  "model": "C_anatomical_MakeHuman_trial.glb",
+  "triangles": 51476,
+  "model_groups": 234,
+  "bbox_m": [
+    [
+      -0.512912592045893,
+      -0.30853800090578193,
+      0.0
+    ],
+    [
+      0.512912592045893,
+      0.27159131150813687,
+      1.809
+    ]
+  ],
+  "measurement_reference": "https://www.roymech.co.uk/Useful_Tables/Ergonomics/Human_sizes.html",
+  "note": "Character height 1.68 m is a design assumption, not established canon. Body uses official base topology; costume, hair, face details are newly procedural.",
+  "source_hashes": {
+    "base_obj_sha256": "8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c",
+    "targets/macrodetails/caucasian-female-young.target": {
+      "vertices_modified": 19150,
+      "sha256": "118379f6e8ba9266247fdb8788a20e1df40a239f97ced0b9905bcbcc74f6e820",
+      "weight": 0.3333333333333333
+    },
+    "targets/macrodetails/african-female-young.target": {
+      "vertices_modified": 19158,
+      "sha256": "92d61eeb3c164b421fd5a7c3537ee45e7e1a51de4d49bf312e19c3df2be1d8fc",
+      "weight": 0.3333333333333333
+    },
+    "targets/macrodetails/asian-female-young.target": {
+      "vertices_modified": 19150,
+      "sha256": "095fe79694fa19e1fe98d93009ec116199bd524e081c640351a10eccf2cca1eb",
+      "weight": 0.3333333333333333
+    },
+    "targets/macrodetails/universal-female-young-averagemuscle-averageweight.target": {
+      "vertices_modified": 0,
+      "sha256": "4ba5396ddabda448ece15650a566fbebfbb10239256ccb201e8f883429e12249",
+      "weight": 1.0
+    }
+  }
+}
