@@ -1,0 +1,344 @@
+{
+  "project": "Hero Shooter / Home & More — approved reference control scene",
+  "reference": "Home and More - Approved Shop Layout - Web Optimized.webp",
+  "coordinate_system": {
+    "units": "metres",
+    "origin": "source image pixel (835, 850) at floor z=0; +X right/east, +Y toward rear/north, +Z up",
+    "image_pixels_per_metre": 64.5,
+    "image_origin_px": [
+      835,
+      850
+    ],
+    "screen_directions": {
+      "N": "image up",
+      "S": "image down",
+      "E": "image right",
+      "W": "image left"
+    }
+  },
+  "footprint_source_px": [
+    25,
+    20,
+    1620,
+    854
+  ],
+  "camera": {
+    "elevation_degrees": 72,
+    "azimuth_degrees": 0,
+    "orthographic": true
+  },
+  "walls": {
+    "back": {
+      "from_px": [
+        30,
+        35
+      ],
+      "to_px": [
+        1615,
+        35
+      ],
+      "height_m": 2.65
+    },
+    "left": {
+      "from_px": [
+        30,
+        35
+      ],
+      "to_px": [
+        30,
+        850
+      ],
+      "height_m": 2.6
+    },
+    "right": {
+      "from_px": [
+        1615,
+        35
+      ],
+      "to_px": [
+        1615,
+        850
+      ],
+      "height_m": 2.6
+    },
+    "front_segments_px": [
+      [
+        30,
+        730
+      ],
+      [
+        935,
+        1615
+      ]
+    ],
+    "main_entrance_px": [
+      735,
+      935
+    ],
+    "service_partition_px": 250,
+    "service_y_dividers_px": [
+      505,
+      710
+    ],
+    "staff_access_px": [
+      367,
+      474
+    ]
+  },
+  "gondola_rows": [
+    {
+      "row": "rear",
+      "source_y_px": 281,
+      "positions_x_px": [
+        400,
+        610,
+        818,
+        1031,
+        1236,
+        1433
+      ],
+      "themes": [
+        "cookware",
+        "ceramics",
+        "beverages",
+        "tools",
+        "appliances",
+        "textiles"
+      ]
+    },
+    {
+      "row": "middle",
+      "source_y_px": 466,
+      "positions_x_px": [
+        400,
+        610,
+        818,
+        1031,
+        1236,
+        1433
+      ],
+      "themes": [
+        "hardware",
+        "appliances",
+        "electronics",
+        "electronics",
+        "paint",
+        "boxes"
+      ]
+    },
+    {
+      "row": "front",
+      "source_y_px": 617,
+      "positions_x_px": [
+        400,
+        610,
+        818
+      ],
+      "themes": [
+        "luggage",
+        "boxes",
+        "boxes"
+      ]
+    }
+  ],
+  "gondola_size_m": [
+    1.82,
+    2.24,
+    1.53
+  ],
+  "back_wall_shelves_px": [
+    [
+      340,
+      415
+    ],
+    [
+      560,
+      125
+    ],
+    [
+      710,
+      135
+    ],
+    [
+      870,
+      110
+    ],
+    [
+      980,
+      100
+    ],
+    [
+      1075,
+      110
+    ],
+    [
+      1220,
+      130
+    ],
+    [
+      1360,
+      120
+    ],
+    [
+      1495,
+      100
+    ]
+  ],
+  "fixtures": [
+    {
+      "id": "retail_main_counter",
+      "type": "checkout_counter",
+      "source_px": [
+        1178,
+        763
+      ],
+      "size_m": [
+        4.45,
+        0.72,
+        0.95
+      ]
+    },
+    {
+      "id": "retail_queue",
+      "type": "queue_barrier",
+      "source_px": [
+        1175,
+        628
+      ],
+      "size_m": [
+        5.85,
+        1.1,
+        0.95
+      ]
+    },
+    {
+      "id": "entrance_double_sliding",
+      "type": "glass_entry",
+      "source_px": [
+        835,
+        787
+      ],
+      "size_m": [
+        3.12,
+        0.2,
+        2.28
+      ]
+    },
+    {
+      "id": "shopping_trolleys",
+      "type": "carts",
+      "source_px": [
+        477,
+        770
+      ],
+      "count": 6
+    },
+    {
+      "id": "left_loading_bay",
+      "type": "loading",
+      "source_px": [
+        134,
+        253
+      ],
+      "size_m": [
+        3.25,
+        6.2,
+        0
+      ]
+    },
+    {
+      "id": "staff_room",
+      "type": "staff",
+      "source_px": [
+        138,
+        434
+      ]
+    },
+    {
+      "id": "manager_office",
+      "type": "office",
+      "source_px": [
+        130,
+        613
+      ],
+      "size_m": [
+        2.9,
+        2.7,
+        2.6
+      ]
+    },
+    {
+      "id": "staff_canteen",
+      "type": "canteen",
+      "source_px": [
+        131,
+        794
+      ],
+      "size_m": [
+        2.9,
+        1.87,
+        2.6
+      ]
+    },
+    {
+      "id": "west_wall_display",
+      "type": "wall_shelves",
+      "source_px": [
+        278,
+        203
+      ],
+      "length_m": 3.6
+    },
+    {
+      "id": "east_wall_display",
+      "type": "wall_shelves",
+      "source_px": [
+        1570,
+        511
+      ],
+      "length_m": 7.7
+    }
+  ],
+  "decorative_plants_px": [
+    [
+      294,
+      132
+    ],
+    [
+      349,
+      192
+    ],
+    [
+      1052,
+      194
+    ],
+    [
+      1146,
+      140
+    ],
+    [
+      1415,
+      132
+    ],
+    [
+      1403,
+      186
+    ],
+    [
+      685,
+      778
+    ],
+    [
+      989,
+      778
+    ]
+  ],
+  "editable_groups": [
+    "walls",
+    "gondola_rows",
+    "fixtures",
+    "back_wall_shelves_px",
+    "decorative_plants_px"
+  ],
+  "source_accuracy_note": "Measurements and positions are estimated from supplied approved 2D illustration; replace with surveyed dimensions when available. The artwork is a stylized reference, not a scale drawing."
+}
