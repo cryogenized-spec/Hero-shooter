@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hero Shooter — Male looters: VTK motion review</title>
+<style>
+body{font:15px system-ui;background:#151923;color:#f2eee5;padding:1.2rem}
+main{max-width:900px;margin:auto}h1{font-size:1.5rem}
+p{color:#bdb8af;line-height:1.5}
+.controls{display:flex;flex-wrap:wrap;gap:15px;margin:18px 0}
+label{display:grid;gap:6px;color:#d6d2cb}select{background:#29303b;color:#fff;border:1px solid #56606d;border-radius:7px;padding:9px}
+canvas{display:block;background:#272b35;border:1px solid #444c57;width:100%;max-width:600px;image-rendering:pixelated}
+small{display:block;color:#adb5c1;padding-top:10px}
+</style>
+<main>
+<h1>Hero Shooter · Male looter gait and equipment</h1>
+<p>Three distinct adult character models. Male two-link IK gait shared by walk and run. The props are separate GLBs; switching equipment changes the selected atlas. Attack sequences are separate, non-looping animations in the game.</p>
+<div class="controls">
+<label>Character<select id="age"><option value="23">23 — hoodie and vest</option><option value="27">27 — utility jacket</option><option value="35">35 — denim jacket</option></select></label>
+<label>Equipment<select id="gear"><option value="none">Unarmed</option><option value="brick">Half brick</option><option value="stone">Stone</option><option value="knife">Knife</option></select></label>
+<label>Motion<select id="motion"><option value="idle">Idle (neutral)</option><option value="walk">Walk</option><option value="run">Run</option><option value="throw">Throw</option><option value="overhand">Overhand knife</option></select></label>
+<label>Facing<select id="facing"><option value="0">South ↓ (front)</option><option value="1">Southwest ↙</option><option value="2">West ←</option><option value="3">Northwest ↖</option><option value="4">North ↑ (back)</option><option value="5">Northeast ↗</option><option value="6">East →</option><option value="7">Southeast ↘</option></select></label>
+</div>
+<canvas id="scene" width="600" height="530" aria-label="Animated character sprite preview"></canvas>
+<small id="message"></small>
+<p>Atlas contract: 8 columns in South, Southwest, West, Northwest, North, Northeast, East, Southeast order; screen X right, screen Y down. A stopped character returns to neutral frame 0. The preview is an animation tool, not enemy AI or combat physics.</p>
+</main>
+<script>
+const assets=new Map();
+const $=s=>document.querySelector(s),ctx=$('#scene').getContext('2d');
+ctx.imageSmoothingEnabled=false;
+function sheet(id){
+ if(!assets.has(id)){const img=new Image();img.src='./assets/procedural/looters/'+id;assets.set(id,img);}
+ return assets.get(id);
+}
+function resolve(){
+ const age=$('#age').value,gear=$('#gear').value,motion=$('#motion').value,dir=Number($('#facing').value);
+ if(motion==='throw'&&gear!=='brick'&&gear!=='stone'){
+   return {error:'Select Half brick or Stone for the throw animation.'};
+ }
+ if(motion==='overhand'&&gear!=='knife'){
+   return {error:'Select Knife for the overhand animation.'};
+ }
+ const action=motion==='throw'||motion==='overhand';
+ const file=action?(gear+'_action.webp'):(gear==='none'?'gait.webp':gear+'_equipped_gait.webp');
+ return {id:'looter_'+age+'/'+file,action,motion,dir};
+}
+let last=performance.now(),elapsed=0,selection='';
+function frame(now){
+ const state=resolve();
+ const signature=JSON.stringify(state);
+ if(signature!==selection){selection=signature;elapsed=0;}
+ else elapsed+=Math.min(100,now-last);
+ last=now;
+ ctx.clearRect(0,0,600,530);
+ ctx.fillStyle='#e8b77e';ctx.font='bold 18px system-ui';ctx.textAlign='center';
+ ctx.fillText('LOOTER MOTION REVIEW',300,44);
+ ctx.fillStyle='#3e4550';ctx.fillRect(130,446,340,2);
+ if(state.error){$('#message').textContent=state.error;requestAnimationFrame(frame);return;}
+ const img=sheet(state.id);
+ if(img.complete&&img.naturalWidth){
+   const interval=state.motion==='run'?105:state.motion==='walk'?165:100;
+   const count=state.action?8:4;
+   const stage=state.motion==='idle'?0:state.motion==='walk'?1:2;
+   const f=state.motion==='idle'?0:Math.floor(elapsed/interval)%count;
+   const row=state.action?f:stage*4+f;
+   ctx.drawImage(img,state.dir*32,row*48,32,48,200,70,200,350);
+   $('#message').textContent=state.id+' | frame '+(f+1)+'/'+count+' | 32×48 native pixel cell';
+ }else{
+   $('#message').textContent='Waiting for VTK-generated assets (check this branch’s render workflow).';
+ }
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script></html>
