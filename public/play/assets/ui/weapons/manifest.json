@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Hero Shooter four-direction equipment selector presentation assets",
+  "canvasSize": [512, 512],
+  "format": "RGBA PNG",
+  "sourcePolicy": "Beretta 84FS and ornate revolver from second close-up reference; other six from first eight-weapon reference",
+  "pages": [
+    ["beretta_84fs", "pump_shotgun", "norinco_akm", "canik_tp9"],
+    ["sw_revolver_engraved", "fairbairn_sykes", "spetsnaz_sf", "akm_bayonet"]
+  ],
+  "directionOrder": ["up", "right", "down", "left"],
+  "assets": [
+    {"id":"beretta_84fs","name":"Beretta 84FS nickel / black gripstocks","file":"beretta_84fs.png"},
+    {"id":"pump_shotgun","name":"Pump-action shotgun wood furniture","file":"pump_shotgun.png"},
+    {"id":"norinco_akm","name":"NORINCO AKM replica wooden stock","file":"norinco_akm.png"},
+    {"id":"canik_tp9","name":"CANIK TP9 threaded barrel","file":"canik_tp9.png"},
+    {"id":"sw_revolver_engraved","name":"Black and gold engraved revolver","file":"sw_revolver_engraved.png"},
+    {"id":"fairbairn_sykes","name":"Fairbairn–Sykes fighting knife reproduction","file":"fairbairn_sykes.png"},
+    {"id":"spetsnaz_sf","name":"Spetsnaz SF combat knife","file":"spetsnaz_sf.png"},
+    {"id":"akm_bayonet","name":"AKM-pattern knife bayonet","file":"akm_bayonet.png"}
+  ]
+}
