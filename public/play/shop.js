@@ -678,7 +678,22 @@
     if(code==='KeyE'||code==='Enter')doInteraction();
     if(code==='Tab')cycleTarget();
   }
-  root.HeroShop={start,stop,frame,keydown,interact:doInteraction,cycleTarget};
+  // Read-only map/vitals bridge for the ornate gameplay HUD.
+  function getHudSnapshot() {
+    if (!state || !state.loaded) return null;
+    const p=state.player;
+    return {
+      health:Number.isFinite(p.hp)?p.hp:100,
+      maxHealth:Number.isFinite(p.maxHp)?p.maxHp:100,
+      maxHearts:Number.isFinite(p.maxHearts)?p.maxHearts:6,
+      ammo:Number.isFinite(p.ammo)?p.ammo:null,
+      spareMags:Number.isFinite(p.spareMags)?p.spareMags:null,
+      weaponName:p.weaponName||'',
+      angle:p.angle,
+      localMap:{x:p.x,y:p.y,walls:floorObjects(state.geometry.walls).map(o=>({x:o.x,y:o.y,w:o.width||o.w,h:o.height||o.h}))}
+    };
+  }
+  root.HeroShop={start,stop,frame,keydown,interact:doInteraction,cycleTarget,getHudSnapshot};
   root.addEventListener('DOMContentLoaded',()=>{
     const action=$('shopMobileAction');
     if(action)action.addEventListener('click',()=>doInteraction());
