@@ -1,0 +1,45 @@
+name: QA C in Golden Dragon mall 3D level
+on:
+  push:
+    branches: [feat/c-golden-dragon-mall-level-20261122]
+    paths:
+      - 'public/c-mall/**'
+      - 'scripts/qa_c_mall.mjs'
+      - 'tests/c-mall-level.test.mjs'
+      - '.github/workflows/qa-c-mall.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mall:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate new scene and existing game
+        run: |
+          node --check public/c-mall/mall-geometry.js
+          node --check public/c-mall/mall-scene.js
+          node --check public/c-mall/c-appearance.js
+          node --check scripts/qa_c_mall.mjs
+          npm run check
+          npm test
+          npm run build
+      - name: Install supported Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Interactive 3D mall walkthrough and screenshot capture
+        run: |
+          python3 -m http.server 8833 --directory public >/tmp/c-mall-http.log 2>&1 &
+          sleep 2
+          node scripts/qa_c_mall.mjs
+      - name: Upload actual browser captures
+        uses: actions/upload-artifact@v4
+        with:
+          name: hero-shooter-c-golden-dragon-mall-screenshots
+          path: c-mall-screenshots/
+          retention-days: 30

@@ -1,0 +1,44 @@
+name: Test C's Pine Ridge overhead Chinese-shop chapter
+on:
+  push:
+    branches: [feat/c-golden-dragon-mall-level-20261122]
+    paths:
+      - 'public/c-shop/**'
+      - 'scripts/qa-c-shop-overhead.mjs'
+      - '.github/workflows/test-c-shop-overhead.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check original and adapted source present
+        run: |
+          test -s public/c-shop/pine-ridge-original.html
+          test -s public/c-shop/index.html
+          test -s public/c-shop/shop-level.js
+          node --check public/c-shop/shop-level.js
+          node --check scripts/qa-c-shop-overhead.mjs
+          grep -q 'const pcmAssets=' public/c-shop/index.html
+      - name: Install Chromium Playwright
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start static server and perform actual browser playtest
+        run: |
+          python3 -m http.server 8732 --directory public >/tmp/c-shop-http.log 2>&1 &
+          sleep 2
+          node scripts/qa-c-shop-overhead.mjs
+      - name: Publish actual 2D game screenshots and QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-golden-dragon-overhead-qa
+          path: c-shop-screenshots/
+          retention-days: 30
