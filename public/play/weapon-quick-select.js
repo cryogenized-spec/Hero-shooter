@@ -38,6 +38,8 @@
       cursor:pointer; pointer-events:auto; user-select:none; -webkit-tap-highlight-color:transparent; }
     #heroOrnateHud .hero-quick-slot img { display:block; width:94%; height:94%; object-fit:contain;
       filter:drop-shadow(0 1px 2px rgba(0,0,0,.85)); transition:filter .14s ease,transform .14s ease; }
+    #heroOrnateHud .hero-quick-slot[data-locked="true"] img { opacity:.4; filter:grayscale(.85) brightness(.7); }
+    #heroOrnateHud .hero-quick-slot[data-locked="true"] { cursor:not-allowed; }
     #heroOrnateHud .hero-quick-slot[data-selected="true"] img { transform:scale(1.08);
       filter:drop-shadow(0 0 5px rgba(255,90,91,.9)) drop-shadow(0 1px 3px #000); }
     #heroOrnateHud .hero-quick-slot:focus-visible { outline:2px solid #ffb68c; outline-offset:1px; }
@@ -49,27 +51,25 @@
     #heroOrnateHud .hero-quick-pager:focus-visible { outline:2px solid #ffb68c; }
     @media(max-width:700px) { #heroOrnateHud .hero-quick-slot img {width:100%;height:100%;} }
   `;
-  function emitSelection() {
-    const id = pages[page]?.[selected];
-    if (!id) return;
-    // This event is intentionally NOT an equip mutation. Combat logic can
-    // subscribe once inventory/weapon switching is part of the playable game.
+  function emitSelection(id,index) {
     root.dispatchEvent(new CustomEvent('hero-quick-selector:select', {
-      detail: { itemId:id, direction:directions[selected], page, slot:selected,
+      detail:{ itemId:id, direction:directions[index], page, slot:index,
         previewOnly:!root.HeroInventory?.equipQuickSlot }
     }));
-    if (root.HeroInventory?.equipQuickSlot) root.HeroInventory.equipQuickSlot(id,selected);
   }
   function render() {
     if (!panel) return;
     panel.querySelectorAll('.hero-quick-slot').forEach((btn,i) => {
       const id=pages[page]?.[i];
       const item=byId.get(id);
+      const locked=Boolean(item && root.HeroInventory?.owns?.(id) === false);
+      btn.dataset.locked=String(locked);
       btn.dataset.selected = String(i===selected);
       btn.setAttribute('aria-pressed', String(i===selected));
       btn.disabled = !item;
-      btn.setAttribute('aria-label', item ? `${directions[i]}: ${item.label}` : `${directions[i]}: Empty`);
-      btn.title = item?.label || 'Empty';
+      btn.setAttribute('aria-disabled',String(locked));
+      btn.setAttribute('aria-label', item ? `${directions[i]}: ${item.label}${locked?' (not owned)':''}` : `${directions[i]}: Empty`);
+      btn.title = item ? `${item.label}${locked?' · Not yet acquired':''}` : 'Empty';
       const img=btn.querySelector('img');
       img.style.display=item?'block':'none';
       if(item) { img.src=ASSET_BASE+item.id+'.png'; img.alt=item.label; }
@@ -80,11 +80,21 @@
   }
   function select(index) {
     if (!Number.isInteger(index) || index<0 || index>3) return false;
-    if (!byId.has(pages[page]?.[index])) return false;
+    const id=pages[page]?.[index];
+    if (!byId.has(id)) return false;
+    const inventory=root.HeroInventory;
+    if (inventory?.owns?.(id) === false) return false;
+    if (inventory?.equipQuickSlot && !inventory.equipQuickSlot(id,index)) return false;
     selected=index;
     render();
-    emitSelection();
+    emitSelection(id,index);
     return true;
+  }
+  function syncEquipped(id) {
+    const target=pages.findIndex(p=>p.includes(id));
+    if(target<0)return false;
+    page=target;selected=pages[page].indexOf(id);
+    render();return true;
   }
   function switchPage(index) {
     if (!Number.isInteger(index) || index<0 || index>=pages.length) return false;
@@ -124,7 +134,9 @@
     pager.addEventListener('click',()=>switchPage((page+1)%pages.length));
     panel.appendChild(pager);
     stage.appendChild(panel);
-    render();
+    const equipped=root.HeroInventory?.getState?.()?.weaponId;
+    if(!equipped || !syncEquipped(equipped))render();
+    root.addEventListener('hero-inventory:changed',()=>render());
     root.addEventListener('keydown',e=>{
       if(e.altKey||e.ctrlKey||e.metaKey||e.repeat) return;
       if(['INPUT','TEXTAREA','SELECT'].includes(e.target?.tagName))return;
@@ -142,6 +154,8 @@
     setPages,
     showPage:switchPage,
     select,
+    syncEquipped,
+    refresh:render,
     getState:()=>({page,selected,pages:pages.map(p=>p.slice()),selectedId:selected<0?null:pages[page][selected]})
   });
   if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',attach,{once:true});

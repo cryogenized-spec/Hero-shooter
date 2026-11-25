@@ -272,6 +272,27 @@ function drawMallCBody(ctx, actor) {
         ctx.restore();
     }
     if (actor.weaponVisible) {
+        // The prologue's actual equipped prop determines the visible silhouette.
+        // The original pink Glock drawing remains the fallback for old chapters.
+        const id=actor.weaponId||'glock26';
+        const blade=['fairbairn_sykes','spetsnaz_sf','akm_bayonet'].includes(id);
+        const longGun=['pump_shotgun','norinco_akm'].includes(id);
+        if(blade) {
+            drawSpriteBox(ctx,12,-1.8,7,3.6,1,'#3a2f26');
+            ctx.fillStyle='#c2c7cf';ctx.beginPath();ctx.moveTo(19,-2.6);
+            ctx.lineTo(30,0);ctx.lineTo(19,2.6);ctx.closePath();ctx.fill();
+        } else if(longGun) {
+            const wood=id==='norinco_akm'?'#8f5633':'#76553b';
+            drawSpriteBox(ctx,8,-3.5,10,7,1.2,wood);
+            drawSpriteBox(ctx,17,-2.5,24,5,1,'#30353b');
+            drawSpriteBox(ctx,39,-1.2,8,2.4,.5,'#9a9991');
+        } else if(id!=='glock26') {
+            const silver=id==='beretta_84fs';
+            const decorated=id==='sw_revolver_engraved';
+            drawSpriteBox(ctx,11,-3,7,6,1.6,'#26262c');
+            drawSpriteBox(ctx,16,-2.5,14,5,1, silver?'#b8babd':decorated?'#5c473a':'#343943');
+            if(decorated){ctx.fillStyle='#b99b5b';ctx.fillRect(19,-1.5,8,1);}
+        } else {
         drawSpriteBox(ctx, 11, -2.5, 6.5, 5.6, 1.6, '#302830');
         drawSpriteBox(ctx, 13.2, -2.3, 12.2, 4.6, 0.8, '#ae4369');
         ctx.fillStyle = '#f48bad';
@@ -284,6 +305,7 @@ function drawMallCBody(ctx, actor) {
         if (actor.flashlightOn) {
             ctx.fillStyle = '#ffefaf';
             ctx.fillRect(25, 1.2, 1.8, 1);
+        }
         }
     }
 

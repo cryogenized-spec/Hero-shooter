@@ -64,7 +64,9 @@
   let state = null;
   let joystick = {left:false,right:false,up:false,down:false};
   let frameNumber = 0;
-  const SAVE_KEY='hero-shooter:home-and-more-save-v1';
+  // Armory testing is isolated from the normal narrative save.
+  const ARMORY_TEST=new URLSearchParams(root.location.search).get('armoryTest')==='1';
+  const SAVE_KEY=ARMORY_TEST?'hero-shooter:home-and-more-armory-test-v1':'hero-shooter:home-and-more-save-v1';
   const roomNames={shop:'Sales floor',staff:'Staff back office',office:'Mrs. Chen’s office',owner:'Mr. Chen’s office',boardroom:'Boardroom',stairwell:'Mezzanine stairs'};
   const roomImages={};
   function roomImage(floor) {
@@ -108,6 +110,7 @@
     const fields=['floor','assigned','envelopes','delivered','hasWater','waterOffered','visitedOffice','visitedStockroom','ownerReturned','elapsed'];
     const data=Object.fromEntries(fields.map(k=>[k,state[k]]));
     data.player={x:state.player.x,y:state.player.y,angle:state.player.angle};
+    data.equipment=root.HeroShopEquipment.serialize(state.equipment);
     try { root.localStorage.setItem(SAVE_KEY,JSON.stringify(data)); } catch { /* Offline private mode. */ }
   }
   function restoreProgress() {
@@ -123,6 +126,8 @@
       const entries=['assigned','envelopes','delivered','hasWater','waterOffered','visitedOffice','visitedStockroom','ownerReturned','elapsed'];
       for(const k of entries)if(data[k]!==undefined)state[k]=data[k];
       state.floor=data.floor;
+      state.equipment=root.HeroShopEquipment.restore(data.equipment,{armoryTest:ARMORY_TEST});
+      syncEquipmentToAvatar();
       if(Number.isFinite(data.player.x)&&Number.isFinite(data.player.y)){
         state.player.x=data.player.x;state.player.y=data.player.y;
         if(Number.isFinite(data.player.angle))state.player.angle=data.player.angle;
@@ -166,7 +171,9 @@
     });
     return {
       map,geometry,actors,loaded:true,floor:'shop',
-      player:{x:entryX,y:entryY,angle:-Math.PI/2,radius:15,walkAngle:-Math.PI/2,walkPhase:0,walkBlend:0,isSneaking:false,hasMolleVest:false,weaponVisible:false,flashlightOn:false},
+      player:{x:entryX,y:entryY,angle:-Math.PI/2,radius:15,walkAngle:-Math.PI/2,walkPhase:0,walkBlend:0,isSneaking:false,hasMolleVest:false,weaponVisible:false,flashlightOn:false,hp:100,maxHp:100,maxHearts:6},
+      equipment:root.HeroShopEquipment.create({armoryTest:ARMORY_TEST}),
+      flashTimer:0,
       camera:{x:0,y:0},dialogue:false,chosen:null,rotateIndex:0,
       envelopes:[],assigned:false,delivered:[],hasWater:false,waterOffered:false,
       visitedOffice:false,visitedStockroom:false,elapsed:0,
@@ -200,6 +207,9 @@
         });
       }
       restoreProgress();
+      syncEquipmentToAvatar();
+      root.HeroQuickSelector?.syncEquipped?.(state.equipment.equipped);
+      if (ARMORY_TEST) setNotice('ARMORY TEST · 1–4 EQUIP · [ ] PAGE · R RELOAD · H HOLSTER · SPACE USE');
       // Existing saves can be inside shelving after a map revision. Never trap C.
       if (ensureClearPlayerPosition()) saveProgress();
     } catch (error) {
@@ -631,6 +641,12 @@
     // She keeps her compact pistol concealed during the peaceful opening.
     const p=state.player;
     root.HeroSprites.drawC(ctx,p);
+    if (state.flashTimer>0) {
+      // Abstract cosmetic feedback in the optional equipment test; shop NPCs are unaffected.
+      ctx.save();ctx.fillStyle='rgba(255,215,138,.85)';ctx.beginPath();
+      ctx.arc(p.x+Math.cos(p.angle)*28,p.y+Math.sin(p.angle)*28,4,0,Math.PI*2);
+      ctx.fill();ctx.restore();
+    }
     drawLabel(ctx,'C',p.x,p.y-29);
     const current=target();
     if(current&&!state.dialogue){
@@ -652,6 +668,8 @@
   function frame(dt,context) {
     if(!state)return;
     if(state.loaded){
+      if (root.HeroShopEquipment.update(state.equipment,dt)) saveProgress();
+      state.flashTimer=Math.max(0,(state.flashTimer||0)-dt);
       if(!state.dialogue) {
         movePlayer(dt,context.input);
         state.elapsed+=dt;
@@ -665,6 +683,13 @@
     if(!state||!state.loaded)return;
     if(code==='Escape'){if(state.dialogue)closeDialogue();return;}
     if(state.dialogue)return;
+    if(code==='KeyR') {
+      if(root.HeroShopEquipment.reload(state.equipment)) {setNotice('RELOADING · '+root.HeroShopEquipment.getHud(state.equipment).weaponName);saveProgress();}
+      return;
+    }
+    if(code==='KeyH') {root.HeroShopEquipment.holster(state.equipment);syncEquipmentToAvatar();saveProgress();return;}
+    // Use the optional test route to spend virtual ammunition without NPC combat.
+    if(code==='Space' && ARMORY_TEST) {testUseEquipped();return;}
     // Developer-only preview: P switches Sophia's two chrome-pistol poses.
     // The existing motion-demo route alternates walk and run every 4 seconds.
     if(code==='KeyP' && new URLSearchParams(root.location.search).get('saafiyaTest')==='1'){
@@ -678,6 +703,42 @@
     if(code==='KeyE'||code==='Enter')doInteraction();
     if(code==='Tab')cycleTarget();
   }
+  function syncEquipmentToAvatar() {
+    if(!state?.loaded || !state.equipment)return;
+    const e=state.equipment;
+    state.player.weaponId=e.equipped;
+    state.player.weaponVisible=!e.holstered;
+    state.player.weaponName=root.HeroShopEquipment.getHud(e).weaponName;
+  }
+  function notifyInventory() {
+    root.dispatchEvent(new CustomEvent('hero-inventory:changed'));
+    root.HeroOrnateHUD?.refresh?.();
+  }
+  function testUseEquipped() {
+    if(!ARMORY_TEST || !state?.loaded || state.dialogue)return false;
+    if(!root.HeroShopEquipment.consumeRound(state.equipment))return false;
+    state.flashTimer=.13;
+    saveProgress();notifyInventory();
+    return true;
+  }
+  // The prologue owns its authoritative equipment and ammunition state.
+  // The chapter stays peaceful; testing virtual ammunition is opt-in only.
+  root.HeroInventory={
+    owns:id=>Boolean(state?.loaded && root.HeroShopEquipment.owns(state.equipment,id)),
+    getState:()=>state?.loaded?root.HeroShopEquipment.getHud(state.equipment):null,
+    equipQuickSlot:(id)=>{
+      if(!state?.loaded || state.dialogue)return false;
+      const ok=root.HeroShopEquipment.equip(state.equipment,id);
+      if(ok){syncEquipmentToAvatar();setNotice('EQUIPPED · '+root.HeroShopEquipment.getHud(state.equipment).weaponName);saveProgress();notifyInventory();}
+      return ok;
+    },
+    grantItem:(id)=>{
+      if(!state?.loaded)return false;
+      const ok=root.HeroShopEquipment.grant(state.equipment,id);
+      if(ok){saveProgress();notifyInventory();}
+      return ok;
+    }
+  };
   // Read-only map/vitals bridge for the ornate gameplay HUD.
   function getHudSnapshot() {
     if (!state || !state.loaded) return null;
@@ -686,14 +747,12 @@
       health:Number.isFinite(p.hp)?p.hp:100,
       maxHealth:Number.isFinite(p.maxHp)?p.maxHp:100,
       maxHearts:Number.isFinite(p.maxHearts)?p.maxHearts:6,
-      ammo:Number.isFinite(p.ammo)?p.ammo:null,
-      spareMags:Number.isFinite(p.spareMags)?p.spareMags:null,
-      weaponName:p.weaponName||'',
+      ...root.HeroShopEquipment.getHud(state.equipment),
       angle:p.angle,
       localMap:{x:p.x,y:p.y,walls:floorObjects(state.geometry.walls).map(o=>({x:o.x,y:o.y,w:o.width||o.w,h:o.height||o.h}))}
     };
   }
-  root.HeroShop={start,stop,frame,keydown,interact:doInteraction,cycleTarget,getHudSnapshot};
+  root.HeroShop={start,stop,frame,keydown,interact:doInteraction,cycleTarget,getHudSnapshot,testUseEquipped};
   root.addEventListener('DOMContentLoaded',()=>{
     const action=$('shopMobileAction');
     if(action)action.addEventListener('click',()=>doInteraction());

@@ -8,6 +8,6 @@
     "build": "node scripts/build.mjs",
     "test": "node --test",
     "preview": "node scripts/preview.mjs",
-    "check": "node --check public/play/condition.js && node --check src/title-entry.js && node --check public/play/sprites.js && node --check public/play/shop.js && node --check public/play/entry.js && node --check public/play/game.js && node --check src/main.js && node --check src/ui/title-screen.js && node --check src/audio/sfx.js && node --check src/data/weapons.js && node --check src/ui/portraits.js && node --check src/core/math.js && node --check public/c/c-demo.js && node --check public/c/c-gait.js"
+    "check": "node --check public/play/condition.js && node --check src/title-entry.js && node --check public/play/sprites.js && node --check public/play/shop-equipment.js && node --check public/play/shop.js && node --check public/play/entry.js && node --check public/play/game.js && node --check src/main.js && node --check src/ui/title-screen.js && node --check src/audio/sfx.js && node --check src/data/weapons.js && node --check src/ui/portraits.js && node --check src/core/math.js && node --check public/c/c-demo.js && node --check public/c/c-gait.js"
   }
 }
