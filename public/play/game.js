@@ -4942,14 +4942,11 @@
                     }
                 }
 
-                // The ornate HUD has a stationary centre chevron. Its source
-                // minimap must not embed a second player marker underneath it.
-                if (document.getElementById('heroOrnateHud')?.style.display !== 'block') {
-                    miniCtx.fillStyle = '#ec4899';
-                    miniCtx.beginPath();
-                    miniCtx.arc(player.x * scale, player.y * scale, 3.5, 0, Math.PI * 2);
-                    miniCtx.fill();
-                }
+                // Player
+                miniCtx.fillStyle = '#ec4899';
+                miniCtx.beginPath();
+                miniCtx.arc(player.x * scale, player.y * scale, 3.5, 0, Math.PI * 2);
+                miniCtx.fill();
             }
 
             // ============================================================================
@@ -5210,22 +5207,6 @@
                 document.getElementById('endModal').classList.remove('hidden');
             }
 
-            // Read-only bridge: HUD values always come from real combat state.
-            window.HeroHUDCombatState = function () {
-                if (!player || gameState !== 'playing') return null;
-                return {
-                    health:player.hp,
-                    maxHealth:player.maxHp,
-                    maxHearts:player.maxHearts ?? 6,
-                    ammo:player.ammo,
-                    spareMags:player.spareMags,
-                    reloading:player.reloading,
-                    weaponName:player.weapon?.name || '',
-                    angle:player.angle,
-                    minimapCanvas:miniCanvas,
-                    mapPosition:{x:player.x,y:player.y,worldSize:WORLD_SIZE}
-                };
-            };
             window.selectCampaign = selectCampaign;
             window.openMenu = openMenu;
             window.sfx = sfx;
