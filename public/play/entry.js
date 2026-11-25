@@ -65,13 +65,6 @@
                 if (!event.repeat) root.HeroShop.keydown(event.code);
             });
             root.addEventListener('keyup', event => { input.keys[event.code] = false; });
-            // The optional armory test can exercise round consumption without
-            // changing peaceful story interactions or NPC behaviour.
-            if (query.get('armoryTest') === '1') {
-                canvas.addEventListener('pointerdown', event => {
-                    if (event.button === 0) root.HeroShop.testUseEquipped();
-                });
-            }
 
             // Keep the loop alive while JSON is loading; start() shows its own
             // loading/error state until the actual map has been fetched.
