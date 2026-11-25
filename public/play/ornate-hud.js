@@ -100,7 +100,7 @@
       const sep=doc.createElement('span');sep.className='ornate-ammo-sep';sep.textContent='/';
       ammo.replaceChildren(count(s.ammo,'ROUNDS'),sep,count(s.spareMags,'MAGS'));
     }
-    weapon.textContent=ready ? (s.weaponName || '') : '';
+    weapon.textContent=s.weaponName || '';
   }
   function drawMap(layer,s) {
     const canvas=layer.querySelector('.ornate-map canvas');
